@@ -337,7 +337,7 @@ export const cardTopUpTransactionSchema = {
       },
 
       payment_card_type: nullableEnum(Object.values(PaymentCardType)),
-      payment_service: nullableEnum(Object.values(PaymentServiceType)),
+      payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
     },
   }),
 
