@@ -1,0 +1,419 @@
+import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
+import { CardStatusTypes } from "../../models/postgresql/cards-model/enums";
+import {
+  CardTransactionStatusTypes,
+  CardTransactionType,
+  PaymentCardType,
+  PaymentServiceType,
+  PaymentType,
+} from "../../models/postgresql/card-transactions-model/enums";
+
+const nullableEnum = (values: string[]) => ({
+  oneOf: [
+    {
+      type: "string",
+      enum: values,
+    },
+    {
+      type: "null",
+    },
+  ],
+});
+
+const nullableString = {
+  oneOf: [{ type: "string" }, { type: "null" }],
+};
+
+const nullableNumber = {
+  oneOf: [{ type: "number" }, { type: "null" }],
+};
+
+export const cardLastTransactionProperties = {
+  id: {
+    type: "number",
+  },
+
+  type: {
+    type: "string",
+    enum: Object.values(CardTransactionType),
+  },
+
+  amount: {
+    type: "number",
+  },
+
+  balance_before: {
+    type: "number",
+  },
+
+  balance_after: {
+    type: "number",
+  },
+
+  payment_type: nullableEnum(Object.values(PaymentType)),
+
+  payment_card_type: nullableEnum(Object.values(PaymentCardType)),
+
+  payment_service: nullableEnum(Object.values(PaymentServiceType)),
+
+  status: {
+    type: "string",
+    enum: Object.values(CardTransactionStatusTypes),
+  },
+
+  created_at: {
+    type: "string",
+  },
+};
+
+export const checkNfcCardProperties = {
+  id: {
+    type: "number",
+  },
+
+  batch: {
+    type: "string",
+  },
+
+  card: {
+    type: "string",
+  },
+
+  nfc: {
+    type: "string",
+  },
+
+  status: {
+    type: "string",
+    enum: Object.values(CardStatusTypes),
+  },
+
+  imported_at: {
+    type: "string",
+  },
+
+  activated_at: nullableString,
+
+  balance: {
+    type: "number",
+  },
+
+  last_transaction: {
+    oneOf: [
+      {
+        type: "object",
+        properties: cardLastTransactionProperties,
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+};
+
+export const cardTransactionProperties = {
+  id: {
+    type: "number",
+  },
+
+  card: {
+    type: "number",
+  },
+
+  card_number: {
+    type: "string",
+  },
+
+  nfc: {
+    type: "string",
+  },
+
+  type: {
+    type: "string",
+    enum: Object.values(CardTransactionType),
+  },
+
+  amount: {
+    type: "number",
+  },
+
+  balance_before: {
+    type: "number",
+  },
+
+  balance_after: {
+    type: "number",
+  },
+
+  payment_type: nullableEnum(Object.values(PaymentType)),
+  payment_card_type: nullableEnum(Object.values(PaymentCardType)),
+  payment_service: nullableEnum(Object.values(PaymentServiceType)),
+  status: {
+    type: "string",
+    enum: Object.values(CardTransactionStatusTypes),
+  },
+  operator: {
+    type: "number",
+  },
+  cashbox: nullableNumber,
+  xreport: nullableNumber,
+  created_at: {
+    type: "string",
+  },
+};
+
+export const cardTransactionHistoryCardProperties = {
+  id: {
+    type: "number",
+  },
+
+  card: {
+    type: "string",
+  },
+
+  status: {
+    type: "string",
+    enum: Object.values(CardStatusTypes),
+  },
+};
+
+export const cardTransactionHistoryOperatorProperties = {
+  id: {
+    type: "number",
+  },
+
+  firstname: {
+    type: "string",
+  },
+
+  lastname: {
+    type: "string",
+  },
+
+  file: nullableNumber,
+};
+
+export const cardTransactionHistoryProperties = {
+  id: {
+    type: "number",
+  },
+
+  card: {
+    oneOf: [
+      {
+        type: "object",
+        properties: cardTransactionHistoryCardProperties,
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+
+  operator: {
+    oneOf: [
+      {
+        type: "object",
+        properties: cardTransactionHistoryOperatorProperties,
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+
+  type: {
+    type: "string",
+    enum: Object.values(CardTransactionType),
+  },
+
+  payment_type: nullableEnum(Object.values(PaymentType)),
+
+  payment_card_type: nullableEnum(Object.values(PaymentCardType)),
+
+  payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
+
+  amount: {
+    type: "number",
+  },
+
+  balance_before: {
+    type: "number",
+  },
+
+  balance_after: {
+    type: "number",
+  },
+
+  status: {
+    type: "string",
+    enum: Object.values(CardTransactionStatusTypes),
+  },
+
+  cashbox: {
+    type: "number",
+  },
+
+  xreport: nullableNumber,
+
+  created_at: {
+    type: "string",
+  },
+};
+
+export const checkNfcCardSchema = {
+  summary: "Check NFC card",
+  description:
+    "Check NFC card and return card data with last transaction if exists",
+  tags: ["Card Transactions route"],
+
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["nfc"],
+    additionalProperties: false,
+    properties: {
+      nfc: {
+        type: "string",
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      card: {
+        type: "object",
+        properties: checkNfcCardProperties,
+      },
+    }),
+  },
+};
+
+export const cardTopUpTransactionSchema = {
+  summary: "Top up NFC card",
+  description: "Top up NFC card balance",
+  tags: ["Card Transactions route"],
+
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["nfc", "amount", "payment_type"],
+    additionalProperties: false,
+    properties: {
+      nfc: {
+        type: "string",
+      },
+
+      amount: {
+        type: "number",
+        minimum: 1,
+      },
+
+      payment_type: {
+        type: "string",
+        enum: Object.values(PaymentType),
+      },
+
+      payment_card_type: nullableEnum(Object.values(PaymentCardType)),
+      payment_service: nullableEnum(Object.values(PaymentServiceType)),
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      transaction: {
+        type: "object",
+        properties: cardTransactionProperties,
+      },
+    }),
+  },
+};
+
+export const getCardTransactionsSchema = {
+  summary: "Get card transactions",
+  description: "Get today's card transactions by cashbox",
+  tags: ["Card Transactions route"],
+  params: {
+    type: "object",
+    required: ["cashboxID"],
+    additionalProperties: false,
+    properties: {
+      cashboxID: {
+        type: "number",
+        description: "Cashbox ID",
+      },
+    },
+  },
+
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      page: {
+        type: "number",
+        default: 1,
+      },
+
+      limit: {
+        type: "number",
+        default: 10,
+      },
+    },
+  },
+
+  response: {
+    200: successAnswerTemplate({
+      "cashbox-transactions": {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            ...cardTransactionHistoryProperties,
+          },
+        },
+      },
+
+      // type: "object",
+      //   properties: {
+      //     transactions: {
+      //       type: "array",
+      //       items: {
+      //         type: "object",
+      //         properties: cardTransactionHistoryProperties,
+      //       },
+      //     },
+
+      pagination: {
+        type: "object",
+        properties: {
+          total: { type: "number" },
+          page: { type: "number" },
+          limit: { type: "number" },
+          totalPages: { type: "number" },
+        },
+      },
+    }),
+  },
+};
