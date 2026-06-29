@@ -54,7 +54,7 @@ export const cardLastTransactionProperties = {
 
   payment_card_type: nullableEnum(Object.values(PaymentCardType)),
 
-  payment_service: nullableEnum(Object.values(PaymentServiceType)),
+  payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
 
   status: {
     type: "string",
@@ -147,7 +147,7 @@ export const cardTransactionProperties = {
 
   payment_type: nullableEnum(Object.values(PaymentType)),
   payment_card_type: nullableEnum(Object.values(PaymentCardType)),
-  payment_service: nullableEnum(Object.values(PaymentServiceType)),
+  payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
   status: {
     type: "string",
     enum: Object.values(CardTransactionStatusTypes),
