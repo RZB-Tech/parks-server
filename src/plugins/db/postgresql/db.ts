@@ -11,6 +11,8 @@ import { CardModel } from "../../../models/postgresql/cards-model/CardModel";
 import { CardBatchModel } from "../../../models/postgresql/card-batches-model/CardBatchModel";
 import { CashboxReportModel } from "../../../models/postgresql/cashbox-report-model/CashboxReportModel";
 import { CardTransactionModel } from "../../../models/postgresql/card-transactions-model/CardTransactionModel";
+import { AttractionReportModel } from "../../../models/postgresql/attraction-report-model/AttractionReportModel";
+import { AttractionRoundModel } from "../../../models/postgresql/attraction-round-model/AttractionRoundModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -37,6 +39,8 @@ const models = {
   CardModel,
   CashboxReportModel,
   CardTransactionModel,
+  AttractionReportModel,
+  AttractionRoundModel,
 };
 
 export type ModelsType = typeof models;
@@ -66,4 +70,6 @@ export {
   CardModel,
   CashboxReportModel,
   CardTransactionModel,
+  AttractionReportModel,
+  AttractionRoundModel,
 };

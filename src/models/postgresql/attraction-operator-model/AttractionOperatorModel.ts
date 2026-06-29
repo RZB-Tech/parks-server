@@ -56,7 +56,7 @@ export class AttractionOperatorModel
   public static associate(models: ModelsType) {
     AttractionOperatorModel.belongsTo(models.AttractionModel, {
       foreignKey: "attraction",
-      as: "attraction_operator",
+      as: "attractions",
     });
     AttractionOperatorModel.belongsTo(models.EmployeeModel, {
       foreignKey: "operator",

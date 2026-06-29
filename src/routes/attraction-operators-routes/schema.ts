@@ -17,6 +17,15 @@ export const attractionOperatorEmployeeProperties = {
   file: {
     oneOf: [{ type: "number" }, { type: "null" }],
   },
+  phone_number: {
+    type: "string",
+  },
+  role: {
+    type: "number",
+  },
+  status: {
+    type: "string",
+  },
 };
 
 export const attractionOperatorProperties = {
@@ -44,6 +53,74 @@ export const attractionOperatorProperties = {
         type: "null",
       },
     ],
+  },
+};
+
+export const operatorAttractionsProperties = {
+  id: { type: "number" },
+  name: { type: "string" },
+  status: { type: "string" },
+  main_file: {
+    oneOf: [{ type: "number" }, { type: "null" }],
+  },
+  dashboard_file: {
+    oneOf: [{ type: "number" }, { type: "null" }],
+  },
+  price: { type: "number" },
+  age_limit: { type: "number" },
+  min_height: { type: "number" },
+  max_weight: { type: "number" },
+  duration: { type: "number" },
+  seats: { type: "number" },
+};
+
+export const getOperatorAttractionsSchema = {
+  summary: "Get operator attractions",
+  description: "Get attractions assigned to current operator",
+  tags: ["Attraction operators route"],
+  response: {
+    200: successAnswerTemplate({
+      "operator-attractions": {
+        type: "array",
+        items: {
+          type: "object",
+          properties: operatorAttractionsProperties,
+        },
+      },
+    }),
+  },
+};
+
+
+export const getOperatorAttractionSchema = {
+  summary: "Get operator attraction",
+  description: "Get selected attraction assigned to current operator",
+  tags: ["Attraction operators route"],
+  params: {
+    type: "object",
+    required: ["attractionID"],
+    properties: {
+      attractionID: {
+        type: "number",
+      },
+    },
+  },
+  response: {
+    200: successAnswerTemplate({
+      "operator-attraction": {
+        type: "object",
+        properties: {
+          operator: {
+            type: "object",
+            properties: attractionOperatorEmployeeProperties,
+          },
+          attraction: {
+            type: "object",
+            properties: operatorAttractionsProperties,
+          },
+        },
+      },
+    }),
   },
 };
 
@@ -109,4 +186,3 @@ export const deleteAttractionOperatorsSchema = {
     }),
   },
 };
-
