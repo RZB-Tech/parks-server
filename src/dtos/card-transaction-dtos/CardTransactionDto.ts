@@ -7,7 +7,7 @@ export const CardLastTransactionDTO = (data: CardTransactionModelI) => {
     balance_after: Number(data.balance_after || 0),
     payment_type: data.payment_type,
     payment_card_type: data.payment_card_type ?? null,
-    payment_service: data.payment_service ?? null,
+    payment_service_type: data.payment_service ?? null,
     status: data.status,
     created_at: data.created_at,
   };
