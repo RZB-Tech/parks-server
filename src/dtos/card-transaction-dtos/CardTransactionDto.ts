@@ -9,7 +9,7 @@ export const CardLastTransactionDTO = (data: CardTransactionModelI) => {
     payment_card_type: data.payment_card_type ?? null,
     payment_service_type: data.payment_service ?? null,
     status: data.status,
-    created_at: data.created_at,
+    created_at: data.createdAt,
   };
 };
 
@@ -35,7 +35,7 @@ export const CardTransactionDTO = (
       data.xreport !== undefined && data.xreport !== null
         ? Number(data.xreport)
         : null,
-    created_at: data.created_at,
+    created_at: data.createdAt,
   };
 };
 
@@ -91,6 +91,6 @@ export const CardTransactionHistoryDTO = (
         ? Number(data.xreport)
         : null,
 
-    created_at: data.created_at,
+    created_at: data.createdAt,
   };
 };

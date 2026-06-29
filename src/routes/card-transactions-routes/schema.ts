@@ -395,16 +395,6 @@ export const getCardTransactionsSchema = {
         },
       },
 
-      // type: "object",
-      //   properties: {
-      //     transactions: {
-      //       type: "array",
-      //       items: {
-      //         type: "object",
-      //         properties: cardTransactionHistoryProperties,
-      //       },
-      //     },
-
       pagination: {
         type: "object",
         properties: {

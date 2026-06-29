@@ -13,5 +13,5 @@ declare interface CardTransactionModelI {
   payment_card_type: PaymentCardType | null;
   payment_service: PaymentServiceType | null;
   status: CardTransactionStatusTypes;
-  created_at?: Date;
+  createdAt?: Date;
 }
