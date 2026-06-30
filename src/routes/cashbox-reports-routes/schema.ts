@@ -499,6 +499,30 @@ export const confirmZReportsSchema = {
   },
 };
 
+export const reopenZReportsSchema = {
+  summary: "Reopen Z reports",
+  description:
+    "Reopen or cancel all today's Z reports. All today Z report ids must be sent.",
+  tags: ["Cashbox Reports route"],
+
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["zreport"],
+    additionalProperties: false,
+    properties: {
+      zreport: {
+        type: "number",
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      success: { type: "boolean", const: true },
+    }),
+  },
+};
+
 export const accountingCashboxProperties = {
   id: {
     type: "number",

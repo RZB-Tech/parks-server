@@ -5,7 +5,11 @@ import {
   CashboxReportStatusTypes,
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
-import { getAccountingDateRange, getDateRange, getTodayRange } from "../../utils/date";
+import {
+  getAccountingDateRange,
+  getDateRange,
+  getTodayRange,
+} from "../../utils/date";
 import {
   AccountingCashboxReportsDTO,
   CashboxReportsTodayDTO,
@@ -526,6 +530,60 @@ export const ConfirmZReportsService = async (
         },
       );
     }
+
+    return true;
+  });
+};
+
+export const ReopenZReportsService = async (
+  operatorID: number,
+  body: ReopenZReportData,
+) => {
+  if (!operatorID) {
+    throw BadRequest("Admin is required!");
+  }
+
+  if (!body.zreport || !Number.isFinite(Number(body.zreport))) {
+    throw BadRequest("Z report id is required!");
+  }
+
+  const sequelize = CashboxReportModel.sequelize!;
+
+  return await sequelize.transaction(async (dbTransaction) => {
+    const { start, end } = getTodayRange();
+
+    const zReport = await CashboxReportModel.findOne({
+      where: {
+        id: Number(body.zreport),
+        report_type: CashboxReportTypes.ZREPORT,
+        status: CashboxReportStatusTypes.CLOSED,
+        created_at: {
+          [Op.between]: [start, end],
+        },
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (zReport === null) {
+      throw BadRequest("Z report not found, not today, or not closed!");
+    }
+
+    await zReport.update(
+      {
+        status: CashboxReportStatusTypes.OPEN,
+        checked_by: operatorID,
+        closed_at: null,
+      },
+      {
+        where: {
+          id: Number(body.zreport),
+          report_type: CashboxReportTypes.ZREPORT,
+          status: CashboxReportStatusTypes.CLOSED,
+        },
+        transaction: dbTransaction,
+      },
+    );
 
     return true;
   });

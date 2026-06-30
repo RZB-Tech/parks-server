@@ -14,6 +14,7 @@ import {
   GetTodayCashboxReportsService,
   GetZReportsService,
   OpenCashboxReportService,
+  ReopenZReportsService,
 } from "../../services/cashbox-reports-services/CashboxReportsServices";
 
 export const CashboxReportOpenController = makeReplyingController(
@@ -74,6 +75,18 @@ export const ConfirmZReportsController = makeReplyingController(
     const body = request.body.data;
 
     return ConfirmZReportsService(Number(operatorID), body);
+  },
+);
+
+export const ReopenZReportsController = makeReplyingController(
+  "success",
+  async (
+    request: FastifyRequest<RouteWithData<ReqData<ReopenZReportData>>>,
+  ) => {
+    const operatorID = request.employee?.id;
+    const body = request.body.data;
+
+    return ReopenZReportsService(Number(operatorID), body);
   },
 );
 

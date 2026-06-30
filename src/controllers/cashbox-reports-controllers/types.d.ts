@@ -29,6 +29,10 @@ declare interface ConfirmZReportsData {
   zreports: ConfirmZReportItemData[];
 }
 
+declare interface ReopenZReportData {
+  zreport: number;
+}
+
 declare interface GetAccountingCashboxReportsQuery {
   date?: string;
   start_date?: string;

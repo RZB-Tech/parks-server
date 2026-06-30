@@ -5,8 +5,8 @@ import {
 } from "fastify";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 
-import { CashboxReportOpenController, CashboxReportsTodayController, CloseCashboxReportController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetZReportsController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
-import { cashboxReportsTodaySchema, closeReportSchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getZReportsSchema, openReportSchema } from "./schema";
+import { CashboxReportOpenController, CashboxReportsTodayController, CloseCashboxReportController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetZReportsController, ReopenZReportsController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
+import { cashboxReportsTodaySchema, closeReportSchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getZReportsSchema, openReportSchema, reopenZReportsSchema } from "./schema";
 
 const CashboxReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -40,6 +40,12 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
      "/zreports/confirmation",
      { schema: confirmZReportsSchema, preHandler: [AuthMiddleware] },
      ConfirmZReportsController,
+   );
+
+   fastify.post(
+     "/zreports/reopen",
+     { schema: reopenZReportsSchema, preHandler: [AuthMiddleware] },
+     ReopenZReportsController,
    );
 
    fastify.get(
