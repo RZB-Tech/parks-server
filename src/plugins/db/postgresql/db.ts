@@ -21,6 +21,7 @@ const sequelizeConfig: Options = {
   username: process.env.POSTGRESQL_USER,
   password: process.env.POSTGRESQL_PASSWORD,
   port: +process.env.POSTGRESQL_PORT!,
+  timezone: "+05:00",
   logging: false,
 };
 

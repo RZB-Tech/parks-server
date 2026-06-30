@@ -54,7 +54,7 @@ export const cardLastTransactionProperties = {
 
   payment_card_type: nullableEnum(Object.values(PaymentCardType)),
 
-  payment_service: nullableEnum(Object.values(PaymentServiceType)),
+  payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
 
   status: {
     type: "string",
@@ -147,7 +147,7 @@ export const cardTransactionProperties = {
 
   payment_type: nullableEnum(Object.values(PaymentType)),
   payment_card_type: nullableEnum(Object.values(PaymentCardType)),
-  payment_service: nullableEnum(Object.values(PaymentServiceType)),
+  payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
   status: {
     type: "string",
     enum: Object.values(CardTransactionStatusTypes),
@@ -337,7 +337,7 @@ export const cardTopUpTransactionSchema = {
       },
 
       payment_card_type: nullableEnum(Object.values(PaymentCardType)),
-      payment_service: nullableEnum(Object.values(PaymentServiceType)),
+      payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
     },
   }),
 
@@ -394,16 +394,6 @@ export const getCardTransactionsSchema = {
           },
         },
       },
-
-      // type: "object",
-      //   properties: {
-      //     transactions: {
-      //       type: "array",
-      //       items: {
-      //         type: "object",
-      //         properties: cardTransactionHistoryProperties,
-      //       },
-      //     },
 
       pagination: {
         type: "object",

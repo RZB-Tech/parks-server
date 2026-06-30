@@ -181,7 +181,7 @@ export const CardTopUpTransactionService = async (
           body.payment_type === PaymentType.CARD
             ? body.payment_card_type!
             : null,
-        payment_service_type:
+        payment_service:
           body.payment_type === PaymentType.ONLINE
             ? body.payment_service_type!
             : null,
