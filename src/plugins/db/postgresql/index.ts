@@ -3,6 +3,8 @@ import fp from "fastify-plugin";
 import {
   AttractionModel,
   AttractionOperatorModel,
+  AttractionReportModel,
+  AttractionRoundModel,
   CardBatchModel,
   CardModel,
   CardTransactionModel,
@@ -32,6 +34,8 @@ const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     await CardModel.sync({ alter: true });
     await CashboxReportModel.sync({ alter: true });
     await CardTransactionModel.sync({ alter: true });
+    await AttractionReportModel.sync({ alter: true });
+    await AttractionRoundModel.sync({ alter: true });
 
     fastify.log.info({ actor: "PostgresSQL" }, "connected");
 

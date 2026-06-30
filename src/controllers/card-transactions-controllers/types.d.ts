@@ -15,3 +15,8 @@ declare interface GetCashboxCardTransactionsQuery {
   page?: number;
   limit?: number;
 }
+
+declare interface CardPaymentTransactionData {
+  nfc: string;
+  attractionID: number;
+}

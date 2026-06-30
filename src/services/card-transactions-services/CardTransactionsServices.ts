@@ -1,10 +1,12 @@
 import { Op } from "sequelize";
 import { CardDTO } from "../../dtos/card-dtos/CardDto";
 import {
+  CardPaymentFailedDTO,
+  CardPaymentSuccessDTO,
   CardTransactionDTO,
   CardTransactionHistoryDTO,
 } from "../../dtos/card-transaction-dtos/CardTransactionDto";
-import { BadRequest, NotFound } from "../../exceptions";
+import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { CardBatchModel } from "../../models/postgresql/card-batches-model/CardBatchModel";
 import { CardTransactionModel } from "../../models/postgresql/card-transactions-model/CardTransactionModel";
 import {
@@ -25,6 +27,7 @@ import {
   validateTopUpPaymentType,
 } from "../../utils/transactionHelpers";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
+import { GetOpenAttractionReportService, GetOrCreateOpenAttractionRoundService, GetPaymentOperatorAttractionService } from "../attraction-reports-services/AttractionReportsServices";
 
 export const CheckNfcCardService = async (
   operatorID: number,
@@ -307,4 +310,135 @@ export const GetCardTransactionsService = async (
     limit,
     totalPages: Math.ceil(count / limit),
   };
+};
+
+export const CardPaymentTransactionService = async (
+  operatorID: number,
+  body: CardPaymentTransactionData,
+) => {
+  if (!body.nfc || !body.nfc.trim()) {
+    throw BadRequest("NFC is required!");
+  }
+
+  const attractionID = Number(body.attractionID);
+
+  if (!attractionID || Number.isNaN(attractionID)) {
+    throw BadRequest("Attraction ID is invalid!");
+  }
+
+  return await CardTransactionModel.sequelize!.transaction(
+    async (transaction) => {
+      const operatorAttraction = await GetPaymentOperatorAttractionService(
+        operatorID,
+        attractionID,
+        transaction,
+      );
+
+      const attraction = operatorAttraction.attractions;
+      const amount = Number(attraction.price);
+      const seats = Number(attraction.seats);
+
+      const report = await GetOpenAttractionReportService(
+        operatorID,
+        attractionID,
+        transaction,
+      );
+
+      if (report === null) {
+        throw BadRequest("Open report required!");
+      }
+
+      const round = await GetOrCreateOpenAttractionRoundService(
+        report,
+        attractionID,
+        operatorID,
+        transaction,
+      );
+
+      if (Number(round.people_count) >= seats) {
+        return CardPaymentFailedDTO("Round is full. Press GO first!");
+      }
+
+      const card = await CardModel.findOne({
+        where: {
+          nfc: body.nfc.trim(),
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (card === null) {
+        return NotFound("Card not found!");
+      }
+
+      if (card.status !== CardStatusTypes.ACTIVE) {
+        return Conflict("Card is not active!");
+      }
+
+      const lastTransaction = await CardTransactionModel.findOne({
+        where: {
+          card: Number(card.id),
+          status: CardTransactionStatusTypes.SUCCESS,
+        },
+        order: [["id", "DESC"]],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      const balanceBefore =
+        lastTransaction !== null ? Number(lastTransaction.balance_after) : 0;
+
+      if (balanceBefore < amount) {
+        return CardPaymentFailedDTO("Not enough balance!");
+      }
+
+      const balanceAfter = balanceBefore - amount;
+
+      const payment = await CardTransactionModel.create(
+        {
+          card: Number(card.id),
+          operator: operatorID,
+          cashbox: null,
+          attraction: attractionID,
+          xreport: null,
+          type: CardTransactionType.PAYMENT,
+          amount,
+          balance_before: balanceBefore,
+          balance_after: balanceAfter,
+          payment_type: PaymentType.CARD,
+          payment_card_type: null,
+          payment_service: null,
+
+          status: CardTransactionStatusTypes.SUCCESS,
+        },
+        {
+          transaction,
+        },
+      );
+
+      await round.update(
+        {
+          people_count: Number(round.people_count) + 1,
+          paid_amount: Number(round.paid_amount) + amount,
+          total_amount: Number(round.total_amount) + amount,
+        },
+        {
+          transaction,
+        },
+      );
+
+      const paymentData = payment.get({
+        plain: true,
+      }) as CardTransactionModelI;
+
+      const cardData = card.get({
+        plain: true,
+      }) as CardsModelI;
+
+      return CardPaymentSuccessDTO({
+        ...paymentData,
+        card_data: cardData,
+      });
+    },
+  );
 };

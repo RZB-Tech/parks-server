@@ -2,7 +2,7 @@ import { FastifyRequest } from "fastify";
 import { makeReplyingController } from "../../utils/controllerHelpers";
 import { ReqData, RouteWithData, RouteWithParamsAndQuery } from "../../types/routes";
 import { Unauthorized } from "../../exceptions";
-import { CheckNfcCardService, CardTopUpTransactionService, GetCardTransactionsService } from "../../services/card-transactions-services/CardTransactionsServices";
+import { CheckNfcCardService, CardTopUpTransactionService, GetCardTransactionsService, CardPaymentTransactionService } from "../../services/card-transactions-services/CardTransactionsServices";
 
 export const CheckNfcCardController = makeReplyingController(
   "card",
@@ -48,5 +48,18 @@ export const GetCashboxCardTransactionsController = makeReplyingController(
         totalPages: result.totalPages,
       },
     ];
+  },
+);
+
+
+export const CardPaymentTransactionController = makeReplyingController(
+  "payment",
+  async (
+    request: FastifyRequest<RouteWithData<ReqData<CardPaymentTransactionData>>>,
+  ) => {
+    const operatorID = request.employee?.id;
+    const body = request.body.data;
+
+    return CardPaymentTransactionService(Number(operatorID), body);
   },
 );

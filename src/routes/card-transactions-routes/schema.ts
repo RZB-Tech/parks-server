@@ -407,3 +407,74 @@ export const getCardTransactionsSchema = {
     }),
   },
 };
+
+export const cardPaymentTransactionProperties = {
+  ...cardTransactionProperties,
+
+  payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
+};
+
+export const cardPaymentResponseProperties = {
+  paid: {
+    type: "boolean",
+  },
+
+  message: {
+    type: "string",
+  },
+
+  transaction: {
+    oneOf: [
+      {
+        type: "object",
+        properties: cardPaymentTransactionProperties,
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+};
+
+export const cardPaymentTransactionSchema = {
+  summary: "Pay NFC card for attraction",
+  description:
+    "Withdraw money from NFC card for attraction. If payment succeeds, current attraction round and report counters are updated.",
+  tags: ["Card Transactions route"],
+
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["nfc", "attractionID"],
+    additionalProperties: false,
+    properties: {
+      nfc: {
+        type: "string",
+      },
+
+      attractionID: {
+        type: "number",
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      payment: {
+        type: "object",
+        properties: cardPaymentResponseProperties,
+      },
+    }),
+  },
+};

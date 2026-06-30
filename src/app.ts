@@ -28,6 +28,8 @@ import CashboxOperatorsRouter from "./routes/cashbox-operators-routes/CashboxOpe
 import CardsRouter from "./routes/card-routes/CardsRoutes";
 import CardTransactionsRouter from "./routes/card-transactions-routes/CardTransactionsRoutes";
 import CashboxReportsRouter from "./routes/cashbox-reports-routes/CashboxReportsRoutes";
+import AttractionReportsRouter from "./routes/attraction-reports-routes/AttractionReportsRoutes";
+import AttractionRoundsRouter from "./routes/attraction-rounds-routes/AttractionRoundsRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -67,6 +69,8 @@ export const build = async () => {
   app.register(CardsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxReportsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CardTransactionsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AttractionReportsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AttractionRoundsRouter, { prefix: SERVER.API_PREFIX });
 
   app.after();
   return app;

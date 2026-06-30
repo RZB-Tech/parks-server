@@ -94,3 +94,63 @@ export const CardTransactionHistoryDTO = (
     created_at: data.createdAt,
   };
 };
+
+export const CardPaymentTransactionDTO = (
+  data: CardTransactionModelI & {
+    card_data?: Partial<CardsModelI>;
+  },
+): CardPaymentTransactionDTO => {
+  return {
+    id: Number(data.id || 0),
+    card: Number(data.card || 0),
+    nfc: data.card_data?.nfc ?? "",
+
+    operator: Number(data.operator || 0),
+    cashbox:
+      data.cashbox !== undefined && data.cashbox !== null
+        ? Number(data.cashbox)
+        : null,
+    attraction:
+      data.attraction !== undefined && data.attraction !== null
+        ? Number(data.attraction)
+        : null,
+    xreport:
+      data.xreport !== undefined && data.xreport !== null
+        ? Number(data.xreport)
+        : null,
+
+    type: data.type,
+    payment_type: data.payment_type ?? null,
+    payment_card_type: data.payment_card_type ?? null,
+    payment_service_type: data.payment_service ?? null,
+
+    amount: Number(data.amount || 0),
+    balance_before: Number(data.balance_before || 0),
+    balance_after: Number(data.balance_after || 0),
+
+    status: data.status,
+    created_at: data.created_at,
+  };
+};
+
+export const CardPaymentSuccessDTO = (
+  data: CardTransactionModelI & {
+    card_data?: Partial<CardsModelI>;
+  },
+): CardPaymentResponseDTO => {
+  return {
+    paid: true,
+    message: "Payment successful!",
+    transaction: CardPaymentTransactionDTO(data),
+  };
+};
+
+export const CardPaymentFailedDTO = (
+  message: string,
+): CardPaymentResponseDTO => {
+  return {
+    paid: false,
+    message,
+    transaction: null,
+  };
+};

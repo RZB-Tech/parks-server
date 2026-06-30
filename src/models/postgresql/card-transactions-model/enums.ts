@@ -13,6 +13,7 @@ export enum PaymentType {
 export enum PaymentCardType {
   UZCARD = "uzcard",
   HUMO = "humo",
+  NFC = "nfc"
 }
 
 export enum PaymentServiceType {
