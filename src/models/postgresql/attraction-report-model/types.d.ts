@@ -17,4 +17,5 @@ declare interface AttractionReportModelI {
   total_park_staff: number;
   paid_amount: number;
   total_amount: number;
+  createdAt?: Date;
 }

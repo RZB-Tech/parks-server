@@ -15,4 +15,5 @@ declare interface AttractionRoundModelI {
   total_amount: number;
   started_at: Date;
   finished_at: Date | null;
+  createdAt?: Date;
 }

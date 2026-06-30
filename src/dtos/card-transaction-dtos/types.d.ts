@@ -86,3 +86,32 @@ type CardTransactionHistoryPlain = CardTransactionModelI & {
   cards?: Partial<CardsModelI> | null;
   operators?: Partial<EmployeeModelI> | null;
 };
+
+declare interface CardPaymentTransactionDTO {
+  id: number;
+  card: number;
+  nfc: string;
+
+  operator: number;
+  cashbox: number | null;
+  attraction: number | null;
+  xreport: number | null;
+
+  type: CardTransactionType;
+  payment_type: PaymentType | null;
+  payment_card_type: PaymentCardType | null;
+  payment_service_type: PaymentServiceType | null;
+
+  amount: number;
+  balance_before: number;
+  balance_after: number;
+
+  status: string;
+  created_at?: Date;
+}
+
+declare interface CardPaymentResponseDTO {
+  paid: boolean;
+  message: string;
+  transaction: CardPaymentTransactionDTO | null;
+}
