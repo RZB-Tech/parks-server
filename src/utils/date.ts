@@ -58,14 +58,21 @@ export const getTodayRange = () => {
   return { start, end };
 };
 
+
 export const getDateRange = (date?: string) => {
-  const targetDate = date ? new Date(date) : new Date();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tashkent",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 
-  const start = new Date(targetDate);
-  start.setHours(0, 0, 0, 0);
+  const tashkentDate = date
+    ? date.replace(/\./g, "-") // frontend: yyyy.mm.dd bo‘lsa
+    : formatter.format(new Date());
 
-  const end = new Date(targetDate);
-  end.setHours(23, 59, 59, 999);
+  const start = new Date(`${tashkentDate}T00:00:00.000+05:00`);
+  const end = new Date(`${tashkentDate}T23:59:59.999+05:00`);
 
   return { start, end };
 };
