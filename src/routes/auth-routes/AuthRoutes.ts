@@ -3,8 +3,8 @@ import {
   FastifyPluginAsync,
   FastifyPluginOptions,
 } from "fastify";
-import { LoginController } from "../../controllers/auth-controllers/AuthController";
-import { loginSchema } from "./schema";
+import { GetMeController, LoginController } from "../../controllers/auth-controllers/AuthController";
+import { getMeSchema, loginSchema } from "./schema";
 
 const AuthRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -14,6 +14,11 @@ const AuthRouter: FastifyPluginAsync = async (
     "/auth/login",
     { schema: loginSchema, preHandler: [] },
     LoginController,
+  );
+  fastify.post(
+    "/auth/getme",
+    { schema: getMeSchema, preHandler: [] },
+    GetMeController,
   );
 };
 

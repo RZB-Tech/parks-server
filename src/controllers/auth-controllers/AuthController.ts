@@ -1,9 +1,11 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { makeReplyingController } from "../../utils/controllerHelpers";
 import { ReqData, RouteWithData } from "../../types/routes";
-import { LoginService } from "../../services/auth-services/AuthServices";
+import {
+  GetMeService,
+  LoginService,
+} from "../../services/auth-services/AuthServices";
 import "@fastify/cookie";
-
 
 export const LoginController = makeReplyingController(
   "auth",
@@ -26,5 +28,14 @@ export const LoginController = makeReplyingController(
     return {
       accessToken: result.jwtToken,
     };
+  },
+);
+
+export const GetMeController = makeReplyingController(
+  "employee",
+  async (request: FastifyRequest, reply: FastifyReply) => {
+    const employeeID = request.employee?.id;
+
+    return await GetMeService(Number(employeeID));
   },
 );

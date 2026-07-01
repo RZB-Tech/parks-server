@@ -1,8 +1,9 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { Unauthorized } from "../../exceptions";
+import { NotFound, Unauthorized } from "../../exceptions";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
+import { EmployeeDTO } from "../../dtos/employees-dtos/EmployeeDto";
 
 export const LoginService = async (body: LoginData) => {
   const employee = await EmployeeModel.findOne({
@@ -48,4 +49,16 @@ export const LoginService = async (body: LoginData) => {
     jwtToken,
     fingerprint,
   };
+};
+
+
+export const GetMeService = async (
+  employeeID: number,
+): Promise<EmployeeResponseDTO> => {
+  const employee = await EmployeeModel.findByPk(employeeID);
+
+  if (employee == null) throw NotFound("Employee not found");
+
+  const employeeData = employee.get();
+  return EmployeeDTO(employeeData);
 };
