@@ -5,8 +5,8 @@ import {
 } from "fastify";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 
-import { CashboxReportOpenController, CashboxReportsTodayController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetZReportsController, ReopenZReportsController, StatusCashboxReportController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
-import { cashboxReportsTodaySchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getZReportsSchema, openReportSchema, reopenZReportsSchema, statusCashboxReportSchema } from "./schema";
+import { CashboxReportOpenController, CashboxReportsTodayController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetZReportsController, StatusCashboxReportController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
+import { cashboxReportsTodaySchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getZReportsSchema, openReportSchema, statusCashboxReportSchema } from "./schema";
 
 const CashboxReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,

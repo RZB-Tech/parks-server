@@ -5,6 +5,7 @@ import {
 } from "fastify";
 import { GetMeController, LoginController } from "../../controllers/auth-controllers/AuthController";
 import { getMeSchema, loginSchema } from "./schema";
+import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 
 const AuthRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -15,9 +16,10 @@ const AuthRouter: FastifyPluginAsync = async (
     { schema: loginSchema, preHandler: [] },
     LoginController,
   );
+
   fastify.get(
     "/auth/getme",
-    { schema: getMeSchema, preHandler: [] },
+    { schema: getMeSchema, preHandler: [AuthMiddleware] },
     GetMeController,
   );
 };

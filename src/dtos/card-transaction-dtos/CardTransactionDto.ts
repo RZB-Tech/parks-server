@@ -129,7 +129,7 @@ export const CardPaymentTransactionDTO = (
     balance_after: Number(data.balance_after || 0),
 
     status: data.status,
-    created_at: data.created_at,
+    created_at: data.createdAt,
   };
 };
 

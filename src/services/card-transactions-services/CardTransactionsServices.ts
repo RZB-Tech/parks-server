@@ -274,7 +274,7 @@ export const GetCardTransactionsService = async (
   const { rows, count } = await CardTransactionModel.findAndCountAll({
     where: {
       cashbox: cashboxID,
-      created_at: {
+      createdAt: {
         [Op.between]: [start, end],
       },
     },
