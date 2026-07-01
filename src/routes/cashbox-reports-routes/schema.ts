@@ -441,7 +441,7 @@ export const statusCashboxReportSchema = {
   },
 
   body: reqBodyWrapper({
-    required: ["status", "report_type"],
+    required: ["status", "report_type", "report"],
     properties: {
       status: {
         type: "string",
@@ -459,6 +459,9 @@ export const statusCashboxReportSchema = {
           CashboxReportTypes.ZREPORT,
           CashboxReportTypes.XREPORT,
         ],
+      },
+      report: {
+        type: "number",
       },
     },
   }),

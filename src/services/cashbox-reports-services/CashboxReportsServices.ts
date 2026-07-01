@@ -195,6 +195,7 @@ export const GetTodayCashboxReportsService = async (
     ),
   });
 };
+
 export const StatusCashboxReportService = async (
   operatorID: number,
   params: CashboxReportsParams,
@@ -217,6 +218,16 @@ export const StatusCashboxReportService = async (
 
   if (!allowedStatuses.includes(body.status)) {
     throw BadRequest("Invalid report status!");
+  }
+
+  if (!body.report) {
+    throw BadRequest("Report id is required!");
+  }
+
+  const reportID = Number(body.report);
+
+  if (!Number.isFinite(reportID) || reportID <= 0) {
+    throw BadRequest("Invalid report id!");
   }
 
   const sequelize = CashboxReportModel.sequelize!;
@@ -251,6 +262,7 @@ export const StatusCashboxReportService = async (
     const sourceStatuses = getSourceStatuses();
 
     const baseWhere: any = {
+      id: reportID,
       cashbox: params.cashboxID,
       report_type: body.report_type,
       created_at: {
@@ -385,7 +397,7 @@ export const StatusCashboxReportService = async (
 
     /**
      * CASE 2:
-     * XREPORT OPEN qilinsa va parent ZREPORT STOPPED bo‘lsa,
+     * XREPORT OPEN qilinsa va parent ZREPORT STOPPED/CLOSED bo‘lsa,
      * ZREPORT ham OPEN bo‘ladi.
      */
     if (
@@ -403,7 +415,12 @@ export const StatusCashboxReportService = async (
             id: report.zreport,
             cashbox: params.cashboxID,
             report_type: CashboxReportTypes.ZREPORT,
-            status: CashboxReportStatusTypes.STOPPED,
+            status: {
+              [Op.in]: [
+                CashboxReportStatusTypes.STOPPED,
+                CashboxReportStatusTypes.CLOSED,
+              ],
+            },
           },
           transaction: dbTransaction,
         },
@@ -413,7 +430,6 @@ export const StatusCashboxReportService = async (
     return true;
   });
 };
-
 
 export const GetZReportsService = async (query: GetZReportsQuery) => {
   const { start, end } = getDateRange(query.date);

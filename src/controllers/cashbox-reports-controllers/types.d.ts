@@ -7,6 +7,7 @@ declare interface CashboxReportsParams {
 declare interface CloseCashboxReportData {
   status: CashboxReportStatusTypes;
   report_type: CashboxReportTypes;
+  report: number;
 }
 
 declare interface GetZReportsQuery {
