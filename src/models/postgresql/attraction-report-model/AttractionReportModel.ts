@@ -1,6 +1,6 @@
 import { Model, DataTypes, Sequelize, Association } from "sequelize";
 import { ModelsType } from "../../../plugins/db/postgresql/db";
-import { AttractionReportStatusTypes } from "./enums";
+import { AttractionReportStatusTypes, AttractionReportTypes } from "./enums";
 
 export class AttractionReportModel
   extends Model<AttractionReportModelI, TableOptionalAttributes>
@@ -12,6 +12,8 @@ export class AttractionReportModel
   public operator!: number;
 
   public status!: import("./enums").AttractionReportStatusTypes;
+  public report_type!: import("./enums").AttractionReportTypes;
+  public zreport!: number | null;
 
   public opened_at!: Date;
   public stopped_at!: Date | null;
@@ -67,7 +69,14 @@ export class AttractionReportModel
           allowNull: false,
           defaultValue: AttractionReportStatusTypes.OPEN,
         },
-
+        report_type: {
+          type: DataTypes.ENUM(...Object.values(AttractionReportTypes)),
+          allowNull: false,
+        },
+        zreport: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+        },
         opened_at: {
           type: DataTypes.DATE,
           allowNull: false,
@@ -159,19 +168,18 @@ export class AttractionReportModel
   }
 
   public static associate(models: ModelsType) {
-     AttractionReportModel.belongsTo(models.AttractionModel, {
-       foreignKey: "attraction",
-       as: "attractions",
-     });
+    AttractionReportModel.belongsTo(models.AttractionModel, {
+      foreignKey: "attraction",
+      as: "attractions",
+    });
 
-     AttractionReportModel.belongsTo(models.EmployeeModel, {
-       foreignKey: "operator",
-       as: "operators",
-     });
+    AttractionReportModel.belongsTo(models.EmployeeModel, {
+      foreignKey: "operator",
+      as: "operators",
+    });
     //  AttractionReportModel.hasMany(models.AttractionRoundModel, {
     //    foreignKey: "report",
     //    as: "rounds",
     //  });
-
   }
 }

@@ -8,7 +8,7 @@ import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-r
 import { AttractionOperatorModel } from "../../models/postgresql/attraction-operator-model/AttractionOperatorModel";
 import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { AttractionModel } from "../../models/postgresql/attraction-model/AttractionModel";
-import { AttractionStatusTypes } from "../../models/postgresql/attraction-model/enums";
+import { AttractionReportTypes, AttractionStatusTypes } from "../../models/postgresql/attraction-model/enums";
 
 export const GetCurrentAttractionRoundService = async (
   operatorID: number,
@@ -103,15 +103,12 @@ export const GetTodayAttractionRoundsService = async (
 
   return data.map(AttractionRoundDTO);
 };
+
 export const CloseCurrentAttractionRoundService = async (
   operatorID: number,
   params: AttractionRoundParams,
 ) => {
   const attractionID = Number(params.attractionID);
-
-  if (!attractionID || Number.isNaN(attractionID)) {
-    throw BadRequest("Attraction ID is invalid!");
-  }
 
   return await AttractionRoundModel.sequelize!.transaction(
     async (transaction) => {
@@ -149,23 +146,43 @@ export const CloseCurrentAttractionRoundService = async (
         };
       };
 
-      const report = await AttractionReportModel.findOne({
+      const xReport = await AttractionReportModel.findOne({
         where: {
           operator: operatorID,
           attraction: attractionID,
+          report_type: AttractionReportTypes.XREPORT,
           status: AttractionReportStatusTypes.OPEN,
         },
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
 
-      if (report === null) {
-        throw BadRequest("Open report required!");
+      if (xReport === null) {
+        throw BadRequest("Open X report required!");
+      }
+
+      if (!xReport.zreport) {
+        throw BadRequest("X report is not connected to Z report!");
+      }
+
+      const zReport = await AttractionReportModel.findOne({
+        where: {
+          id: Number(xReport.zreport),
+          attraction: attractionID,
+          report_type: AttractionReportTypes.ZREPORT,
+          status: AttractionReportStatusTypes.OPEN,
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (zReport === null) {
+        throw BadRequest("Open Z report required!");
       }
 
       const round = await AttractionRoundModel.findOne({
         where: {
-          report: Number(report.id),
+          report: Number(xReport.id),
           attraction: attractionID,
           operator: operatorID,
           status: AttractionRoundStatusTypes.OPEN,
@@ -188,6 +205,7 @@ export const CloseCurrentAttractionRoundService = async (
       const duration = Number(operatorAttractionData.attractions.duration || 0);
 
       const startedAt = new Date(round.started_at);
+
       const finishedAt =
         duration > 0
           ? new Date(startedAt.getTime() + duration * 60 * 1000)
@@ -203,40 +221,33 @@ export const CloseCurrentAttractionRoundService = async (
         },
       );
 
-      await report.update(
-        {
-          total_rounds: Number(report.total_rounds || 0) + 1,
+      const reportIncrementData = {
+        total_rounds: 1,
 
-          total_people:
-            Number(report.total_people || 0) + Number(round.people_count || 0),
+        total_people: Number(round.people_count || 0),
 
-          total_offline:
-            Number(report.total_offline || 0) +
-            Number(round.offline_count || 0),
+        total_offline: Number(round.offline_count || 0),
 
-          total_online:
-            Number(report.total_online || 0) + Number(round.online_count || 0),
+        total_online: Number(round.online_count || 0),
 
-          total_vip:
-            Number(report.total_vip || 0) + Number(round.vip_count || 0),
+        total_vip: Number(round.vip_count || 0),
 
-          total_guest:
-            Number(report.total_guest || 0) + Number(round.guest_count || 0),
+        total_guest: Number(round.guest_count || 0),
 
-          total_park_staff:
-            Number(report.total_park_staff || 0) +
-            Number(round.park_staff_count || 0),
+        total_park_staff: Number(round.park_staff_count || 0),
 
-          paid_amount:
-            Number(report.paid_amount || 0) + Number(round.paid_amount || 0),
+        paid_amount: Number(round.paid_amount || 0),
 
-          total_amount:
-            Number(report.total_amount || 0) + Number(round.total_amount || 0),
-        },
-        {
-          transaction,
-        },
-      );
+        total_amount: Number(round.total_amount || 0),
+      };
+
+      await xReport.increment(reportIncrementData, {
+        transaction,
+      });
+
+      await zReport.increment(reportIncrementData, {
+        transaction,
+      });
 
       const roundData = round.get({
         plain: true,

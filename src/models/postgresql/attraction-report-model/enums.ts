@@ -4,3 +4,8 @@ export enum AttractionReportStatusTypes {
   CLOSED = "closed",
   CONFIRMED = "confirmed",
 }
+
+export enum AttractionReportTypes {
+  ZREPORT = "zreport",
+  XREPORT = "xreport",
+}

@@ -3,6 +3,8 @@ declare interface AttractionReportModelI {
   attraction: number;
   operator: number;
   status: import("./enums").AttractionReportStatusTypes;
+  report_type: import("./enums").AttractionReportTypes;
+  zreport: number | null;
   opened_at: Date;
   stopped_at: Date | null;
   closed_at: Date | null;

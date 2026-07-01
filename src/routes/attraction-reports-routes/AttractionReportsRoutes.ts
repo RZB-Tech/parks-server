@@ -4,8 +4,8 @@ import {
   FastifyPluginOptions,
 } from "fastify";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
-import { AttractionReportOpenController, CloseAttractionReportController } from "../../controllers/attraction-reports-controllers/AttractionReportController";
-import { openAttractionReportSchema, updateAttractionReportStatusSchema } from "./schema";
+import { AttractionReportOpenController, CloseAttractionReportController, GetAttractionZReportsController, GetTodayAttractionReportsController } from "../../controllers/attraction-reports-controllers/AttractionReportController";
+import { getAttractionZReportsSchema, getTodayAttractionReportsSchema, openAttractionReportSchema, updateAttractionReportStatusSchema } from "./schema";
 
 const AttractionReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -21,6 +21,19 @@ const AttractionReportsRouter: FastifyPluginAsync = async (
     "/attractions/:attractionID/reports/status",
     {schema: updateAttractionReportStatusSchema, preHandler: [AuthMiddleware]},
     CloseAttractionReportController,
+  );
+
+  fastify.get(
+    "/attractions/:attractionID/reports",
+    { schema: getTodayAttractionReportsSchema, preHandler: [AuthMiddleware] },
+    GetTodayAttractionReportsController,
+  );
+
+
+  fastify.get(
+    "/reports/zreports",
+    { schema: getAttractionZReportsSchema, preHandler: [AuthMiddleware] },
+    GetAttractionZReportsController,
   );
 
 };

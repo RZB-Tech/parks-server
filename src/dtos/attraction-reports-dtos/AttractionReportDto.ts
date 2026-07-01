@@ -1,18 +1,142 @@
-export const AttractionReportDTO = (
-  data: AttractionReportModelI,
-): AttractionReportDto => {
+export const AttractionReportOperatorDTO = (
+  data: AttractionReportOperatorDTO | null | undefined,
+) => {
+  if (!data) {
+    return null;
+  }
+
   return {
     id: Number(data.id),
+    firstname: data.firstname,
+    lastname: data.lastname,
+    file: data.file !== null ? Number(data.file) : null,
+  };
+};
+
+
+export const AttractionReportDTO = (
+  data: AttractionReportWithOperatorPlain,
+) => {
+  const operator =
+    data.operators !== undefined
+      ? AttractionReportOperatorDTO(data.operators)
+      : Number(data.operator);
+
+  return {
+    id: Number(data.id),
+
     attraction: Number(data.attraction),
-    operator: Number(data.operator),
+
+    operator,
+
+    report_type: data.report_type,
+
+    zreport: data.zreport !== null ? Number(data.zreport) : null,
+
     status: data.status,
+
     opened_at: data.opened_at,
-    closed_at: data.closed_at,
-    total_rounds: Number(data.total_rounds),
-    total_people: Number(data.total_people),
-    paid_amount: Number(data.paid_amount),
-    total_amount: Number(data.total_amount),
+    stopped_at: data.stopped_at ?? null,
+    closed_at: data.closed_at ?? null,
+
+    confirmed_at: data.confirmed_at ?? null,
+    confirmed_by:
+      data.confirmed_by !== null && data.confirmed_by !== undefined
+        ? Number(data.confirmed_by)
+        : null,
+
+    total_rounds: Number(data.total_rounds || 0),
+    total_people: Number(data.total_people || 0),
+
+    total_offline: Number(data.total_offline || 0),
+    total_online: Number(data.total_online || 0),
+    total_vip: Number(data.total_vip || 0),
+    total_guest: Number(data.total_guest || 0),
+    total_park_staff: Number(data.total_park_staff || 0),
+
+    paid_amount: Number(data.paid_amount || 0),
+    total_amount: Number(data.total_amount || 0),
+
     created_at: data.createdAt,
   };
 };
 
+export const AttractionReportsTodayDTO = (data: {
+  zreport: AttractionReportWithOperatorPlain | null;
+  xreports: AttractionReportWithOperatorPlain[];
+}) => {
+  return {
+    zreport: data.zreport ? AttractionReportDTO(data.zreport) : null,
+    xreports: data.xreports.map(AttractionReportDTO),
+  };
+};
+
+export const emptyAttractionZReportsTotals = (): AttractionZReportTotalsDTO => {
+  return {
+    total_rounds: 0,
+    total_people: 0,
+
+    total_offline: 0,
+    total_online: 0,
+    total_vip: 0,
+    total_guest: 0,
+    total_park_staff: 0,
+
+    paid_amount: 0,
+    total_amount: 0,
+  };
+};
+
+export const addAttractionZReportsTotals = (
+  target: AttractionZReportTotalsDTO,
+  report: AttractionReportModelI,
+) => {
+  target.total_rounds += Number(report.total_rounds || 0);
+  target.total_people += Number(report.total_people || 0);
+
+  target.total_offline += Number(report.total_offline || 0);
+  target.total_online += Number(report.total_online || 0);
+  target.total_vip += Number(report.total_vip || 0);
+  target.total_guest += Number(report.total_guest || 0);
+  target.total_park_staff += Number(report.total_park_staff || 0);
+
+  target.paid_amount += Number(report.paid_amount || 0);
+  target.total_amount += Number(report.total_amount || 0);
+};
+
+export const AttractionZReportAttractionDTO = (
+  data: AttractionWithZReportsPlain,
+) => {
+  return {
+    id: Number(data.id),
+    name: data.name,
+    manufacturer: data.manufacturer ?? null,
+    category: Number(data.category),
+    status: data.status,
+
+    dashboard_file:
+      data.dashboard_file !== null && data.dashboard_file !== undefined
+        ? Number(data.dashboard_file)
+        : null,
+
+    main_file:
+      data.main_file !== null && data.main_file !== undefined
+        ? Number(data.main_file)
+        : null,
+
+    files: Array.isArray(data.files) ? data.files.map(Number) : [],
+
+    price: Number(data.price || 0),
+    duration: Number(data.duration || 0),
+    seats: Number(data.seats || 0),
+    age_limit: Number(data.age_limit || 0),
+    min_height: Number(data.min_height || 0),
+    max_weight: Number(data.max_weight || 0),
+
+    description: data.description ?? null,
+
+    zreports: Array.isArray(data.reports)
+      ? data.reports.map(AttractionReportDTO)
+      : [],
+  };
+};

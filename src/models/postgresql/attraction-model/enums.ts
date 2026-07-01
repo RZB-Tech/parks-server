@@ -4,3 +4,8 @@ export enum AttractionStatusTypes {
   MAINTENANCE = "maintenance",
   CLOSED = "closed",
 }
+
+export enum AttractionReportTypes {
+  ZREPORT = "zreport",
+  XREPORT = "xreport",
+}

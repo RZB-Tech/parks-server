@@ -53,7 +53,7 @@ export const getTodayRange = () => {
   start.setHours(0, 0, 0, 0);
 
   const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
+  end.setHours(18, 59, 59, 999);
 
   return { start, end };
 };

@@ -1,27 +1,35 @@
 import { Op, Transaction } from "sequelize";
 import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { AttractionModel } from "../../models/postgresql/attraction-model/AttractionModel";
-import { AttractionStatusTypes } from "../../models/postgresql/attraction-model/enums";
+import {
+  AttractionReportTypes,
+  AttractionStatusTypes,
+} from "../../models/postgresql/attraction-model/enums";
 import { AttractionOperatorModel } from "../../models/postgresql/attraction-operator-model/AttractionOperatorModel";
 import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
 import { AttractionRoundModel } from "../../models/postgresql/attraction-round-model/AttractionRoundModel";
-import { AttractionReportDTO } from "../../dtos/attraction-reports-dtos/AttractionReportDto";
+import {
+  addAttractionZReportsTotals,
+  AttractionReportDTO,
+  AttractionReportsTodayDTO,
+  AttractionZReportAttractionDTO,
+  emptyAttractionZReportsTotals,
+} from "../../dtos/attraction-reports-dtos/AttractionReportDto";
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
-
+import { getDateRange, getTodayRange } from "../../utils/date";
+import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 export const OpenAttractionReportService = async (
   operatorID: number,
   params: AttractionReportParams,
 ) => {
   const attractionID = Number(params.attractionID);
 
-  if (!attractionID || Number.isNaN(attractionID)) {
-    throw BadRequest("Attraction ID is invalid!");
-  }
-
   return await AttractionReportModel.sequelize!.transaction(
     async (transaction) => {
+      const { start, end } = getTodayRange();
+
       const operatorAttraction = await AttractionOperatorModel.findOne({
         where: {
           operator: operatorID,
@@ -46,9 +54,10 @@ export const OpenAttractionReportService = async (
         throw NotFound("Operator attraction not found!");
       }
 
-      const openReport = await AttractionReportModel.findOne({
+      const openXReport = await AttractionReportModel.findOne({
         where: {
           operator: operatorID,
+          report_type: AttractionReportTypes.XREPORT,
           status: {
             [Op.in]: [
               AttractionReportStatusTypes.OPEN,
@@ -60,14 +69,72 @@ export const OpenAttractionReportService = async (
         lock: transaction.LOCK.UPDATE,
       });
 
-      if (openReport !== null) {
-        throw Conflict("Operator already has open report!");
+      if (openXReport !== null) {
+        throw Conflict("Operator already has open X report!");
       }
 
-      const report = await AttractionReportModel.create(
+      let zReport = await AttractionReportModel.findOne({
+        where: {
+          attraction: attractionID,
+          report_type: AttractionReportTypes.ZREPORT,
+          status: {
+            [Op.in]: [
+              AttractionReportStatusTypes.OPEN,
+              AttractionReportStatusTypes.STOPPED,
+            ],
+          },
+          createdAt: {
+            [Op.between]: [start, end],
+          },
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (zReport === null) {
+        const closedTodayZReport = await AttractionReportModel.findOne({
+          where: {
+            attraction: attractionID,
+            report_type: AttractionReportTypes.ZREPORT,
+            status: {
+              [Op.in]: [
+                AttractionReportStatusTypes.CLOSED,
+                AttractionReportStatusTypes.CONFIRMED,
+              ],
+            },
+            createdAt: {
+              [Op.between]: [start, end],
+            },
+          },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+
+        if (closedTodayZReport !== null) {
+          throw BadRequest("Today Z report is already closed!");
+        }
+
+        zReport = await AttractionReportModel.create(
+          {
+            attraction: attractionID,
+            operator: operatorID,
+            report_type: AttractionReportTypes.ZREPORT,
+            zreport: null,
+            status: AttractionReportStatusTypes.OPEN,
+            opened_at: new Date(),
+          },
+          {
+            transaction,
+          },
+        );
+      }
+
+      const xReport = await AttractionReportModel.create(
         {
           attraction: attractionID,
           operator: operatorID,
+          report_type: AttractionReportTypes.XREPORT,
+          zreport: zReport.id,
           status: AttractionReportStatusTypes.OPEN,
           opened_at: new Date(),
         },
@@ -76,7 +143,7 @@ export const OpenAttractionReportService = async (
         },
       );
 
-      const reportData = report.get({ plain: true });
+      const reportData = xReport.get({ plain: true });
 
       return AttractionReportDTO(reportData);
     },
@@ -189,7 +256,7 @@ export const UpdateAttractionReportStatusService = async (
   operatorID: number,
   params: AttractionReportParams,
   body: UpdateAttractionReportStatusData,
-): Promise<AttractionReportDto> => {
+) => {
   const attractionID = Number(params.attractionID);
 
   if (!attractionID || Number.isNaN(attractionID)) {
@@ -324,4 +391,159 @@ export const UpdateAttractionReportStatusService = async (
       });
     },
   );
+};
+
+export const GetTodayAttractionReportsService = async (
+  operatorID: number,
+  params: AttractionReportParams,
+) => {
+  if (!operatorID) {
+    throw BadRequest("Operator is required!");
+  }
+
+  const attractionID = Number(params.attractionID);
+
+  if (!attractionID || Number.isNaN(attractionID)) {
+    throw BadRequest("Attraction ID is invalid!");
+  }
+
+  const { start, end } = getTodayRange();
+
+  const zReport = await AttractionReportModel.findOne({
+    where: {
+      attraction: attractionID,
+      report_type: AttractionReportTypes.ZREPORT,
+      createdAt: {
+        [Op.between]: [start, end],
+      },
+    },
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+        required: false,
+        attributes: ["id", "firstname", "lastname", "file"],
+      },
+    ],
+    order: [["id", "DESC"]],
+  });
+
+  const xReports = await AttractionReportModel.findAll({
+    where: {
+      attraction: attractionID,
+      report_type: AttractionReportTypes.XREPORT,
+      createdAt: {
+        [Op.between]: [start, end],
+      },
+    },
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+        required: false,
+        attributes: ["id", "firstname", "lastname", "file"],
+      },
+    ],
+    order: [["id", "DESC"]],
+  });
+
+  return AttractionReportsTodayDTO({
+    zreport: zReport
+      ? (zReport.get({ plain: true }) as AttractionReportWithOperatorPlain)
+      : null,
+
+    xreports: xReports.map(
+      (report) =>
+        report.get({ plain: true }) as AttractionReportWithOperatorPlain,
+    ),
+  });
+};
+
+export const GetAttractionZReportsService = async (
+  query: GetAttractionZReportsQuery,
+) => {
+  const { start, end } = getDateRange(query.date);
+
+  const baseReportWhere = {
+    report_type: AttractionReportTypes.ZREPORT,
+    created_at: {
+      [Op.between]: [start, end],
+    },
+  };
+
+  const allReports = await AttractionReportModel.findAll({
+    where: baseReportWhere,
+    order: [
+      ["attraction", "ASC"],
+      ["created_at", "ASC"],
+    ],
+  });
+
+  const allReportsPlain = allReports.map(
+    (report) => report.get({ plain: true }) as AttractionReportModelI,
+  );
+
+  const totals = emptyAttractionZReportsTotals();
+
+  const stats = {
+    total: 0,
+    open: 0,
+    stopped: 0,
+    waiting: 0,
+    confirmed: 0,
+  };
+
+  for (const report of allReportsPlain) {
+    stats.total += 1;
+
+    addAttractionZReportsTotals(totals, report);
+
+    if (report.status === AttractionReportStatusTypes.OPEN) {
+      stats.open += 1;
+    }
+
+    if (report.status === AttractionReportStatusTypes.STOPPED) {
+      stats.stopped += 1;
+    }
+
+    if (report.status === AttractionReportStatusTypes.CLOSED) {
+      stats.waiting += 1;
+    }
+
+    if (report.status === AttractionReportStatusTypes.CONFIRMED) {
+      stats.confirmed += 1;
+    }
+  }
+
+  const attractions = await AttractionModel.findAll({
+    order: [["id", "DESC"]],
+    include: [
+      {
+        model: AttractionReportModel,
+        as: "reports",
+        required: false,
+        separate: true,
+        where: baseReportWhere,
+        include: [
+          {
+            model: EmployeeModel,
+            as: "operators",
+            required: false,
+            attributes: ["id", "firstname", "lastname", "file"],
+          },
+        ],
+        order: [["id", "DESC"]],
+      },
+    ],
+  });
+
+  return {
+    stats,
+    totals,
+    attractions: attractions.map((attraction) =>
+      AttractionZReportAttractionDTO(
+        attraction.get({ plain: true }) as AttractionWithZReportsPlain,
+      ),
+    ),
+  };
 };

@@ -8,6 +8,7 @@ import {
 import {
   getAccountingDateRange,
   getDateRange,
+  getTashkentDayRangeUTC,
   getTodayRange,
 } from "../../utils/date";
 import {
@@ -39,7 +40,7 @@ export const OpenCashboxReportService = async (
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
-    const { start, end } = getTodayRange();
+    const { startDate, endDate } = getTashkentDayRangeUTC();
 
     const openedXReport = await CashboxReportModel.findOne({
       where: {
@@ -61,7 +62,7 @@ export const OpenCashboxReportService = async (
         cashbox: cashboxID,
         report_type: CashboxReportTypes.ZREPORT,
         created_at: {
-          [Op.between]: [start, end],
+          [Op.between]: [startDate, endDate],
         },
       },
       transaction: transaction,
@@ -145,14 +146,14 @@ export const GetTodayCashboxReportsService = async (
 
   const cashboxID = Number(params.cashboxID);
 
-  const { start, end } = getTodayRange();
+  const { startDate, endDate } = getTashkentDayRangeUTC();
 
   const zReport = await CashboxReportModel.findOne({
     where: {
       cashbox: cashboxID,
       report_type: CashboxReportTypes.ZREPORT,
       created_at: {
-        [Op.between]: [start, end],
+        [Op.between]: [startDate, endDate],
       },
     },
     include: [
@@ -171,7 +172,7 @@ export const GetTodayCashboxReportsService = async (
       cashbox: cashboxID,
       report_type: CashboxReportTypes.XREPORT,
       created_at: {
-        [Op.between]: [start, end],
+        [Op.between]: [startDate, endDate],
       },
     },
     include: [
@@ -223,7 +224,7 @@ export const StatusCashboxReportService = async (
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
-    const { start, end } = getTodayRange();
+    const { startDate, endDate } = getTashkentDayRangeUTC();
 
     const targetStatus = body.status;
 
@@ -252,7 +253,7 @@ export const StatusCashboxReportService = async (
       cashbox: params.cashboxID,
       report_type: body.report_type,
       created_at: {
-        [Op.between]: [start, end],
+        [Op.between]: [startDate, endDate],
       },
     };
 

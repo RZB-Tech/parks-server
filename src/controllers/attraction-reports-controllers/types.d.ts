@@ -7,3 +7,7 @@ declare interface UpdateAttractionReportStatusData {
     | AttractionReportStatusTypes.STOPPED
     | AttractionReportStatusTypes.CLOSED;
 }
+
+declare interface GetAttractionZReportsQuery {
+  date?: string;
+}
