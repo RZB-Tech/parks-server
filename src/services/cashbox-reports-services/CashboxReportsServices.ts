@@ -232,7 +232,10 @@ export const StatusCashboxReportService = async (
       }
 
       if (targetStatus === CashboxReportStatusTypes.OPEN) {
-        return [CashboxReportStatusTypes.STOPPED];
+        return [
+          CashboxReportStatusTypes.STOPPED,
+          CashboxReportStatusTypes.CLOSED,
+        ];
       }
 
       if (targetStatus === CashboxReportStatusTypes.CLOSED) {
@@ -255,10 +258,6 @@ export const StatusCashboxReportService = async (
       },
     };
 
-    /**
-     * XREPORT faqat o‘z operatori uchun update bo‘ladi.
-     * ZREPORT esa cashbox bo‘yicha update bo‘ladi.
-     */
     if (body.report_type === CashboxReportTypes.XREPORT) {
       baseWhere.operator = operatorID;
     }
@@ -292,8 +291,8 @@ export const StatusCashboxReportService = async (
     }
 
     /**
-     * ZREPORT yopilayotgan bo‘lsa,
-     * ichidagi hamma XREPORT CLOSED bo‘lishi kerak.
+     * ZREPORT CLOSED qilinayotgan bo‘lsa,
+     * unga tegishli hamma XREPORT CLOSED bo‘lishi kerak.
      */
     if (
       body.report_type === CashboxReportTypes.ZREPORT &&
@@ -343,8 +342,8 @@ export const StatusCashboxReportService = async (
 
     /**
      * CASE 1:
-     * Agar XREPORT STOPPED qilinsa va shu ZREPORT ichida
-     * boshqa OPEN XREPORT qolmasa, parent ZREPORT ham STOPPED bo‘ladi.
+     * XREPORT STOPPED qilinsa va shu parent ZREPORT ichida
+     * boshqa OPEN XREPORT qolmasa, ZREPORT ham STOPPED bo‘ladi.
      */
     if (
       body.report_type === CashboxReportTypes.XREPORT &&
@@ -369,6 +368,7 @@ export const StatusCashboxReportService = async (
         await CashboxReportModel.update(
           {
             status: CashboxReportStatusTypes.STOPPED,
+            closed_at: new Date(),
           },
           {
             where: {
@@ -385,8 +385,8 @@ export const StatusCashboxReportService = async (
 
     /**
      * CASE 2:
-     * Agar XREPORT OPEN qilinsa va parent ZREPORT STOPPED bo‘lsa,
-     * parent ZREPORT ham OPEN bo‘ladi.
+     * XREPORT OPEN qilinsa va parent ZREPORT STOPPED bo‘lsa,
+     * ZREPORT ham OPEN bo‘ladi.
      */
     if (
       body.report_type === CashboxReportTypes.XREPORT &&
