@@ -168,7 +168,6 @@ export const GetTodayCashboxReportsService = async (
 
   const xReports = await CashboxReportModel.findAll({
     where: {
-      operator: operatorID,
       cashbox: cashboxID,
       report_type: CashboxReportTypes.XREPORT,
       created_at: {
