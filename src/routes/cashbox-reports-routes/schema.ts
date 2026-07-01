@@ -445,11 +445,20 @@ export const statusCashboxReportSchema = {
     properties: {
       status: {
         type: "string",
-        enum: Object.values(CashboxReportStatusTypes),
+        enum: [
+          CashboxReportStatusTypes.OPEN,
+          CashboxReportStatusTypes.STOPPED,
+          CashboxReportStatusTypes.CLOSED,
+          CashboxReportStatusTypes.CONFIRMED,
+          CashboxReportStatusTypes.CANCELLED,
+        ],
       },
       report_type: {
         type: "string",
-        enum: Object.values(CashboxReportTypes),
+        enum: [
+          CashboxReportTypes.ZREPORT,
+          CashboxReportTypes.XREPORT,
+        ],
       },
     },
   }),

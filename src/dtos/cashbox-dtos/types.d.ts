@@ -15,6 +15,7 @@ declare interface CashboxResnponseDTO {
 
 declare interface CashboxWithOperatorResponseDTO {
   id: number;
+  device: number;
   name: string;
   place: string;
   status: string;

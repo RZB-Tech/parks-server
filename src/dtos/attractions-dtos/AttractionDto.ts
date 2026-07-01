@@ -1,6 +1,7 @@
 export const AttractionWithOperatorsDTO = (data: any) => {
   return {
     id: Number(data.id),
+    device: Number(data.device),
     name: data.name,
     manufacturer: data.manufacturer,
     category: data.category,

@@ -7,6 +7,10 @@ export const cashboxProperties = {
     description: "Attraction ID",
     examples: [1],
   },
+  device: {
+    type: "number",
+    description: "Device ID",
+  },
   name: {
     type: "string",
     description: "Attraction name",

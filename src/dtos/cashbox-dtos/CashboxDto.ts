@@ -1,6 +1,7 @@
 export const CashboxWithOperatorsDTO = (data: CashboxModelI): CashboxWithOperatorResponseDTO => {
   return {
     id: Number(data.id),
+    device: Number(data.device),
     name: data.name,
     place: data.place,
     status: data.status,
