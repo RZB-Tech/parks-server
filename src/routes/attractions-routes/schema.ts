@@ -7,6 +7,11 @@ export const attractionProperties = {
     description: "Attraction ID",
     examples: [1],
   },
+  device: {
+    type: "number",
+    description: "Device ID associated with the attraction",
+    examples: [1178377401],
+  },
   name: {
     type: "string",
     description: "Attraction name",
@@ -106,12 +111,26 @@ export const getAttractionSchema = {
   description: "Get attraction by id",
   tags: ["Attractions route"],
 
-  params: {
+  querystring: {
     type: "object",
-    required: ["attractionID"],
+    additionalProperties: false,
+    anyOf: [
+      {
+        required: ["attractionID"],
+      },
+      {
+        required: ["deviceID"],
+      },
+    ],
     properties: {
       attractionID: {
         type: "number",
+        description: "Attraction ID",
+      },
+
+      deviceID: {
+        type: "number",
+        description: "Device ID",
       },
     },
   },
@@ -272,6 +291,7 @@ export const updateAttractionSchema = {
   body: reqBodyWrapper({
     type: "object",
     properties: {
+      device: attractionProperties.device,
       name: attractionProperties.name,
       manufacturer: attractionProperties.manufacturer,
       category: attractionProperties.category,

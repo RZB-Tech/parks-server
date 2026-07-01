@@ -13,11 +13,25 @@ import {
 } from "../../plugins/db/postgresql/db";
 import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
 
-export const GetCashboxService = async (params: CashboxParams) => {
-  const cashbox = await CashboxModel.findOne({
-    where: {
-      id: params.cashboxID,
-    },
+export const GetCashboxService = async (query: GetCashboxQuery) => {
+  const orWhere: any[] = [];
+ 
+   if (query.cashboxID) {
+     orWhere.push({
+       id: Number(query.cashboxID),
+     });
+   }
+ 
+   if (query.deviceID) {
+     orWhere.push({
+       device: Number(query.deviceID),
+     });
+   }
+ 
+   const cashbox = await CashboxModel.findOne({
+     where: {
+       [Op.or]: orWhere,
+     },
     include: [
       {
         model: CashboxOperatorModel,
@@ -190,6 +204,7 @@ export const UpdateCashboxesService = async (
   }
 
   await cashbox.update({
+    device: body.device,
     name: body.name,
     status: body.status,
     place: body.place,

@@ -2,6 +2,11 @@ declare interface AttractionParams {
   attractionID: number;
 }
 
+declare interface GetAttractionQuery {
+  attractionID: number;
+  deviceID: number;
+}
+
 declare interface GetAttractionsQuery {
   search: string;
   categories: number;

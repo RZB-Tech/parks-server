@@ -6,6 +6,7 @@ export class AttractionModel
   implements AttractionModelI
 {
   public id!: number;
+  public device!: number;
   public name!: string;
   public manufacturer!: string;
   public category!: number;
@@ -36,6 +37,11 @@ export class AttractionModel
           autoIncrement: true,
           allowNull: false,
           primaryKey: true,
+        },
+        device: {
+          type: DataTypes.BIGINT,
+          unique: true,
+          allowNull: true,
         },
         name: {
           type: DataTypes.STRING,

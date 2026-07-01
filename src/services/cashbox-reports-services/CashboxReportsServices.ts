@@ -12,8 +12,10 @@ import {
 } from "../../utils/date";
 import {
   AccountingCashboxReportsDTO,
+  addAccountingZReportAmount,
   CashboxReportsTodayDTO,
   CashboxXReportDTO,
+  emptyAccountingZReport,
   ZReportCashboxWithReportsDTO,
   ZReportDTO,
 } from "../../dtos/cashbox-reports-dtos/CashboxReportDto";
@@ -338,10 +340,6 @@ export const StatusCashboxReportService = async (
 };
 
 export const GetZReportsService = async (query: GetZReportsQuery) => {
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
-  const offset = (page - 1) * limit;
-
   const { start, end } = getDateRange(query.date);
 
   const baseReportWhere = {
@@ -351,64 +349,56 @@ export const GetZReportsService = async (query: GetZReportsQuery) => {
     },
   };
 
-  const zreportWhere =
-    query.status !== undefined
-      ? {
-          ...baseReportWhere,
-          status: query.status,
-        }
-      : baseReportWhere;
-
-  const statsRows = (await CashboxReportModel.findAll({
-    attributes: [
-      "status",
-      [
-        CashboxReportModel.sequelize!.fn(
-          "COUNT",
-          CashboxReportModel.sequelize!.col("id"),
-        ),
-        "count",
-      ],
-    ],
+  const allReports = await CashboxReportModel.findAll({
     where: baseReportWhere,
-    group: ["status"],
-    raw: true,
-  })) as unknown as StatusCountRow[];
+    order: [
+      ["cashbox", "ASC"],
+      ["created_at", "ASC"],
+    ],
+  });
+
+  const allReportsPlain = allReports.map(
+    (report) => report.get({ plain: true }) as CashboxReportModelI,
+  );
+
+  const totals = emptyAccountingZReport();
 
   const stats = {
     total: 0,
     open: 0,
+    stopped: 0,
     waiting: 0,
     confirmed: 0,
     cancelled: 0,
   };
 
-  for (const row of statsRows) {
-    const count = Number(row.count || 0);
+  for (const report of allReportsPlain) {
+    stats.total += 1;
 
-    stats.total += count;
+    addAccountingZReportAmount(totals, report);
 
-    if (row.status === CashboxReportStatusTypes.OPEN) {
-      stats.open = count;
+    if (report.status === CashboxReportStatusTypes.OPEN) {
+      stats.open += 1;
     }
 
-    if (row.status === CashboxReportStatusTypes.CLOSED) {
-      stats.waiting = count;
+    if (report.status === CashboxReportStatusTypes.STOPPED) {
+      stats.stopped += 1;
     }
 
-    if (row.status === CashboxReportStatusTypes.CONFIRMED) {
-      stats.confirmed = count;
+    if (report.status === CashboxReportStatusTypes.CLOSED) {
+      stats.waiting += 1;
     }
 
-    if (row.status === CashboxReportStatusTypes.CANCELLED) {
-      stats.cancelled = count;
+    if (report.status === CashboxReportStatusTypes.CONFIRMED) {
+      stats.confirmed += 1;
+    }
+
+    if (report.status === CashboxReportStatusTypes.CANCELLED) {
+      stats.cancelled += 1;
     }
   }
 
-  const { rows, count } = await CashboxModel.findAndCountAll({
-    distinct: true,
-    limit,
-    offset,
+  const cashboxes = await CashboxModel.findAll({
     order: [["id", "DESC"]],
     include: [
       {
@@ -416,7 +406,7 @@ export const GetZReportsService = async (query: GetZReportsQuery) => {
         as: "reports",
         required: false,
         separate: true,
-        where: zreportWhere,
+        where: baseReportWhere,
         include: [
           {
             model: EmployeeModel,
@@ -430,21 +420,14 @@ export const GetZReportsService = async (query: GetZReportsQuery) => {
     ],
   });
 
-  const cashboxes = rows.map((cashbox) =>
-    ZReportCashboxWithReportsDTO(
-      cashbox.get({ plain: true }) as CashboxWithZReportsPlain,
-    ),
-  );
-
   return {
     stats,
-    cashboxes,
-    pagination: {
-      total: count,
-      page,
-      limit,
-      totalPages: Math.ceil(count / limit),
-    },
+    totals,
+    cashboxes: cashboxes.map((cashbox) =>
+      ZReportCashboxWithReportsDTO(
+        cashbox.get({ plain: true }) as CashboxWithZReportsPlain,
+      ),
+    ),
   };
 };
 

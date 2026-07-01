@@ -1,14 +1,11 @@
 import { Op } from "sequelize";
 import {
   AttractionOperatorDTO,
-  OperatorAttractionMeDTO,
-  OperatorAttractionsDTO,
 } from "../../dtos/attraction-operators-dtos/AttractionOperatorDto";
 import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { AttractionStatusTypes } from "../../models/postgresql/attraction-model/enums";
 import {
   AttractionOperatorStatusTypes,
-  AttractionOperatorTypes,
 } from "../../models/postgresql/attraction-operator-model/enums";
 import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
 import {
@@ -17,68 +14,6 @@ import {
   EmployeeModel,
   RoleModel,
 } from "../../plugins/db/postgresql/db";
-
-export const GetOperatorAttractionsService = async (operatorID: number) => {
-  const rows = await AttractionOperatorModel.findAll({
-    where: {
-      operator: operatorID,
-      status: AttractionOperatorStatusTypes.ACTIVE,
-    },
-    include: [
-      {
-        model: AttractionModel,
-        as: "attractions",
-        required: true,
-      },
-    ],
-    order: [["id", "DESC"]],
-  });
-
-  const data = rows.map((row) =>
-    row.get({
-      plain: true,
-    }),
-  ) as OperatorAttractionWithAttractionData[];
-
-  return data.map(OperatorAttractionsDTO);
-};
-
-export const GetOperatorAttractionService = async (
-  operatorID: number,
-  params: AttractionOperatorParams,
-) => {
-  const attractionID = Number(params.attractionID);
-
-  const operatorAttraction = await AttractionOperatorModel.findOne({
-    where: {
-      operator: operatorID,
-      attraction: attractionID,
-      status: AttractionOperatorStatusTypes.ACTIVE,
-    },
-    include: [
-      {
-        model: AttractionModel,
-        as: "attractions",
-        required: true,
-      },
-      {
-        model: EmployeeModel,
-        as: "operators",
-        required: true,
-      },
-    ],
-  });
-
-  if (operatorAttraction === null) {
-    throw NotFound("Operator attraction not found!");
-  }
-
-  const data = operatorAttraction.get({
-    plain: true,
-  }) as OperatorAttractionWithOperatorData;
-
-  return OperatorAttractionMeDTO(data);
-};
 
 export const CreateAttractionOperatorsService = async (
   params: AttractionOperatorParams,

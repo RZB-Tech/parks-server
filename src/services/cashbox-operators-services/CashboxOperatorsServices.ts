@@ -14,46 +14,6 @@ import {
   RoleModel,
 } from "../../plugins/db/postgresql/db";
 
-export const GetCashboxOperatorByEmployeeService = async (
-  employeeID: number,
-) => {
-  const row = await CashboxOperatorModel.findOne({
-    where: {
-      operator: employeeID,
-      status: "active",
-    },
-    include: [
-      {
-        model: EmployeeModel,
-        as: "operators",
-        attributes: [
-          "id",
-          "firstname",
-          "lastname",
-          "file",
-          "phone_number",
-          "telegram_username",
-          "createdAt",
-          "status",
-        ],
-        required: true,
-      },
-      {
-        model: CashboxModel,
-        as: "cashboxes",
-        attributes: ["id", "name", "place"],
-        required: true,
-      },
-    ],
-  });
-
-  if (row === null) {
-    throw NotFound("Cashbox operator not found!");
-  }
-
-  return CashboxOperatorByEmployeeDTO(row.get({ plain: true }));
-};
-
 export const CreateCashboxOperatorsService = async (
   params: CashboxOperatorParams,
   body: CreateCashboxOperatorData,

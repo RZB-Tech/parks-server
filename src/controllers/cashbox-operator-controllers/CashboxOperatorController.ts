@@ -10,17 +10,7 @@ import {
 import {
   CreateCashboxOperatorsService,
   DeleteCashboxOperatorsService,
-  GetCashboxOperatorByEmployeeService,
 } from "../../services/cashbox-operators-services/CashboxOperatorsServices";
-
-export const GetCashboxOperatorByEmployeeController = makeReplyingController(
-  "cashbox-operator",
-  async (request: FastifyRequest) => {
-    const employeeID = request.employee?.id;
-
-    return GetCashboxOperatorByEmployeeService(Number(employeeID));
-  },
-);
 
 export const CreateCashboxOperatorsController = makeReplyingController(
   "cashbox-operator",

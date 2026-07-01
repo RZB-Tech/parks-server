@@ -130,105 +130,6 @@ export const cashboxReportProperties = {
   },
 };
 
-export const openReportSchema = {
-  summary: "Open report",
-  description: "Open report for current cashier/operator",
-  tags: ["Cashbox Reports route"],
-
-  params: {
-    type: "object",
-    required: ["cashboxID"],
-    additionalProperties: false,
-    properties: {
-      cashboxID: {
-        type: "number",
-        description: "Cashbox ID",
-      },
-    },
-  },
-
-  response: {
-    200: successAnswerTemplate({
-      "cashbox-report": {
-        type: "object",
-        properties: cashboxReportProperties,
-      },
-    }),
-  },
-};
-
-export const cashboxReportsTodaySchema = {
-  summary: "Get operator today reports",
-  description: "Get current operator today's reports",
-  tags: ["Cashbox Reports route"],
-
-  response: {
-    200: successAnswerTemplate({
-      "cashbox-reports": {
-        type: "object",
-        properties: {
-          zreport: {
-            oneOf: [
-              {
-                type: "object",
-                properties: cashboxReportProperties,
-              },
-              {
-                type: "null",
-              },
-            ],
-          },
-          xreports: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: cashboxReportProperties,
-            },
-          },
-        },
-      },
-    }),
-  },
-};
-
-export const statusCashboxReportSchema = {
-  summary: "Update report status",
-  description: "Update the status of a cashbox report",
-  tags: ["Cashbox Reports route"],
-
-  params: {
-    type: "object",
-    required: ["cashboxID"],
-    additionalProperties: false,
-    properties: {
-      cashboxID: {
-        type: "number",
-        description: "Cashbox ID",
-      },
-    },
-  },
-
-  body: reqBodyWrapper({
-    required: ["status", "report_type"],
-    properties: {
-      status: {
-        type: "string",
-        enum: Object.values(CashboxReportStatusTypes),
-      },
-      report_type: {
-        type: "string",
-        enum: Object.values(CashboxReportTypes),
-      },
-    },
-  }),
-
-  response: {
-    200: successAnswerTemplate({
-      success: { type: "boolean", const: true },
-    }),
-  },
-};
-
 const nullableNumber = {
   oneOf: [{ type: "number" }, { type: "null" }],
 };
@@ -376,7 +277,7 @@ export const zReportsStatsProperties = {
     type: "number",
   },
 
-  waiting: {
+  stopped: {
     type: "number",
   },
 
@@ -407,10 +308,164 @@ export const paginationProperties = {
   },
 };
 
+export const accountingZReportAmountProperties = {
+  total_amount: {
+    type: "number",
+  },
+
+  cash_amount: {
+    type: "number",
+  },
+
+  card_amount: {
+    type: "number",
+  },
+
+  online_amount: {
+    type: "number",
+  },
+
+  uzcard_amount: {
+    type: "number",
+  },
+
+  humo_amount: {
+    type: "number",
+  },
+
+  uzum_amount: {
+    type: "number",
+  },
+
+  payme_amount: {
+    type: "number",
+  },
+
+  click_amount: {
+    type: "number",
+  },
+
+  activated_cards_count: {
+    type: "number",
+  },
+
+  relationed_cards_count: {
+    type: "number",
+  },
+
+  transactions_count: {
+    type: "number",
+  },
+
+  xreports_count: {
+    type: "number",
+  },
+};
+
+export const openReportSchema = {
+  summary: "Open report",
+  description: "Open report for current cashier/operator",
+  tags: ["Cashbox Reports route"],
+
+  params: {
+    type: "object",
+    required: ["cashboxID"],
+    additionalProperties: false,
+    properties: {
+      cashboxID: {
+        type: "number",
+        description: "Cashbox ID",
+      },
+    },
+  },
+
+  response: {
+    200: successAnswerTemplate({
+      "cashbox-report": {
+        type: "object",
+        properties: cashboxReportProperties,
+      },
+    }),
+  },
+};
+
+export const cashboxReportsTodaySchema = {
+  summary: "Get operator today reports",
+  description: "Get current operator today's reports",
+  tags: ["Cashbox Reports route"],
+
+  response: {
+    200: successAnswerTemplate({
+      "cashbox-reports": {
+        type: "object",
+        properties: {
+          zreport: {
+            oneOf: [
+              {
+                type: "object",
+                properties: cashboxReportProperties,
+              },
+              {
+                type: "null",
+              },
+            ],
+          },
+          xreports: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: cashboxReportProperties,
+            },
+          },
+        },
+      },
+    }),
+  },
+};
+
+export const statusCashboxReportSchema = {
+  summary: "Update report status",
+  description: "Update the status of a cashbox report",
+  tags: ["Cashbox Reports route"],
+
+  params: {
+    type: "object",
+    required: ["cashboxID"],
+    additionalProperties: false,
+    properties: {
+      cashboxID: {
+        type: "number",
+        description: "Cashbox ID",
+      },
+    },
+  },
+
+  body: reqBodyWrapper({
+    required: ["status", "report_type"],
+    properties: {
+      status: {
+        type: "string",
+        enum: Object.values(CashboxReportStatusTypes),
+      },
+      report_type: {
+        type: "string",
+        enum: Object.values(CashboxReportTypes),
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      success: { type: "boolean", const: true },
+    }),
+  },
+};
+
 export const getZReportsSchema = {
   summary: "Get Z reports",
   description: "Get Z reports by date for admin panel",
   tags: ["Cashbox Reports route"],
+
   querystring: {
     type: "object",
     additionalProperties: false,
@@ -418,21 +473,6 @@ export const getZReportsSchema = {
       date: {
         type: "string",
         description: "Date format: YYYY-MM-DD",
-      },
-
-      status: {
-        type: "string",
-        enum: Object.values(CashboxReportStatusTypes),
-      },
-
-      page: {
-        type: "number",
-        default: 1,
-      },
-
-      limit: {
-        type: "number",
-        default: 10,
       },
     },
   },
@@ -444,17 +484,17 @@ export const getZReportsSchema = {
         properties: zReportsStatsProperties,
       },
 
-      "cashbox-zreports": {
+      totals: {
+        type: "object",
+        properties: accountingZReportAmountProperties,
+      },
+
+      cashboxes: {
         type: "array",
         items: {
           type: "object",
           properties: zReportCashboxWithReportsProperties,
         },
-      },
-
-      pagination: {
-        type: "object",
-        properties: paginationProperties,
       },
     }),
   },
@@ -546,60 +586,6 @@ export const accountingCashboxProperties = {
 
   description: {
     oneOf: [{ type: "string" }, { type: "null" }],
-  },
-};
-
-export const accountingZReportAmountProperties = {
-  total_amount: {
-    type: "number",
-  },
-
-  cash_amount: {
-    type: "number",
-  },
-
-  card_amount: {
-    type: "number",
-  },
-
-  online_amount: {
-    type: "number",
-  },
-
-  uzcard_amount: {
-    type: "number",
-  },
-
-  humo_amount: {
-    type: "number",
-  },
-
-  uzum_amount: {
-    type: "number",
-  },
-
-  payme_amount: {
-    type: "number",
-  },
-
-  click_amount: {
-    type: "number",
-  },
-
-  activated_cards_count: {
-    type: "number",
-  },
-
-  relationed_cards_count: {
-    type: "number",
-  },
-
-  transactions_count: {
-    type: "number",
-  },
-
-  xreports_count: {
-    type: "number",
   },
 };
 

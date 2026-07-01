@@ -6,6 +6,7 @@ export class CashboxModel
   implements CashboxModelI
 {
   public id!: number;
+  public device!: number;
   public name!: string;
   public place!: string;
   public description!: string;
@@ -25,6 +26,11 @@ export class CashboxModel
           autoIncrement: true,
           allowNull: false,
           primaryKey: true,
+        },
+        device: {
+          type: DataTypes.BIGINT,
+          unique: true,
+          allowNull: true,
         },
         name: {
           type: DataTypes.STRING,

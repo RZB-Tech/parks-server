@@ -18,10 +18,10 @@ import {
 
 export const GetAttractionController = makeReplyingController(
   "attraction",
-  async (request: FastifyRequest<RouteWithParams<AttractionParams>>) => {
-    const params = request.params;
+  async (request: FastifyRequest<RouteWithQuery<GetAttractionQuery>>) => {
+    const query = request.query;
 
-    return GetAttractionService(params);
+    return GetAttractionService(query);
   },
 );
 

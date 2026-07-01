@@ -60,12 +60,26 @@ export const getCashboxSchema = {
   description: "Get cashbox by id",
   tags: ["Cashboxes route"],
 
-  params: {
+  querystring: {
     type: "object",
-    required: ["cashboxID"],
+    additionalProperties: false,
+    anyOf: [
+      {
+        required: ["cashboxID"],
+      },
+      {
+        required: ["deviceID"],
+      },
+    ],
     properties: {
       cashboxID: {
         type: "number",
+        description: "Cashbox ID",
+      },
+
+      deviceID: {
+        type: "number",
+        description: "Device ID",
       },
     },
   },
@@ -206,6 +220,7 @@ export const updateCashboxSchema = {
   body: reqBodyWrapper({
     type: "object",
     properties: {
+      device: { type: "number" },
       name: { type: "string" },
       place: { type: "string" },
       description: { type: "string" },

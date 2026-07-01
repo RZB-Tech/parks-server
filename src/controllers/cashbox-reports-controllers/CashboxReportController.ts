@@ -50,13 +50,13 @@ export const StatusCashboxReportController = makeReplyingController(
 );
 
 export const GetZReportsController = makeReplyingController(
-  ["stats", "cashbox-zreports", "pagination"],
+  ["stats", "totals", "cashboxes"],
   async (request: FastifyRequest<RouteWithQuery<GetZReportsQuery>>) => {
     const query = request.query;
 
     const result = await GetZReportsService(query);
 
-    return [result.stats, result.cashboxes, result.pagination];
+    return [result.stats, result.totals, result.cashboxes];
   },
 );
 

@@ -3,18 +3,32 @@ import {
   FastifyPluginAsync,
   FastifyPluginOptions,
 } from "fastify";
-import { CreateCashboxesController, DeleteCashboxesController, GetCashboxController, GetCashboxesController, GetCashboxStatsController, UpdateCashboxesController } from "../../controllers/cashbox-controllers/CashboxController";
-import { createCashboxSchema, deleteCashboxesSchema, getCashboxesSchema, getCashboxSchema, getCashboxStatsSchema, updateCashboxSchema } from "./schema";
+import {
+  CreateCashboxesController,
+  DeleteCashboxesController,
+  GetCashboxController,
+  GetCashboxesController,
+  GetCashboxStatsController,
+  UpdateCashboxesController,
+} from "../../controllers/cashbox-controllers/CashboxController";
+import {
+  createCashboxSchema,
+  deleteCashboxesSchema,
+  getCashboxesSchema,
+  getCashboxSchema,
+  getCashboxStatsSchema,
+  updateCashboxSchema,
+} from "./schema";
 
 const CashboxesRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-    fastify.get(
-      "/cashbox/:cashboxID",
-      { schema: getCashboxSchema, preHandler: [] },
-      GetCashboxController,
-    );
+  fastify.get(
+    "/cashbox",
+    { schema: getCashboxSchema, preHandler: [] },
+    GetCashboxController,
+  );
 
   fastify.get(
     "/cashbox/stats",

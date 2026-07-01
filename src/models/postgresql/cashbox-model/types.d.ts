@@ -1,5 +1,6 @@
 declare interface CashboxModelI {
   id: number;
+  device: number;
   name: string;
   place: string;
   description: string;

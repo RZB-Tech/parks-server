@@ -1,5 +1,6 @@
 declare interface AttractionModelI {
   id: number;
+  device: number;
   name: string;
   manufacturer: string;
   category: number;

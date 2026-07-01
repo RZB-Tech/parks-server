@@ -24,11 +24,11 @@ const AttractionsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-    fastify.get(
-      "/attraction/:attractionID",
-      { schema: getAttractionSchema, preHandler: [] },
-      GetAttractionController,
-    );
+  fastify.get(
+    "/attraction",
+    { schema: getAttractionSchema, preHandler: [] },
+    GetAttractionController,
+  );
 
   fastify.get(
     "/attraction/stats",

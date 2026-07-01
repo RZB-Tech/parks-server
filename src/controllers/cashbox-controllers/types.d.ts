@@ -2,6 +2,11 @@ declare interface CashboxParams {
   cashboxID: number;
 }
 
+declare interface GetCashboxQuery {
+  cashboxID: number;
+  deviceID: number;
+}
+
 declare interface GetCashboxesQuery {
   search: string;
   statuses: string;

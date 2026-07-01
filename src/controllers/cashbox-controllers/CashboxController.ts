@@ -5,10 +5,10 @@ import { CreateCashboxesService, DeleteCashboxesService, GetCashboxesService, Ge
 
 export const GetCashboxController = makeReplyingController(
   "cashbox",
-  async (request: FastifyRequest<RouteWithParams<CashboxParams>>) => {
-    const params = request.params;
+  async (request: FastifyRequest<RouteWithQuery<GetCashboxQuery>>) => {
+    const query = request.query;
 
-    return GetCashboxService(params);
+    return GetCashboxService(query);
   },
 );
 

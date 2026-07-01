@@ -15,10 +15,24 @@ import {
 } from "../../plugins/db/postgresql/db";
 import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 
-export const GetAttractionService = async (params: AttractionParams) => {
+export const GetAttractionService = async (query: GetAttractionQuery) => {
+  const orWhere: any[] = [];
+
+  if (query.attractionID) {
+    orWhere.push({
+      id: Number(query.attractionID),
+    });
+  }
+
+  if (query.deviceID) {
+    orWhere.push({
+      device: Number(query.deviceID),
+    });
+  }
+
   const attraction = await AttractionModel.findOne({
     where: {
-      id: params.attractionID,
+      [Op.or]: orWhere,
     },
     include: [
       {
@@ -285,6 +299,7 @@ export const UpdateAttractionsService = async (
   }
 
   await attraction.update({
+    device: body.device,
     name: body.name,
     manufacturer: body.manufacturer,
     category: body.category,

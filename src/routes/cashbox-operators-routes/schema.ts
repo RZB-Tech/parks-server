@@ -50,18 +50,6 @@ export const cashboxOperatorProperties = {
   },
 };
 
-export const cashboxOperatorCashierProperties = {
-  firstname: { type: "string" },
-  lastname: { type: "string" },
-  fullname: { type: "string" },
-  file: {
-    oneOf: [{ type: "number" }, { type: "null" }],
-  },
-  phone_number: { type: "string" },
-  telegram_username: { type: "string" },
-  createdAt: { type: "string" },
-};
-
 export const cashboxOperatorCashboxProperties = {
   id: {
     type: "number",
@@ -81,48 +69,6 @@ export const cashboxOperatorCashboxProperties = {
   },
 };
 
-export const currentCashboxOperatorProperties = {
-  id: {
-    type: "number",
-  },
-
-  status: {
-    type: "string",
-    enum: Object.values(CashboxOperatorStatusTypes),
-  },
-
-  endAt: {
-    oneOf: [{ type: "string" }, { type: "null" }],
-  },
-  ...cashboxOperatorCashierProperties,
-
-  cashbox: {
-    oneOf: [
-      {
-        type: "object",
-        properties: cashboxOperatorCashboxProperties,
-      },
-      {
-        type: "null",
-      },
-    ],
-  },
-};
-
-export const getCashboxOperatorByEmployeeSchema = {
-  summary: "Get cashbox operator by employee",
-  description: "Get current cashbox operator by employee id from headers",
-  tags: ["Cashboxes operators route"],
-
-  response: {
-    200: successAnswerTemplate({
-      "cashbox-operator": {
-        type: "object",
-        properties: currentCashboxOperatorProperties,
-      },
-    }),
-  },
-};
 
 export const createCashboxOperatorsSchema = {
   summary: "Create cashbox operators",

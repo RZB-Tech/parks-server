@@ -11,9 +11,6 @@ declare interface CloseCashboxReportData {
 
 declare interface GetZReportsQuery {
   date?: string;
-  status?: CashboxReportStatusTypes;
-  page?: number;
-  limit?: number;
 }
 
 type StatusCountRow = {
