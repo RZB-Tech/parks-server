@@ -45,7 +45,6 @@ export const OpenCashboxReportService = async (
     const openedXReport = await CashboxReportModel.findOne({
       where: {
         operator: operatorID,
-        cashbox: cashboxID,
         report_type: CashboxReportTypes.XREPORT,
         status: CashboxReportStatusTypes.OPEN,
       },
@@ -196,7 +195,6 @@ export const GetTodayCashboxReportsService = async (
     ),
   });
 };
-
 export const StatusCashboxReportService = async (
   operatorID: number,
   params: CashboxReportsParams,
@@ -257,6 +255,10 @@ export const StatusCashboxReportService = async (
       },
     };
 
+    /**
+     * XREPORT faqat o‘z operatori uchun update bo‘ladi.
+     * ZREPORT esa cashbox bo‘yicha update bo‘ladi.
+     */
     if (body.report_type === CashboxReportTypes.XREPORT) {
       baseWhere.operator = operatorID;
     }
@@ -289,6 +291,10 @@ export const StatusCashboxReportService = async (
       throw BadRequest("Report not found!");
     }
 
+    /**
+     * ZREPORT yopilayotgan bo‘lsa,
+     * ichidagi hamma XREPORT CLOSED bo‘lishi kerak.
+     */
     if (
       body.report_type === CashboxReportTypes.ZREPORT &&
       targetStatus === CashboxReportStatusTypes.CLOSED
@@ -335,9 +341,79 @@ export const StatusCashboxReportService = async (
       transaction: dbTransaction,
     });
 
+    /**
+     * CASE 1:
+     * Agar XREPORT STOPPED qilinsa va shu ZREPORT ichida
+     * boshqa OPEN XREPORT qolmasa, parent ZREPORT ham STOPPED bo‘ladi.
+     */
+    if (
+      body.report_type === CashboxReportTypes.XREPORT &&
+      targetStatus === CashboxReportStatusTypes.STOPPED &&
+      report.zreport
+    ) {
+      const anotherOpenXReport = await CashboxReportModel.findOne({
+        where: {
+          id: {
+            [Op.ne]: report.id,
+          },
+          cashbox: params.cashboxID,
+          report_type: CashboxReportTypes.XREPORT,
+          zreport: report.zreport,
+          status: CashboxReportStatusTypes.OPEN,
+        },
+        transaction: dbTransaction,
+        lock: dbTransaction.LOCK.UPDATE,
+      });
+
+      if (!anotherOpenXReport) {
+        await CashboxReportModel.update(
+          {
+            status: CashboxReportStatusTypes.STOPPED,
+          },
+          {
+            where: {
+              id: report.zreport,
+              cashbox: params.cashboxID,
+              report_type: CashboxReportTypes.ZREPORT,
+              status: CashboxReportStatusTypes.OPEN,
+            },
+            transaction: dbTransaction,
+          },
+        );
+      }
+    }
+
+    /**
+     * CASE 2:
+     * Agar XREPORT OPEN qilinsa va parent ZREPORT STOPPED bo‘lsa,
+     * parent ZREPORT ham OPEN bo‘ladi.
+     */
+    if (
+      body.report_type === CashboxReportTypes.XREPORT &&
+      targetStatus === CashboxReportStatusTypes.OPEN &&
+      report.zreport
+    ) {
+      await CashboxReportModel.update(
+        {
+          status: CashboxReportStatusTypes.OPEN,
+          closed_at: null,
+        },
+        {
+          where: {
+            id: report.zreport,
+            cashbox: params.cashboxID,
+            report_type: CashboxReportTypes.ZREPORT,
+            status: CashboxReportStatusTypes.STOPPED,
+          },
+          transaction: dbTransaction,
+        },
+      );
+    }
+
     return true;
   });
 };
+
 
 export const GetZReportsService = async (query: GetZReportsQuery) => {
   const { start, end } = getDateRange(query.date);
