@@ -191,9 +191,9 @@ export const cashboxReportsTodaySchema = {
   },
 };
 
-export const closeReportSchema = {
-  summary: "Close report",
-  description: "Close X report or Z report",
+export const statusCashboxReportSchema = {
+  summary: "Update report status",
+  description: "Update the status of a cashbox report",
   tags: ["Cashbox Reports route"],
 
   params: {
@@ -209,8 +209,12 @@ export const closeReportSchema = {
   },
 
   body: reqBodyWrapper({
-    required: ["report_type"],
+    required: ["status", "report_type"],
     properties: {
+      status: {
+        type: "string",
+        enum: Object.values(CashboxReportStatusTypes),
+      },
       report_type: {
         type: "string",
         enum: Object.values(CashboxReportTypes),

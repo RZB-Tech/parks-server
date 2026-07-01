@@ -1,9 +1,12 @@
+// import { CashboxReportStatusTypes, CashboxReportTypes } from "../../models/postgresql/cashbox-report-model/enums";
+
 declare interface CashboxReportsParams {
   cashboxID: number;
 }
 
 declare interface CloseCashboxReportData {
-  report_type: import("./enums").CashboxReportTypes;
+  status: CashboxReportStatusTypes;
+  report_type: CashboxReportTypes;
 }
 
 declare interface GetZReportsQuery {

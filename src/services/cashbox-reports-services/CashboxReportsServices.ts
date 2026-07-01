@@ -195,122 +195,145 @@ export const GetTodayCashboxReportsService = async (
   });
 };
 
-export const CloseCashboxReportService = async (
+export const StatusCashboxReportService = async (
   operatorID: number,
   params: CashboxReportsParams,
   body: CloseCashboxReportData,
 ) => {
-  if (!operatorID) {
-    throw BadRequest("Operator is required!");
+  const allowedReportTypes = [
+    CashboxReportTypes.XREPORT,
+    CashboxReportTypes.ZREPORT,
+  ];
+
+  if (!allowedReportTypes.includes(body.report_type)) {
+    throw BadRequest("Invalid report type!");
   }
 
-  if (!body.report_type) {
-    throw BadRequest("Report type is required!");
-  }
+  const allowedStatuses = [
+    CashboxReportStatusTypes.OPEN,
+    CashboxReportStatusTypes.STOPPED,
+    CashboxReportStatusTypes.CLOSED,
+  ];
 
-  const cashboxID = Number(params.cashboxID);
+  if (!allowedStatuses.includes(body.status)) {
+    throw BadRequest("Invalid report status!");
+  }
 
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
     const { start, end } = getTodayRange();
 
-    if (body.report_type === CashboxReportTypes.XREPORT) {
-      const xReport = await CashboxReportModel.findOne({
-        where: {
-          operator: operatorID,
-          cashbox: cashboxID,
-          report_type: CashboxReportTypes.XREPORT,
-          status: CashboxReportStatusTypes.OPEN,
-          created_at: {
-            [Op.between]: [start, end],
-          },
-        },
-        transaction: dbTransaction,
-        lock: dbTransaction.LOCK.UPDATE,
-      });
+    const targetStatus = body.status;
 
-      if (!xReport) {
-        throw BadRequest("Open X report not found!");
+    const getSourceStatuses = () => {
+      if (targetStatus === CashboxReportStatusTypes.STOPPED) {
+        return [CashboxReportStatusTypes.OPEN];
       }
 
-      await xReport.update(
-        {
-          status: CashboxReportStatusTypes.CLOSED,
-          closed_at: new Date(),
-        },
-        {
-          transaction: dbTransaction,
-        },
-      );
+      if (targetStatus === CashboxReportStatusTypes.OPEN) {
+        return [CashboxReportStatusTypes.STOPPED];
+      }
 
-      return true;
+      if (targetStatus === CashboxReportStatusTypes.CLOSED) {
+        return [
+          CashboxReportStatusTypes.OPEN,
+          CashboxReportStatusTypes.STOPPED,
+        ];
+      }
+
+      return [];
+    };
+
+    const sourceStatuses = getSourceStatuses();
+
+    const baseWhere: any = {
+      cashbox: params.cashboxID,
+      report_type: body.report_type,
+      created_at: {
+        [Op.between]: [start, end],
+      },
+    };
+
+    if (body.report_type === CashboxReportTypes.XREPORT) {
+      baseWhere.operator = operatorID;
     }
 
-    if (body.report_type === CashboxReportTypes.ZREPORT) {
-      const zReport = await CashboxReportModel.findOne({
+    const report = await CashboxReportModel.findOne({
+      where: {
+        ...baseWhere,
+        status: {
+          [Op.in]: sourceStatuses,
+        },
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!report) {
+      const alreadySameStatus = await CashboxReportModel.findOne({
         where: {
-          cashbox: cashboxID,
-          report_type: CashboxReportTypes.ZREPORT,
-          status: CashboxReportStatusTypes.OPEN,
-          created_at: {
-            [Op.between]: [start, end],
-          },
+          ...baseWhere,
+          status: targetStatus,
         },
         transaction: dbTransaction,
         lock: dbTransaction.LOCK.UPDATE,
       });
 
-      if (!zReport) {
-        const closedZReport = await CashboxReportModel.findOne({
-          where: {
-            cashbox: cashboxID,
-            report_type: CashboxReportTypes.ZREPORT,
-            status: CashboxReportStatusTypes.CLOSED,
-            created_at: {
-              [Op.between]: [start, end],
-            },
-          },
-          transaction: dbTransaction,
-          lock: dbTransaction.LOCK.UPDATE,
-        });
-
-        if (closedZReport) {
-          throw BadRequest("Z report is already closed!");
-        }
-
-        throw BadRequest("Open Z report not found!");
+      if (alreadySameStatus) {
+        throw BadRequest(`Report is already ${targetStatus}!`);
       }
 
-      const openedXReport = await CashboxReportModel.findOne({
+      throw BadRequest("Report not found!");
+    }
+
+    if (
+      body.report_type === CashboxReportTypes.ZREPORT &&
+      targetStatus === CashboxReportStatusTypes.CLOSED
+    ) {
+      const notClosedXReport = await CashboxReportModel.findOne({
         where: {
-          cashbox: cashboxID,
+          cashbox: params.cashboxID,
           report_type: CashboxReportTypes.XREPORT,
-          zreport: zReport.id,
-          status: CashboxReportStatusTypes.OPEN,
+          zreport: report.id,
+          status: {
+            [Op.in]: [
+              CashboxReportStatusTypes.OPEN,
+              CashboxReportStatusTypes.STOPPED,
+            ],
+          },
         },
         transaction: dbTransaction,
         lock: dbTransaction.LOCK.UPDATE,
       });
 
-      if (openedXReport) {
+      if (notClosedXReport) {
         throw BadRequest("Close all X reports before closing Z report!");
       }
-
-      await zReport.update(
-        {
-          status: CashboxReportStatusTypes.CLOSED,
-          closed_at: new Date(),
-        },
-        {
-          transaction: dbTransaction,
-        },
-      );
-
-      return true;
     }
 
-    throw BadRequest("Invalid report type!");
+    const updateData: any = {
+      status: targetStatus,
+    };
+
+    if (targetStatus === CashboxReportStatusTypes.STOPPED) {
+      updateData.stopped_at = new Date();
+    }
+
+    if (targetStatus === CashboxReportStatusTypes.OPEN) {
+      updateData.stopped_at = null;
+      updateData.closed_at = null;
+    }
+
+    if (targetStatus === CashboxReportStatusTypes.CLOSED) {
+      updateData.closed_at = new Date();
+    }
+
+    await report.update(updateData, {
+      transaction: dbTransaction,
+    });
+
+    return true;
   });
 };
 
@@ -530,60 +553,6 @@ export const ConfirmZReportsService = async (
         },
       );
     }
-
-    return true;
-  });
-};
-
-export const ReopenZReportsService = async (
-  operatorID: number,
-  body: ReopenZReportData,
-) => {
-  if (!operatorID) {
-    throw BadRequest("Admin is required!");
-  }
-
-  if (!body.zreport || !Number.isFinite(Number(body.zreport))) {
-    throw BadRequest("Z report id is required!");
-  }
-
-  const sequelize = CashboxReportModel.sequelize!;
-
-  return await sequelize.transaction(async (dbTransaction) => {
-    const { start, end } = getTodayRange();
-
-    const zReport = await CashboxReportModel.findOne({
-      where: {
-        id: Number(body.zreport),
-        report_type: CashboxReportTypes.ZREPORT,
-        status: CashboxReportStatusTypes.CLOSED,
-        created_at: {
-          [Op.between]: [start, end],
-        },
-      },
-      transaction: dbTransaction,
-      lock: dbTransaction.LOCK.UPDATE,
-    });
-
-    if (zReport === null) {
-      throw BadRequest("Z report not found, not today, or not closed!");
-    }
-
-    await zReport.update(
-      {
-        status: CashboxReportStatusTypes.OPEN,
-        checked_by: operatorID,
-        closed_at: null,
-      },
-      {
-        where: {
-          id: Number(body.zreport),
-          report_type: CashboxReportTypes.ZREPORT,
-          status: CashboxReportStatusTypes.CLOSED,
-        },
-        transaction: dbTransaction,
-      },
-    );
 
     return true;
   });

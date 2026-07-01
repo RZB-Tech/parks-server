@@ -5,8 +5,8 @@ import {
 } from "fastify";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 
-import { CashboxReportOpenController, CashboxReportsTodayController, CloseCashboxReportController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetZReportsController, ReopenZReportsController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
-import { cashboxReportsTodaySchema, closeReportSchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getZReportsSchema, openReportSchema, reopenZReportsSchema } from "./schema";
+import { CashboxReportOpenController, CashboxReportsTodayController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetZReportsController, ReopenZReportsController, StatusCashboxReportController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
+import { cashboxReportsTodaySchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getZReportsSchema, openReportSchema, reopenZReportsSchema, statusCashboxReportSchema } from "./schema";
 
 const CashboxReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -24,10 +24,10 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
     CashboxReportsTodayController,
   );
 
-  fastify.post(
-    "/cashboxes/:cashboxID/reports/close",
-    { schema: closeReportSchema, preHandler: [AuthMiddleware] },
-    CloseCashboxReportController,
+  fastify.put(
+    "/cashboxes/:cashboxID/reports/status",
+    { schema: statusCashboxReportSchema, preHandler: [AuthMiddleware] },
+    StatusCashboxReportController,
   );
 
    fastify.get(
@@ -41,13 +41,7 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
      { schema: confirmZReportsSchema, preHandler: [AuthMiddleware] },
      ConfirmZReportsController,
    );
-
-   fastify.post(
-     "/zreports/reopen",
-     { schema: reopenZReportsSchema, preHandler: [AuthMiddleware] },
-     ReopenZReportsController,
-   );
-
+   
    fastify.get(
      "/accounting/cashbox-reports",
      {

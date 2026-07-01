@@ -15,7 +15,7 @@ const AuthRouter: FastifyPluginAsync = async (
     { schema: loginSchema, preHandler: [] },
     LoginController,
   );
-  fastify.post(
+  fastify.get(
     "/auth/getme",
     { schema: getMeSchema, preHandler: [] },
     GetMeController,

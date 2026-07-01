@@ -8,13 +8,12 @@ import {
   RouteWithQuery,
 } from "../../types/routes";
 import {
-  CloseCashboxReportService,
   ConfirmZReportsService,
   GetAccountingCashboxReportsService,
   GetTodayCashboxReportsService,
   GetZReportsService,
   OpenCashboxReportService,
-  ReopenZReportsService,
+  StatusCashboxReportService,
 } from "../../services/cashbox-reports-services/CashboxReportsServices";
 
 export const CashboxReportOpenController = makeReplyingController(
@@ -37,21 +36,16 @@ export const CashboxReportsTodayController = makeReplyingController(
   },
 );
 
-export const CloseCashboxReportController = makeReplyingController(
+export const StatusCashboxReportController = makeReplyingController(
   "success",
   async (
-    request: FastifyRequest<
-      RouteWithParamsAndData<
-        CashboxReportsParams,
-        ReqData<CloseCashboxReportData>
-      >
-    >,
+    request: FastifyRequest<RouteWithParamsAndData<CashboxReportsParams,ReqData<CloseCashboxReportData>>>,
   ) => {
     const operatorID = request.employee?.id;
     const params = request.params;
     const body = request.body.data;
 
-    return CloseCashboxReportService(Number(operatorID), params, body);
+    return StatusCashboxReportService(Number(operatorID), params, body);
   },
 );
 
@@ -75,18 +69,6 @@ export const ConfirmZReportsController = makeReplyingController(
     const body = request.body.data;
 
     return ConfirmZReportsService(Number(operatorID), body);
-  },
-);
-
-export const ReopenZReportsController = makeReplyingController(
-  "success",
-  async (
-    request: FastifyRequest<RouteWithData<ReqData<ReopenZReportData>>>,
-  ) => {
-    const operatorID = request.employee?.id;
-    const body = request.body.data;
-
-    return ReopenZReportsService(Number(operatorID), body);
   },
 );
 
