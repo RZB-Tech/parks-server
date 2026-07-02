@@ -1,4 +1,4 @@
-import { Op, Transaction } from "sequelize";
+import { Op } from "sequelize";
 import { AttractionRoundDTO } from "../../dtos/attraction-rounds-dtos/AttractionRoundDto";
 import { BadRequest, NotFound } from "../../exceptions";
 import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
@@ -8,7 +8,10 @@ import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-r
 import { AttractionOperatorModel } from "../../models/postgresql/attraction-operator-model/AttractionOperatorModel";
 import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { AttractionModel } from "../../models/postgresql/attraction-model/AttractionModel";
-import { AttractionReportTypes, AttractionStatusTypes } from "../../models/postgresql/attraction-model/enums";
+import {
+  AttractionReportTypes,
+  AttractionStatusTypes,
+} from "../../models/postgresql/attraction-model/enums";
 
 export const GetCurrentAttractionRoundService = async (
   operatorID: number,
@@ -25,6 +28,7 @@ export const GetCurrentAttractionRoundService = async (
       operator: operatorID,
       attraction: attractionID,
       status: AttractionReportStatusTypes.OPEN,
+      report_type: AttractionReportTypes.XREPORT,
     },
   });
 
@@ -108,10 +112,24 @@ export const CloseCurrentAttractionRoundService = async (
   operatorID: number,
   params: AttractionRoundParams,
 ) => {
-  const attractionID = Number(params.attractionID);
-
   return await AttractionRoundModel.sequelize!.transaction(
     async (transaction) => {
+      const round = await AttractionRoundModel.findOne({
+        where: {
+          id: params.roundID,
+          operator: operatorID,
+          status: AttractionRoundStatusTypes.OPEN,
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (round === null) {
+        throw BadRequest("Open round not found!");
+      }
+
+      const attractionID = Number(round.attraction);
+
       const operatorAttraction = await AttractionOperatorModel.findOne({
         where: {
           operator: operatorID,
@@ -148,6 +166,7 @@ export const CloseCurrentAttractionRoundService = async (
 
       const xReport = await AttractionReportModel.findOne({
         where: {
+          id: Number(round.report),
           operator: operatorID,
           attraction: attractionID,
           report_type: AttractionReportTypes.XREPORT,
@@ -180,22 +199,6 @@ export const CloseCurrentAttractionRoundService = async (
         throw BadRequest("Open Z report required!");
       }
 
-      const round = await AttractionRoundModel.findOne({
-        where: {
-          report: Number(xReport.id),
-          attraction: attractionID,
-          operator: operatorID,
-          status: AttractionRoundStatusTypes.OPEN,
-        },
-        order: [["round_number", "DESC"]],
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (round === null) {
-        throw BadRequest("Open round not found!");
-      }
-
       const peopleCount = Number(round.people_count || 0);
 
       if (peopleCount <= 0) {
@@ -223,21 +226,13 @@ export const CloseCurrentAttractionRoundService = async (
 
       const reportIncrementData = {
         total_rounds: 1,
-
         total_people: Number(round.people_count || 0),
-
         total_offline: Number(round.offline_count || 0),
-
         total_online: Number(round.online_count || 0),
-
         total_vip: Number(round.vip_count || 0),
-
         total_guest: Number(round.guest_count || 0),
-
         total_park_staff: Number(round.park_staff_count || 0),
-
         paid_amount: Number(round.paid_amount || 0),
-
         total_amount: Number(round.total_amount || 0),
       };
 

@@ -168,10 +168,13 @@ export const closeCurrentAttractionRoundSchema = {
 
   params: {
     type: "object",
-    required: ["attractionID"],
+    required: ["attractionID", "roundID"],
     additionalProperties: false,
     properties: {
       attractionID: {
+        type: "number",
+      },
+      roundID: {
         type: "number",
       },
     },
@@ -179,7 +182,7 @@ export const closeCurrentAttractionRoundSchema = {
 
   response: {
     200: successAnswerTemplate({
-      round: {
+      "attraction-round": {
         type: "object",
         properties: attractionRoundProperties,
       },

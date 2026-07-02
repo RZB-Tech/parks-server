@@ -121,5 +121,10 @@ export class AttractionModel
       foreignKey: "category",
       as: "categories",
     });
+    AttractionModel.hasMany(models.AttractionReportModel, {
+      foreignKey: "attraction",
+      as: "reports",
+      onDelete: "CASCADE",
+    });
   }
 }

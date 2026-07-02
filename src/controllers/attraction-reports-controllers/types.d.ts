@@ -11,3 +11,20 @@ declare interface UpdateAttractionReportStatusData {
 declare interface GetAttractionZReportsQuery {
   date?: string;
 }
+
+declare interface ConfirmAttractionZReportItemData {
+  id: number;
+  status:
+    | AttractionReportStatusTypes.CONFIRMED
+    | AttractionReportStatusTypes.CANCELLED;
+}
+
+declare interface ConfirmAttractionZReportsData {
+  zreports: ConfirmAttractionZReportItemData[];
+}
+
+declare type GetAccountingAttractionReportsQuery = {
+  date?: string;
+  start_date?: string;
+  end_date?: string;
+};

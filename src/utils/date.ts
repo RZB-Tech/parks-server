@@ -1,43 +1,37 @@
 import { BadRequest } from "../exceptions";
 
-export const getTashkentDayRangeUTC = (date = new Date()) => {
-  const tashkentOffsetMs = 5 * 60 * 60 * 1000;
+const TASHKENT_OFFSET_HOURS = 5;
+const TASHKENT_OFFSET_MS = TASHKENT_OFFSET_HOURS * 60 * 60 * 1000;
 
-  const tashkentNow = new Date(date.getTime() + tashkentOffsetMs);
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-  const startTashkent = new Date(
-    Date.UTC(
-      tashkentNow.getUTCFullYear(),
-      tashkentNow.getUTCMonth(),
-      tashkentNow.getUTCDate(),
-      0,
-      0,
-      0,
-      0,
-    ),
-  );
+const parseDateOnly = (date: string) => {
+  if (!DATE_REGEX.test(date)) {
+    throw BadRequest("Invalid date format. Use YYYY-MM-DD");
+  }
 
-  const endTashkent = new Date(
-    Date.UTC(
-      tashkentNow.getUTCFullYear(),
-      tashkentNow.getUTCMonth(),
-      tashkentNow.getUTCDate(),
-      23,
-      59,
-      59,
-      999,
-    ),
-  );
+  const [year, month, day] = date.split("-").map(Number);
+
+  const checkDate = new Date(Date.UTC(year, month - 1, day));
+
+  const isRealDate =
+    checkDate.getUTCFullYear() === year &&
+    checkDate.getUTCMonth() === month - 1 &&
+    checkDate.getUTCDate() === day;
+
+  if (!isRealDate) {
+    throw BadRequest("Invalid date value");
+  }
 
   return {
-    startDate: new Date(startTashkent.getTime() - tashkentOffsetMs),
-    endDate: new Date(endTashkent.getTime() - tashkentOffsetMs),
+    year,
+    month,
+    day,
   };
 };
 
 export const getTashkentDateOnly = (date = new Date()) => {
-  const tashkentOffsetMs = 5 * 60 * 60 * 1000;
-  const tashkentDate = new Date(date.getTime() + tashkentOffsetMs);
+  const tashkentDate = new Date(date.getTime() + TASHKENT_OFFSET_MS);
 
   const year = tashkentDate.getUTCFullYear();
   const month = String(tashkentDate.getUTCMonth() + 1).padStart(2, "0");
@@ -46,80 +40,114 @@ export const getTashkentDateOnly = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-export const getTodayRange = () => {
-  const now = new Date();
+export const getTashkentDayRangeUTC = (date?: string | Date) => {
+  const dateOnly =
+    typeof date === "string" ? date : getTashkentDateOnly(date ?? new Date());
 
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
+  const { year, month, day } = parseDateOnly(dateOnly);
 
-  const end = new Date(now);
-  end.setHours(18, 59, 59, 999);
+  const startDate = new Date(
+    Date.UTC(year, month - 1, day, -TASHKENT_OFFSET_HOURS, 0, 0, 0),
+  );
 
-  return { start, end };
+  const endDate = new Date(
+    Date.UTC(year, month - 1, day, 23 - TASHKENT_OFFSET_HOURS, 59, 59, 999),
+  );
+
+  return {
+    startDate,
+    endDate,
+  };
 };
 
+export const getTashkentRangeUTC = (startDate: string, endDate: string) => {
+  const startParts = parseDateOnly(startDate);
+  const endParts = parseDateOnly(endDate);
+
+  const start = new Date(
+    Date.UTC(
+      startParts.year,
+      startParts.month - 1,
+      startParts.day,
+      -TASHKENT_OFFSET_HOURS,
+      0,
+      0,
+      0,
+    ),
+  );
+
+  const end = new Date(
+    Date.UTC(
+      endParts.year,
+      endParts.month - 1,
+      endParts.day,
+      23 - TASHKENT_OFFSET_HOURS,
+      59,
+      59,
+      999,
+    ),
+  );
+
+  if (start > end) {
+    throw BadRequest("start_date cannot be greater than end_date");
+  }
+
+  return {
+    startDate: start,
+    endDate: end,
+  };
+};
 
 export const getDateRange = (date?: string) => {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tashkent",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  const { startDate, endDate } = getTashkentDayRangeUTC(date);
 
-  const tashkentDate = date
-    ? date.replace(/\./g, "-") // frontend: yyyy.mm.dd bo‘lsa
-    : formatter.format(new Date());
-
-  const start = new Date(`${tashkentDate}T00:00:00.000+05:00`);
-  const end = new Date(`${tashkentDate}T23:59:59.999+05:00`);
-
-  return { start, end };
+  return {
+    start: startDate,
+    end: endDate,
+  };
 };
 
-export const parseYYYYMMDD = (date: string) => {
-  const [year, month, day] = date.split(".").map(Number);
+export const getTodayRange = () => {
+  const { startDate, endDate } = getTashkentDayRangeUTC();
 
-  if (!year || !month || !day) {
-    throw BadRequest("Invalid date format. Use YYYY.MM.DD");
-  }
-
-  return new Date(year, month - 1, day);
+  return {
+    start: startDate,
+    end: endDate,
+  };
 };
 
-export const getAccountingDateRange = (query: GetAccountingCashboxReportsQuery) => {
+export const getAccountingDateRange = (
+  query: GetAccountingCashboxReportsQuery,
+) => {
   if (query.date) {
-    const targetDate = parseYYYYMMDD(query.date);
+    const { startDate, endDate } = getTashkentDayRangeUTC(query.date);
 
-    const start = new Date(targetDate);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(targetDate);
-    end.setHours(23, 59, 59, 999);
-
-    return { start, end };
+    return {
+      start: startDate,
+      end: endDate,
+    };
   }
 
-  if (query.start_date && query.end_date) {
-    const startDate = parseYYYYMMDD(query.start_date);
-    const endDate = parseYYYYMMDD(query.end_date);
+  if (query.start_date || query.end_date) {
+    if (!query.start_date || !query.end_date) {
+      throw BadRequest("start_date and end_date are required together");
+    }
 
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
+    const { startDate, endDate } = getTashkentRangeUTC(
+      query.start_date,
+      query.end_date,
+    );
 
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-
-    return { start, end };
+    return {
+      start: startDate,
+      end: endDate,
+    };
   }
 
-  const today = new Date();
+  const { startDate, endDate } = getTashkentDayRangeUTC();
 
-  const start = new Date(today);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(today);
-  end.setHours(23, 59, 59, 999);
-
-  return { start, end };
+  return {
+    start: startDate,
+    end: endDate,
+  };
 };

@@ -11,6 +11,7 @@ import { AttractionReportModel } from "../../models/postgresql/attraction-report
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
 import { AttractionRoundModel } from "../../models/postgresql/attraction-round-model/AttractionRoundModel";
 import {
+  AccountingAttractionReportsDTO,
   addAttractionZReportsTotals,
   AttractionReportDTO,
   AttractionReportsTodayDTO,
@@ -18,8 +19,14 @@ import {
   emptyAttractionZReportsTotals,
 } from "../../dtos/attraction-reports-dtos/AttractionReportDto";
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
-import { getDateRange, getTodayRange } from "../../utils/date";
+import {
+  getAccountingDateRange,
+  getDateRange,
+  getTashkentDayRangeUTC,
+  getTodayRange,
+} from "../../utils/date";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
+
 export const OpenAttractionReportService = async (
   operatorID: number,
   params: AttractionReportParams,
@@ -195,6 +202,7 @@ export const GetOpenAttractionReportService = async (
       operator: operatorID,
       attraction: attractionID,
       status: AttractionReportStatusTypes.OPEN,
+      report_type: AttractionReportTypes.XREPORT,
     },
     transaction,
     lock: transaction.LOCK.UPDATE,
@@ -546,4 +554,149 @@ export const GetAttractionZReportsService = async (
       ),
     ),
   };
+};
+
+export const ConfirmAttractionZReportsService = async (
+  operatorID: number,
+  body: ConfirmAttractionZReportsData,
+) => {
+  if (!operatorID) {
+    throw BadRequest("Admin is required!");
+  }
+
+  if (!Array.isArray(body.zreports) || body.zreports.length === 0) {
+    throw BadRequest("Z reports are required!");
+  }
+
+  const allowedStatuses = [AttractionReportStatusTypes.CONFIRMED];
+
+  for (const item of body.zreports) {
+    if (!item.id) {
+      throw BadRequest("Z report id is required!");
+    }
+
+    if (!allowedStatuses.includes(item.status)) {
+      throw BadRequest("Invalid Z report status!");
+    }
+  }
+
+  const sequelize = AttractionReportModel.sequelize!;
+
+  return await sequelize.transaction(async (dbTransaction) => {
+    const { startDate, endDate } = getTashkentDayRangeUTC();
+
+    const todayZReports = await AttractionReportModel.findAll({
+      where: {
+        report_type: AttractionReportTypes.ZREPORT,
+        createdAt: {
+          [Op.between]: [startDate, endDate],
+        },
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (todayZReports.length === 0) {
+      throw BadRequest("Today Z reports not found!");
+    }
+
+    const todayZReportIDs = todayZReports.map((report) => Number(report.id));
+    const bodyZReportIDs = body.zreports.map((report) => Number(report.id));
+
+    const uniqueBodyIDs = new Set(bodyZReportIDs);
+
+    if (uniqueBodyIDs.size !== bodyZReportIDs.length) {
+      throw BadRequest("Duplicate Z report ids are not allowed!");
+    }
+
+    if (todayZReportIDs.length !== bodyZReportIDs.length) {
+      throw BadRequest("All today Z reports must be sent!");
+    }
+
+    const missingIDs = todayZReportIDs.filter((id) => !uniqueBodyIDs.has(id));
+
+    if (missingIDs.length > 0) {
+      throw BadRequest("Some today Z reports are missing!");
+    }
+
+    const todayIDSet = new Set(todayZReportIDs);
+
+    const invalidIDs = bodyZReportIDs.filter((id) => !todayIDSet.has(id));
+
+    if (invalidIDs.length > 0) {
+      throw BadRequest("Invalid Z report ids sent!");
+    }
+
+    for (const zReport of todayZReports) {
+      if (
+        [
+          AttractionReportStatusTypes.OPEN,
+          AttractionReportStatusTypes.STOPPED,
+        ].includes(zReport.status)
+      ) {
+        throw BadRequest("All Z reports must be closed first!");
+      }
+
+      if (zReport.status === AttractionReportStatusTypes.CONFIRMED) {
+        throw BadRequest("Some Z reports are already confirmed!");
+      }
+    }
+
+    for (const item of body.zreports) {
+      await AttractionReportModel.update(
+        {
+          status: item.status,
+          confirmed_by: operatorID,
+          confirmed_at: new Date(),
+        },
+        {
+          where: {
+            id: Number(item.id),
+            report_type: AttractionReportTypes.ZREPORT,
+            status: AttractionReportStatusTypes.CLOSED,
+          },
+          transaction: dbTransaction,
+        },
+      );
+    }
+
+    return true;
+  });
+};
+
+export const GetAccountingAttractionReportsService = async (
+  query: GetAccountingAttractionReportsQuery,
+): Promise<AccountingAttractionReportsResponseDTO> => {
+  const { start, end } = getAccountingDateRange(query);
+
+  const attractions = await AttractionModel.findAll({
+    order: [["id", "ASC"]],
+  });
+
+  const reports = await AttractionReportModel.findAll({
+    where: {
+      report_type: AttractionReportTypes.ZREPORT,
+      status: AttractionReportStatusTypes.CONFIRMED,
+      createdAt: {
+        [Op.between]: [start, end],
+      },
+    },
+    order: [
+      ["attraction", "ASC"],
+      ["createdAt", "ASC"],
+    ],
+  });
+
+  return AccountingAttractionReportsDTO({
+    start_date: start,
+    end_date: end,
+
+    attractions: attractions.map(
+      (attraction) => attraction.get({ plain: true }) as AttractionModelI,
+    ),
+
+    reports: reports.map(
+      (report) => report.get({ plain: true }) as AttractionReportModelI,
+    ),
+  });
 };

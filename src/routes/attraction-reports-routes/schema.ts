@@ -123,6 +123,18 @@ export const openAttractionReportSchema = {
     "Open X report for current operator and selected attraction. If today's Z report is not opened, it will be opened automatically.",
   tags: ["Attraction reports route"],
 
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+
   params: {
     type: "object",
     required: ["attractionID"],
@@ -440,6 +452,223 @@ export const getAttractionZReportsSchema = {
         items: {
           type: "object",
           properties: attractionWithZReportsProperties,
+        },
+      },
+    }),
+  },
+};
+
+export const confirmAttractionZReportsSchema = {
+  summary: "Confirm Z reports",
+  description:
+    "Confirm or cancel all today's Z reports. All today Z report ids must be sent.",
+  tags: ["Attraction reports route"],
+
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["zreports"],
+    additionalProperties: false,
+    properties: {
+      zreports: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          required: ["id", "status"],
+          additionalProperties: false,
+          properties: {
+            id: {
+              type: "number",
+            },
+
+            status: {
+              type: "string",
+              enum: [AttractionReportStatusTypes.CONFIRMED],
+            },
+          },
+        },
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      success: { type: "boolean", const: true },
+    }),
+  },
+};
+
+export const accountingAttractionProperties = {
+  id: {
+    type: "number",
+  },
+
+  name: {
+    type: "string",
+  },
+
+  manufacturer: nullableString,
+
+  category: {
+    type: "number",
+  },
+
+  status: {
+    type: "string",
+  },
+
+  dashboard_file: nullableNumber,
+
+  main_file: nullableNumber,
+
+  files: {
+    type: "array",
+    items: {
+      type: "number",
+    },
+  },
+
+  price: {
+    type: "number",
+  },
+
+  duration: {
+    type: "number",
+  },
+
+  seats: {
+    type: "number",
+  },
+
+  age_limit: {
+    type: "number",
+  },
+
+  min_height: {
+    type: "number",
+  },
+
+  max_weight: {
+    type: "number",
+  },
+
+  description: nullableString,
+};
+
+export const accountingAttractionZReportProperties = {
+  total_rounds: {
+    type: "number",
+  },
+
+  total_people: {
+    type: "number",
+  },
+
+  total_offline: {
+    type: "number",
+  },
+
+  total_online: {
+    type: "number",
+  },
+
+  total_vip: {
+    type: "number",
+  },
+
+  total_guest: {
+    type: "number",
+  },
+
+  total_park_staff: {
+    type: "number",
+  },
+
+  paid_amount: {
+    type: "number",
+  },
+
+  total_amount: {
+    type: "number",
+  },
+};
+
+export const accountingAttractionReportProperties = {
+  attraction: {
+    type: "object",
+    properties: accountingAttractionProperties,
+  },
+
+  zreport: {
+    type: "object",
+    properties: accountingAttractionZReportProperties,
+  },
+};
+
+export const getAccountingAttractionReportsSchema = {
+  summary: "Get accounting attraction reports",
+  description:
+    "Get confirmed attraction Z reports grouped by attractions for accounting",
+  tags: ["Attraction reports route"],
+
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      date: {
+        type: "string",
+        description: "Date format: YYYY.MM.DD",
+      },
+
+      start_date: {
+        type: "string",
+        description: "Start date format: YYYY.MM.DD",
+      },
+
+      end_date: {
+        type: "string",
+        description: "End date format: YYYY.MM.DD",
+      },
+    },
+  },
+
+  response: {
+    200: successAnswerTemplate({
+      "attraction-reports": {
+        type: "object",
+        properties: {
+          start_date: {
+            type: "string",
+          },
+
+          end_date: {
+            type: "string",
+          },
+
+          totals: {
+            type: "object",
+            properties: accountingAttractionZReportProperties,
+          },
+
+          attractions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: accountingAttractionReportProperties,
+            },
+          },
         },
       },
     }),

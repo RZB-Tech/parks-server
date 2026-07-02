@@ -13,7 +13,6 @@ export const AttractionReportOperatorDTO = (
   };
 };
 
-
 export const AttractionReportDTO = (
   data: AttractionReportWithOperatorPlain,
 ) => {
@@ -138,5 +137,72 @@ export const AttractionZReportAttractionDTO = (
     zreports: Array.isArray(data.reports)
       ? data.reports.map(AttractionReportDTO)
       : [],
+  };
+};
+
+export const AccountingAttractionReportsDTO = (data: {
+  start_date: Date;
+  end_date: Date;
+  attractions: AttractionModelI[];
+  reports: AttractionReportModelI[];
+}): AccountingAttractionReportsResponseDTO => {
+  const totals = emptyAttractionZReportsTotals();
+
+  const attractions: AccountingAttractionReportDTO[] = data.attractions.map(
+    (attraction) => {
+      const zreport = emptyAttractionZReportsTotals();
+
+      const reports = data.reports.filter(
+        (report) => Number(report.attraction) === Number(attraction.id),
+      );
+
+      for (const report of reports) {
+        addAttractionZReportsTotals(zreport, report);
+        addAttractionZReportsTotals(totals, report);
+      }
+
+      return {
+        attraction: {
+          id: Number(attraction.id),
+          name: attraction.name,
+          manufacturer: attraction.manufacturer ?? null,
+          category: Number(attraction.category),
+          status: attraction.status,
+
+          dashboard_file:
+            attraction.dashboard_file !== null &&
+            attraction.dashboard_file !== undefined
+              ? Number(attraction.dashboard_file)
+              : null,
+
+          main_file:
+            attraction.main_file !== null && attraction.main_file !== undefined
+              ? Number(attraction.main_file)
+              : null,
+
+          files: Array.isArray(attraction.files)
+            ? attraction.files.map(Number)
+            : [],
+
+          price: Number(attraction.price || 0),
+          duration: Number(attraction.duration || 0),
+          seats: Number(attraction.seats || 0),
+          age_limit: Number(attraction.age_limit || 0),
+          min_height: Number(attraction.min_height || 0),
+          max_weight: Number(attraction.max_weight || 0),
+
+          description: attraction.description ?? null,
+        },
+
+        zreport,
+      };
+    },
+  );
+
+  return {
+    start_date: data.start_date,
+    end_date: data.end_date,
+    totals,
+    attractions,
   };
 };

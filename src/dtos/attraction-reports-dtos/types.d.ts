@@ -88,3 +88,32 @@ declare interface AttractionZReportTotalsDTO {
 declare type AttractionWithZReportsPlain = AttractionModelI & {
   reports?: AttractionReportWithOperatorPlain[];
 };
+
+declare type AccountingAttractionReportDTO = {
+  attraction: {
+    id: number;
+    name: string;
+    manufacturer: string | null;
+    category: number;
+    status: string;
+    dashboard_file: number | null;
+    main_file: number | null;
+    files: number[];
+    price: number;
+    duration: number;
+    seats: number;
+    age_limit: number;
+    min_height: number;
+    max_weight: number;
+    description: string | null;
+  };
+  zreport: AttractionZReportTotalsDTO;
+};
+
+
+declare type AccountingAttractionReportsResponseDTO = {
+  start_date: Date;
+  end_date: Date;
+  totals: AttractionZReportTotalsDTO;
+  attractions: AccountingAttractionReportDTO[];
+};

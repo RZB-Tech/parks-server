@@ -636,17 +636,20 @@ export const getAccountingCashboxReportsSchema = {
     properties: {
       date: {
         type: "string",
-        description: "Date format: YYYY.MM.DD",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description: "Date format: YYYY-MM-DD",
       },
 
       start_date: {
         type: "string",
-        description: "Start date format: YYYY.MM.DD",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description: "Start date format: YYYY-MM-DD",
       },
 
       end_date: {
         type: "string",
-        description: "End date format: YYYY.MM.DD",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description: "End date format: YYYY-MM-DD",
       },
     },
   },

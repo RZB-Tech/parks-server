@@ -1,12 +1,8 @@
 import { Op } from "sequelize";
-import {
-  AttractionOperatorDTO,
-} from "../../dtos/attraction-operators-dtos/AttractionOperatorDto";
+import { AttractionOperatorDTO } from "../../dtos/attraction-operators-dtos/AttractionOperatorDto";
 import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { AttractionStatusTypes } from "../../models/postgresql/attraction-model/enums";
-import {
-  AttractionOperatorStatusTypes,
-} from "../../models/postgresql/attraction-operator-model/enums";
+import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
 import {
   AttractionModel,
@@ -60,6 +56,11 @@ export const CreateAttractionOperatorsService = async (
         id: body.operator,
       },
     },
+  );
+
+  await AttractionModel.update(
+    { status: AttractionStatusTypes.ACTIVE },
+    { where: { id: params.attractionID } },
   );
 
   const attractionOperators = await AttractionOperatorModel.findByPk(
