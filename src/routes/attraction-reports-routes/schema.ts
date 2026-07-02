@@ -177,19 +177,23 @@ export const updateAttractionReportStatusSchema = {
 
   params: {
     type: "object",
-    required: ["attractionID"],
+    required: ["attractionID", "reportID"],
     additionalProperties: false,
     properties: {
       attractionID: {
         type: "number",
         description: "Attraction ID",
       },
+      reportID: {
+        type: "number",
+        description: "Attraction report ID",
+      },
     },
   },
 
   body: reqBodyWrapper({
     type: "object",
-    required: ["status", "report_type"],
+    required: ["status"],
     additionalProperties: false,
     properties: {
       status: {
@@ -201,12 +205,6 @@ export const updateAttractionReportStatusSchema = {
           AttractionReportStatusTypes.STOPPED,
           AttractionReportStatusTypes.CLOSED,
         ],
-      },
-
-      report_type: {
-        type: "string",
-        description: "Report type. Send xreport or zreport.",
-        enum: [AttractionReportTypes.XREPORT, AttractionReportTypes.ZREPORT],
       },
     },
   }),

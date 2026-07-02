@@ -32,7 +32,7 @@ const AttractionReportsRouter: FastifyPluginAsync = async (
   );
 
   fastify.put(
-    "/attractions/:attractionID/reports/status",
+    "/attractions/:attractionID/reports/:reportID/status",
     {
       schema: updateAttractionReportStatusSchema,
       preHandler: [AuthMiddleware],

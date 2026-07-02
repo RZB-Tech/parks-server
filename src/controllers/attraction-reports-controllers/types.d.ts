@@ -1,5 +1,6 @@
 declare interface AttractionReportParams {
   attractionID: number;
+  reportID?: number;
 }
 
 declare interface UpdateAttractionReportStatusData {

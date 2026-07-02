@@ -1,8 +1,4 @@
-import { AttractionOperatorDTO } from "../../dtos/attraction-operators-dtos/AttractionOperatorDto";
-import {
-  CashboxOperatorByEmployeeDTO,
-  CashboxOperatorDTO,
-} from "../../dtos/cashbox-operators-dtos/CashboxOperatorDto";
+import { CashboxOperatorDTO } from "../../dtos/cashbox-operators-dtos/CashboxOperatorDto";
 import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
 import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
