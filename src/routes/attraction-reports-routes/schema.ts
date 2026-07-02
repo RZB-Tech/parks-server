@@ -627,17 +627,17 @@ export const getAccountingAttractionReportsSchema = {
     properties: {
       date: {
         type: "string",
-        description: "Date format: YYYY.MM.DD",
+        description: "Date format: YYYY-MM-DD",
       },
 
       start_date: {
         type: "string",
-        description: "Start date format: YYYY.MM.DD",
+        description: "Start date format: YYYY-MM-DD",
       },
 
       end_date: {
         type: "string",
-        description: "End date format: YYYY.MM.DD",
+        description: "End date format: YYYY-MM-DD",
       },
     },
   },
