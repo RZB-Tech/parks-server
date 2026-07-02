@@ -12,6 +12,8 @@ import {
   AttractionReportTypes,
   AttractionStatusTypes,
 } from "../../models/postgresql/attraction-model/enums";
+import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
+import { getTashkentDayRangeUTC } from "../../utils/date";
 
 export const GetCurrentAttractionRoundService = async (
   operatorID: number,
@@ -104,6 +106,49 @@ export const GetTodayAttractionRoundsService = async (
       plain: true,
     }),
   ) as AttractionRoundModelI[];
+
+  return data.map(AttractionRoundDTO);
+};
+export const GetTodayRoundsService = async () => {
+  const { startDate, endDate } = getTashkentDayRangeUTC();
+
+  const rounds = await AttractionRoundModel.findAll({
+    where: {
+      status: {
+        [Op.in]: [
+          AttractionRoundStatusTypes.OPEN,
+          AttractionRoundStatusTypes.FINISHED,
+        ],
+      },
+      started_at: {
+        [Op.gte]: startDate,
+        [Op.lt]: endDate,
+      },
+    },
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+        required: false,
+      },
+      {
+        model: AttractionModel,
+        as: "attractions",
+        required: false,
+      },
+    ],
+    order: [
+      ["round_number", "ASC"],
+      ["id", "ASC"],
+    ],
+  });
+
+  const data = rounds.map(
+    (round) =>
+      round.get({
+        plain: true,
+      }) as AttractionRoundWithRelationsPlain,
+  );
 
   return data.map(AttractionRoundDTO);
 };

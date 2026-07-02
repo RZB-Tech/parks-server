@@ -1,23 +1,146 @@
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
 import { successAnswerTemplate } from "../schemas";
 
+const nullableNumber = {
+  oneOf: [{ type: "number" }, { type: "null" }],
+};
+
+const nullableString = {
+  oneOf: [{ type: "string" }, { type: "null" }],
+};
+
+export const attractionRoundOperatorProperties = {
+  id: {
+    type: "number",
+  },
+
+  firstname: {
+    type: "string",
+  },
+
+  lastname: {
+    type: "string",
+  },
+
+  phone_number: {
+    type: "string",
+  },
+
+  telegram_username: {
+    type: "string",
+  },
+
+  role: {
+    type: "number",
+  },
+
+  status: {
+    type: "string",
+  },
+
+  file: nullableNumber,
+};
+
+export const attractionRoundAttractionProperties = {
+  id: {
+    type: "number",
+  },
+
+  name: {
+    type: "string",
+  },
+
+  manufacturer: {
+    type: "string",
+  },
+
+  category: {
+    type: "number",
+  },
+
+  status: {
+    type: "string",
+  },
+
+  dashboard_file: nullableNumber,
+
+  main_file: nullableNumber,
+
+  files: {
+    type: "array",
+    items: {
+      type: "number",
+    },
+  },
+
+  price: {
+    type: "number",
+  },
+
+  duration: {
+    type: "number",
+  },
+
+  seats: {
+    type: "number",
+  },
+
+  age_limit: nullableNumber,
+
+  min_height: nullableNumber,
+
+  max_weight: {
+    type: "number",
+  },
+
+  description: {
+    type: "string",
+  },
+};
+
 export const attractionRoundProperties = {
   id: {
     type: "number",
   },
+
   report: {
     type: "number",
   },
+
   attraction: {
-    type: "number",
+    oneOf: [
+      {
+        type: "number",
+      },
+      {
+        type: "object",
+        properties: attractionRoundAttractionProperties,
+      },
+      {
+        type: "null",
+      },
+    ],
   },
+
   operator: {
-    type: "number",
+    oneOf: [
+      {
+        type: "number",
+      },
+      {
+        type: "object",
+        properties: attractionRoundOperatorProperties,
+      },
+      {
+        type: "null",
+      },
+    ],
   },
 
   round_number: {
     type: "number",
   },
+
   status: {
     type: "string",
     enum: Object.values(AttractionRoundStatusTypes),
@@ -26,18 +149,23 @@ export const attractionRoundProperties = {
   people_count: {
     type: "number",
   },
+
   offline_count: {
     type: "number",
   },
+
   online_count: {
     type: "number",
   },
+
   vip_count: {
     type: "number",
   },
+
   guest_count: {
     type: "number",
   },
+
   park_staff_count: {
     type: "number",
   },
@@ -45,6 +173,7 @@ export const attractionRoundProperties = {
   paid_amount: {
     type: "number",
   },
+
   total_amount: {
     type: "number",
   },
@@ -52,9 +181,8 @@ export const attractionRoundProperties = {
   started_at: {
     type: "string",
   },
-  finished_at: {
-    oneOf: [{ type: "string" }, { type: "null" }],
-  },
+
+  finished_at: nullableString,
 
   created_at: {
     type: "string",
@@ -85,6 +213,7 @@ export const getCurrentAttractionRoundSchema = {
     properties: {
       attractionID: {
         type: "number",
+        description: "Attraction ID",
       },
     },
   },
@@ -109,7 +238,7 @@ export const getCurrentAttractionRoundSchema = {
 export const getTodayAttractionRoundsSchema = {
   summary: "Get today attraction rounds",
   description:
-    "Get today open and closed rounds for current operator attraction",
+    "Get today open and finished rounds for current operator attraction",
   tags: ["Attraction rounds route"],
 
   headers: {
@@ -131,6 +260,7 @@ export const getTodayAttractionRoundsSchema = {
     properties: {
       attractionID: {
         type: "number",
+        description: "Attraction ID",
       },
     },
   },
@@ -149,9 +279,9 @@ export const getTodayAttractionRoundsSchema = {
 };
 
 export const closeCurrentAttractionRoundSchema = {
-  summary: "Close current attraction round",
+  summary: "Close attraction round",
   description:
-    "Close current open round. finished_at is calculated from started_at plus attraction duration. Round data is added to attraction report totals.",
+    "Close open round by round ID. finished_at is calculated from started_at plus attraction duration. Round data is added to X report and Z report totals.",
   tags: ["Attraction rounds route"],
 
   headers: {
@@ -168,14 +298,12 @@ export const closeCurrentAttractionRoundSchema = {
 
   params: {
     type: "object",
-    required: ["attractionID", "roundID"],
+    required: ["roundID"],
     additionalProperties: false,
     properties: {
-      attractionID: {
-        type: "number",
-      },
       roundID: {
         type: "number",
+        description: "Attraction round ID",
       },
     },
   },
