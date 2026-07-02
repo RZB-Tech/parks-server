@@ -26,6 +26,7 @@ import {
   getTodayRange,
 } from "../../utils/date";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
+import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
 
 export const OpenAttractionReportService = async (
   operatorID: number,
