@@ -278,6 +278,37 @@ export const getTodayAttractionRoundsSchema = {
   },
 };
 
+export const getTodayRoundsSchema = {
+  summary: "Get today attraction rounds",
+  description:
+    "Get today open and finished rounds for current operator attraction",
+  tags: ["Attraction rounds route"],
+
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+
+  response: {
+    200: successAnswerTemplate({
+      "attraction-rounds": {
+        type: "array",
+        items: {
+          type: "object",
+          properties: attractionRoundProperties,
+        },
+      },
+    }),
+  },
+};
+
 export const closeCurrentAttractionRoundSchema = {
   summary: "Close attraction round",
   description:

@@ -4,7 +4,7 @@ import {
   FastifyPluginOptions,
 } from "fastify";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
-import { closeCurrentAttractionRoundSchema, getCurrentAttractionRoundSchema, getTodayAttractionRoundsSchema } from "./schema";
+import { closeCurrentAttractionRoundSchema, getCurrentAttractionRoundSchema, getTodayAttractionRoundsSchema, getTodayRoundsSchema } from "./schema";
 import { CloseCurrentAttractionRoundController, GetCurrentAttractionRoundController, GetTodayAttractionRoundsController, GetTodayRoundsController } from "../../controllers/attraction-round-controllers/AttractionRoundController";
 
 const AttractionRoundsRouter: FastifyPluginAsync = async (
@@ -25,7 +25,7 @@ const AttractionRoundsRouter: FastifyPluginAsync = async (
 
   fastify.get(
     "/attractions/rounds/today",
-    { schema: getTodayAttractionRoundsSchema, preHandler: [AuthMiddleware] },
+    { schema: getTodayRoundsSchema, preHandler: [AuthMiddleware] },
     GetTodayRoundsController,
   );
 
