@@ -259,7 +259,6 @@ export const GetOrCreateOpenAttractionRoundService = async (
     },
   );
 };
-
 export const UpdateAttractionReportStatusService = async (
   operatorID: number,
   params: AttractionReportParams,
@@ -292,6 +291,34 @@ export const UpdateAttractionReportStatusService = async (
 
   return await AttractionReportModel.sequelize!.transaction(
     async (transaction: Transaction) => {
+      const currentEmployee = await EmployeeModel.findByPk(operatorID, {
+        attributes: ["id", "role"],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (!currentEmployee) {
+        throw NotFound("Employee not found!");
+      }
+
+      const currentEmployeeData = currentEmployee.get({
+        plain: true,
+      }) as EmployeeModelI;
+
+      const currentRole = await RoleModel.findByPk(
+        Number(currentEmployeeData.role),
+        {
+          attributes: ["id", "name"],
+          transaction,
+        },
+      );
+
+      const roleName = currentRole
+        ? (currentRole.get({ plain: true }) as RoleModelI).name
+        : "";
+
+      const isHeadOperator = ["head_operator", "superadmin"].includes(roleName);
+
       const operatorAttraction = await AttractionOperatorModel.findOne({
         where: {
           operator: operatorID,
@@ -301,10 +328,6 @@ export const UpdateAttractionReportStatusService = async (
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
-
-      if (operatorAttraction === null) {
-        throw NotFound("Operator attraction not found!");
-      }
 
       const report = await AttractionReportModel.findOne({
         where: {
@@ -319,11 +342,32 @@ export const UpdateAttractionReportStatusService = async (
         throw NotFound("Attraction report not found!");
       }
 
-      if (
-        report.report_type === AttractionReportTypes.XREPORT &&
-        Number(report.operator) !== Number(operatorID)
-      ) {
-        throw Forbidden("You can update only your own X report!");
+      const isXReport = report.report_type === AttractionReportTypes.XREPORT;
+      const isZReport = report.report_type === AttractionReportTypes.ZREPORT;
+
+      if (isXReport) {
+        if (operatorAttraction === null) {
+          throw NotFound("Operator attraction not found!");
+        }
+
+        if (Number(report.operator) !== Number(operatorID)) {
+          throw Forbidden("You can update only your own X report!");
+        }
+      }
+
+      if (isZReport) {
+        const canUpdateZReport = operatorAttraction !== null || isHeadOperator;
+
+        if (!canUpdateZReport) {
+          throw Forbidden("You do not have access to this Z report!");
+        }
+
+        if (
+          body.status === AttractionReportStatusTypes.OPEN &&
+          !isHeadOperator
+        ) {
+          throw Forbidden("Only head operator can reopen Z report!");
+        }
       }
 
       if (report.status === body.status) {
@@ -331,10 +375,7 @@ export const UpdateAttractionReportStatusService = async (
       }
 
       const syncZReportAfterXReportStopped = async () => {
-        if (
-          report.report_type !== AttractionReportTypes.XREPORT ||
-          !report.zreport
-        ) {
+        if (!isXReport || !report.zreport) {
           return;
         }
 
@@ -374,10 +415,7 @@ export const UpdateAttractionReportStatusService = async (
       };
 
       const syncZReportAfterXReportOpened = async () => {
-        if (
-          report.report_type !== AttractionReportTypes.XREPORT ||
-          !report.zreport
-        ) {
+        if (!isXReport || !report.zreport) {
           return;
         }
 
@@ -428,8 +466,21 @@ export const UpdateAttractionReportStatusService = async (
       }
 
       if (body.status === AttractionReportStatusTypes.OPEN) {
-        if (report.status !== AttractionReportStatusTypes.STOPPED) {
-          throw BadRequest("Only stopped report can be reopened!");
+        if (
+          isXReport &&
+          report.status !== AttractionReportStatusTypes.STOPPED
+        ) {
+          throw BadRequest("Only stopped X report can be reopened!");
+        }
+
+        if (
+          isZReport &&
+          ![
+            AttractionReportStatusTypes.STOPPED,
+            AttractionReportStatusTypes.CLOSED,
+          ].includes(report.status)
+        ) {
+          throw BadRequest("Only stopped or closed Z report can be reopened!");
         }
 
         await report.update(
@@ -465,7 +516,7 @@ export const UpdateAttractionReportStatusService = async (
           throw BadRequest("Only open or stopped report can be closed!");
         }
 
-        if (report.report_type === AttractionReportTypes.XREPORT) {
+        if (isXReport) {
           const openRound = await AttractionRoundModel.findOne({
             where: {
               report: Number(report.id),
@@ -494,7 +545,7 @@ export const UpdateAttractionReportStatusService = async (
           }
         }
 
-        if (report.report_type === AttractionReportTypes.ZREPORT) {
+        if (isZReport) {
           const notClosedXReport = await AttractionReportModel.findOne({
             where: {
               attraction: attractionID,
