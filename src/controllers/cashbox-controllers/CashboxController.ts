@@ -6,9 +6,10 @@ import { CreateCashboxesService, DeleteCashboxesService, GetCashboxesService, Ge
 export const GetCashboxController = makeReplyingController(
   "cashbox",
   async (request: FastifyRequest<RouteWithQuery<GetCashboxQuery>>) => {
+    const operatorID = request.employee?.id;
     const query = request.query;
 
-    return GetCashboxService(query);
+    return GetCashboxService(Number(operatorID), query);
   },
 );
 

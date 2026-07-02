@@ -19,6 +19,7 @@ import {
   getCashboxStatsSchema,
   updateCashboxSchema,
 } from "./schema";
+import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 
 const CashboxesRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -26,7 +27,7 @@ const CashboxesRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/cashbox",
-    { schema: getCashboxSchema, preHandler: [] },
+    { schema: getCashboxSchema, preHandler: [AuthMiddleware] },
     GetCashboxController,
   );
 

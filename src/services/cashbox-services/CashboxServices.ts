@@ -3,35 +3,92 @@ import {
   CashboxDTO,
   CashboxWithOperatorsDTO,
 } from "../../dtos/cashbox-dtos/CashboxDto";
-import { Conflict, NotFound } from "../../exceptions";
+import { BadRequest, Conflict, Forbidden, NotFound } from "../../exceptions";
 import { CashboxModel } from "../../models/postgresql/cashbox-model/CashboxModel";
 import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
 import {
   CashboxOperatorModel,
   EmployeeModel,
+  RoleModel,
   sequelize,
 } from "../../plugins/db/postgresql/db";
 import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
 
-export const GetCashboxService = async (query: GetCashboxQuery) => {
+export const GetCashboxService = async (
+  operatorID: number,
+  query: GetCashboxQuery,
+) => {
+  if (!operatorID || Number.isNaN(Number(operatorID))) {
+    throw BadRequest("Operator ID is invalid!");
+  }
+
   const orWhere: any[] = [];
- 
-   if (query.cashboxID) {
-     orWhere.push({
-       id: Number(query.cashboxID),
-     });
-   }
- 
-   if (query.deviceID) {
-     orWhere.push({
-       device: Number(query.deviceID),
-     });
-   }
- 
-   const cashbox = await CashboxModel.findOne({
-     where: {
-       [Op.or]: orWhere,
-     },
+
+  if (query.cashboxID) {
+    const cashboxID = Number(query.cashboxID);
+
+    if (!cashboxID || Number.isNaN(cashboxID)) {
+      throw BadRequest("Cashbox ID is invalid!");
+    }
+
+    orWhere.push({
+      id: cashboxID,
+    });
+  }
+
+  if (query.deviceID) {
+    const deviceID = Number(query.deviceID);
+
+    if (!deviceID || Number.isNaN(deviceID)) {
+      throw BadRequest("Device ID is invalid!");
+    }
+
+    orWhere.push({
+      device: deviceID,
+    });
+  }
+
+  if (orWhere.length === 0) {
+    throw BadRequest("Cashbox ID or Device ID is required!");
+  }
+
+  const currentOperator = await EmployeeModel.findByPk(operatorID, {
+    include: [
+      {
+        model: RoleModel,
+        as: "roles",
+        required: true,
+        attributes: ["id", "name"],
+      },
+    ],
+  });
+
+  if (!currentOperator) {
+    throw NotFound("Operator not found!");
+  }
+
+  const currentOperatorData = currentOperator.get({
+    plain: true,
+  }) as EmployeeModelI & {
+    roles?: {
+      id: number;
+      name: string;
+    };
+  };
+
+  const adminRoles = [
+    "superadmin",
+    "head_cashier",
+    "head_accountant",
+    "accountant",
+  ];
+
+  const isAdmin = adminRoles.includes(currentOperatorData.roles?.name || "");
+
+  const cashbox = await CashboxModel.findOne({
+    where: {
+      [Op.or]: orWhere,
+    },
     include: [
       {
         model: CashboxOperatorModel,
@@ -55,7 +112,21 @@ export const GetCashboxService = async (query: GetCashboxQuery) => {
     throw NotFound("Cashbox not found");
   }
 
-  const cashboxData = cashbox.get({ plain: true });
+  const cashboxData = cashbox.get({
+    plain: true,
+  }) as CashboxModelI & {
+    cashbox_operator?: Array<CashboxOperatorModelI>;
+  };
+
+  const isCashboxOperator = Array.isArray(cashboxData.cashbox_operator)
+    ? cashboxData.cashbox_operator.some(
+        (item) => Number(item.operator) === Number(operatorID),
+      )
+    : false;
+
+  if (!isAdmin && !isCashboxOperator) {
+    throw Forbidden("You do not have access to this cashbox!");
+  }
 
   return CashboxWithOperatorsDTO(cashboxData);
 };

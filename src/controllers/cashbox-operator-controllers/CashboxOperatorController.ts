@@ -1,9 +1,7 @@
 import { FastifyRequest } from "fastify";
 import { makeReplyingController } from "../../utils/controllerHelpers";
 import {
-  EmployeeHeaders,
   ReqData,
-  RouteWithHeaders,
   RouteWithParams,
   RouteWithParamsAndData,
 } from "../../types/routes";

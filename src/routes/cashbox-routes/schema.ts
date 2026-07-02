@@ -64,6 +64,18 @@ export const getCashboxSchema = {
   description: "Get cashbox by id",
   tags: ["Cashboxes route"],
 
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+
   querystring: {
     type: "object",
     additionalProperties: false,
