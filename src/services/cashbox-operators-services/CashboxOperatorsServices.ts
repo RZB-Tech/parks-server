@@ -59,6 +59,11 @@ export const CreateCashboxOperatorsService = async (
     },
   );
 
+  await CashboxModel.update(
+    { status: CashboxStatusTypes.ACTIVE },
+    { where: { id: params.cashboxID } },
+  );
+
   const cashboxOperators = await CashboxOperatorModel.findByPk(
     cashboxOperator.id,
     {
