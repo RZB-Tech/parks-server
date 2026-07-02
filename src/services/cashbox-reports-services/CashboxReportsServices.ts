@@ -553,13 +553,13 @@ export const ConfirmZReportsService = async (
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
-    const { start, end } = getTodayRange();
+    const { startDate, endDate } = getTashkentDayRangeUTC();
 
     const todayZReports = await CashboxReportModel.findAll({
       where: {
         report_type: CashboxReportTypes.ZREPORT,
         created_at: {
-          [Op.between]: [start, end],
+          [Op.between]: [startDate, endDate],
         },
       },
       transaction: dbTransaction,

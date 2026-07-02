@@ -23,7 +23,7 @@ const AttractionRoundsRouter: FastifyPluginAsync = async (
     GetTodayAttractionRoundsController,
   );
 
-  fastify.get(
+  fastify.post(
     "/attractions/:attractionID/rounds/close",
     { schema: closeCurrentAttractionRoundSchema, preHandler: [AuthMiddleware] },
     CloseCurrentAttractionRoundController,
