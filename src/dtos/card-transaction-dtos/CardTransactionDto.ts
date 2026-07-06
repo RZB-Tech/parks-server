@@ -20,6 +20,7 @@ export const CardTransactionDTO = (
 ): CardTransactionResponseDTO => {
   return {
     id: Number(data.id || 0),
+    card: data.card_data?.card ?? "",
     nfc: data.card_data?.nfc ?? "",
     type: data.type,
     payment_type: data.payment_type ?? null,

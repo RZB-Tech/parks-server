@@ -22,6 +22,7 @@ declare interface CardStatsDto {
 
 declare interface CardTransactionResponseDTO {
   id: number;
+  card: string;
   nfc: string;
   type: CardTransactionType;
   payment_type: PaymentType | null;

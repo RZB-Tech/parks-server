@@ -117,7 +117,7 @@ export const cardTransactionProperties = {
   },
 
   card: {
-    type: "number",
+    type: "string",
   },
 
   card_number: {
