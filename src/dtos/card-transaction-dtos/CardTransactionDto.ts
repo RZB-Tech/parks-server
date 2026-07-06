@@ -102,7 +102,7 @@ export const CardPaymentTransactionDTO = (
 ): CardPaymentTransactionDTO => {
   return {
     id: Number(data.id || 0),
-    card: Number(data.card || 0),
+    card: Number(data.card_data?.card || 0),
     nfc: data.card_data?.nfc ?? "",
 
     operator: Number(data.operator || 0),
