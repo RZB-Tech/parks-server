@@ -47,6 +47,9 @@ export const OpenCashboxReportService = async (
         operator: operatorID,
         report_type: CashboxReportTypes.XREPORT,
         status: CashboxReportStatusTypes.OPEN,
+        created_at: {
+          [Op.between]: [startDate, endDate],
+        }
       },
       transaction: transaction,
       lock: transaction.LOCK.UPDATE,
