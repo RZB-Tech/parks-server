@@ -90,7 +90,7 @@ type CardTransactionHistoryPlain = CardTransactionModelI & {
 
 declare interface CardPaymentTransactionDTO {
   id: number;
-  card: number;
+  card: string;
   nfc: string;
 
   operator: number;
