@@ -10,12 +10,14 @@ import {
   ConfirmAttractionZReportsController,
   GetAccountingAttractionReportsController,
   GetAttractionZReportsController,
+  GetNotConfirmedAttractionZReportDatesController,
   GetTodayAttractionReportsController,
 } from "../../controllers/attraction-reports-controllers/AttractionReportController";
 import {
   confirmAttractionZReportsSchema,
   getAccountingAttractionReportsSchema,
   getAttractionZReportsSchema,
+  getNotConfirmedAttractionZReportDatesSchema,
   getTodayAttractionReportsSchema,
   openAttractionReportSchema,
   updateAttractionReportStatusSchema,
@@ -47,7 +49,7 @@ const AttractionReportsRouter: FastifyPluginAsync = async (
   );
 
   fastify.get(
-    "/reports/zreports",
+    "/attraction/zreports",
     { schema: getAttractionZReportsSchema, preHandler: [AuthMiddleware] },
     GetAttractionZReportsController,
   );
@@ -62,6 +64,14 @@ const AttractionReportsRouter: FastifyPluginAsync = async (
     "/attractions/reports/accounting",
     { schema: getAccountingAttractionReportsSchema, preHandler: [AuthMiddleware] },
     GetAccountingAttractionReportsController,
+  );
+
+  fastify.get(
+    "/attraction/notconfirmed/zreports/dates",
+    {
+      schema: getNotConfirmedAttractionZReportDatesSchema, preHandler: [AuthMiddleware],
+    },
+    GetNotConfirmedAttractionZReportDatesController,
   );
 };
 

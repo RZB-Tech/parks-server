@@ -10,6 +10,7 @@ import {
 import {
   ConfirmZReportsService,
   GetAccountingCashboxReportsService,
+  GetNotConfirmedZReportDatesService,
   GetTodayCashboxReportsService,
   GetZReportsService,
   OpenCashboxReportService,
@@ -39,7 +40,12 @@ export const CashboxReportsTodayController = makeReplyingController(
 export const StatusCashboxReportController = makeReplyingController(
   "success",
   async (
-    request: FastifyRequest<RouteWithParamsAndData<CashboxReportsParams,ReqData<CloseCashboxReportData>>>,
+    request: FastifyRequest<
+      RouteWithParamsAndData<
+        CashboxReportsParams,
+        ReqData<CloseCashboxReportData>
+      >
+    >,
   ) => {
     const operatorID = request.employee?.id;
     const params = request.params;
@@ -78,7 +84,16 @@ export const GetAccountingCashboxReportsController = makeReplyingController(
     request: FastifyRequest<RouteWithQuery<GetAccountingCashboxReportsQuery>>,
   ) => {
     const params = request.params;
-    
+
     return GetAccountingCashboxReportsService(request.query);
+  },
+);
+
+export const GetNotConfirmedZReportDatesController = makeReplyingController(
+  ["dates"],
+  async () => {
+    const dates = await GetNotConfirmedZReportDatesService();
+
+    return [dates];
   },
 );

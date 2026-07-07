@@ -5,8 +5,8 @@ import {
 } from "fastify";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 
-import { CashboxReportOpenController, CashboxReportsTodayController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetZReportsController, StatusCashboxReportController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
-import { cashboxReportsTodaySchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getZReportsSchema, openReportSchema, statusCashboxReportSchema } from "./schema";
+import { CashboxReportOpenController, CashboxReportsTodayController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetNotConfirmedZReportDatesController, GetZReportsController, StatusCashboxReportController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
+import { cashboxReportsTodaySchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getNotConfirmedZReportDatesSchema, getZReportsSchema, openReportSchema, statusCashboxReportSchema } from "./schema";
 
 const CashboxReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -31,7 +31,7 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
   );
 
    fastify.get(
-     "/zreports",
+     "/cashbox/zreports",
      { schema: getZReportsSchema, preHandler: [AuthMiddleware] },
      GetZReportsController,
    );
@@ -49,6 +49,12 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
        preHandler: [AuthMiddleware],
      },
      GetAccountingCashboxReportsController,
+   );
+
+   fastify.get(
+     "/cashbox/notconfirmed/zreports/dates",
+     { schema: getNotConfirmedZReportDatesSchema, preHandler: [AuthMiddleware] },
+     GetNotConfirmedZReportDatesController,
    );
 };
 

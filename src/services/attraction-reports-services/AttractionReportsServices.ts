@@ -28,7 +28,6 @@ import {
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
 
-
 export const OpenAttractionReportService = async (
   operatorID: number,
   params: AttractionReportParams,
@@ -893,4 +892,20 @@ export const GetAccountingAttractionReportsService = async (
       (report) => report.get({ plain: true }) as AttractionReportModelI,
     ),
   });
+};
+
+export const GetNotConfirmedAttractionZReportDatesService = async () => {
+  const reports = await AttractionReportModel.findAll({
+    where: {
+      report_type: AttractionReportTypes.ZREPORT,
+      status: {
+        [Op.ne]: AttractionReportStatusTypes.CONFIRMED,
+      },
+    },
+    attributes: ["report_date"],
+    group: ["report_date"],
+    order: [["report_date", "DESC"]],
+  });
+
+  return reports.map((report) => report.get("report_date"));
 };

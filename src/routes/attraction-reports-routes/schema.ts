@@ -672,3 +672,22 @@ export const getAccountingAttractionReportsSchema = {
     }),
   },
 };
+
+export const getNotConfirmedAttractionZReportDatesSchema = {
+  tags: ["Attraction reports route"],
+  summary: "Get not confirmed attraction zreport dates",
+  response: {
+    200: {
+      type: "object",
+      properties: {
+        dates: {
+          type: "array",
+          items: {
+            type: "string",
+            format: "date",
+          },
+        },
+      },
+    },
+  },
+};

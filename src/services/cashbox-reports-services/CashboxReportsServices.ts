@@ -49,7 +49,7 @@ export const OpenCashboxReportService = async (
         status: CashboxReportStatusTypes.OPEN,
         created_at: {
           [Op.between]: [startDate, endDate],
-        }
+        },
       },
       transaction: transaction,
       lock: transaction.LOCK.UPDATE,
@@ -669,4 +669,20 @@ export const GetAccountingCashboxReportsService = async (
       (report) => report.get({ plain: true }) as CashboxReportModelI,
     ),
   });
+};
+
+export const GetNotConfirmedZReportDatesService = async () => {
+  const reports = await CashboxReportModel.findAll({
+    where: {
+      report_type: CashboxReportTypes.ZREPORT,
+      status: {
+        [Op.ne]: CashboxReportStatusTypes.CONFIRMED,
+      },
+    },
+    attributes: ["report_date"],
+    group: ["report_date"],
+    order: [["report_date", "DESC"]],
+  });
+
+  return reports.map((report) => report.get("report_date"));
 };

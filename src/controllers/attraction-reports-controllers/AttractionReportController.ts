@@ -1,7 +1,21 @@
 import { FastifyRequest } from "fastify";
 import { makeReplyingController } from "../../utils/controllerHelpers";
-import { ReqData, RouteWithData, RouteWithParams, RouteWithParamsAndData, RouteWithQuery } from "../../types/routes";
-import { ConfirmAttractionZReportsService, GetAccountingAttractionReportsService, GetAttractionZReportsService, GetTodayAttractionReportsService, OpenAttractionReportService, UpdateAttractionReportStatusService } from "../../services/attraction-reports-services/AttractionReportsServices";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParams,
+  RouteWithParamsAndData,
+  RouteWithQuery,
+} from "../../types/routes";
+import {
+  ConfirmAttractionZReportsService,
+  GetAccountingAttractionReportsService,
+  GetAttractionZReportsService,
+  GetNotConfirmedAttractionZReportDatesService,
+  GetTodayAttractionReportsService,
+  OpenAttractionReportService,
+  UpdateAttractionReportStatusService,
+} from "../../services/attraction-reports-services/AttractionReportsServices";
 
 export const AttractionReportOpenController = makeReplyingController(
   "attraction-report",
@@ -16,13 +30,22 @@ export const AttractionReportOpenController = makeReplyingController(
 export const CloseAttractionReportController = makeReplyingController(
   "attraction-report",
   async (
-    request: FastifyRequest<RouteWithParamsAndData<AttractionReportParams,ReqData<UpdateAttractionReportStatusData>>>,
+    request: FastifyRequest<
+      RouteWithParamsAndData<
+        AttractionReportParams,
+        ReqData<UpdateAttractionReportStatusData>
+      >
+    >,
   ) => {
     const operatorID = request.employee?.id;
     const params = request.params;
     const body = request.body.data;
 
-    return UpdateAttractionReportStatusService(Number(operatorID), params, body);
+    return UpdateAttractionReportStatusService(
+      Number(operatorID),
+      params,
+      body,
+    );
   },
 );
 
@@ -35,24 +58,6 @@ export const GetTodayAttractionReportsController = makeReplyingController(
     return GetTodayAttractionReportsService(Number(employeeID), params);
   },
 );
-
-// export const CloseCashboxReportController = makeReplyingController(
-//   "success",
-//   async (
-//     request: FastifyRequest<
-//       RouteWithParamsAndData<
-//         CashboxReportsParams,
-//         ReqData<CloseCashboxReportData>
-//       >
-//     >,
-//   ) => {
-//     const operatorID = request.employee?.id;
-//     const params = request.params;
-//     const body = request.body.data;
-
-//     return CloseCashboxReportService(Number(operatorID), params, body);
-//   },
-// );
 
 export const GetAttractionZReportsController = makeReplyingController(
   ["stats", "totals", "attractions"],
@@ -69,7 +74,9 @@ export const GetAttractionZReportsController = makeReplyingController(
 export const ConfirmAttractionZReportsController = makeReplyingController(
   "success",
   async (
-    request: FastifyRequest<RouteWithData<ReqData<ConfirmAttractionZReportsData>>>,
+    request: FastifyRequest<
+      RouteWithData<ReqData<ConfirmAttractionZReportsData>>
+    >,
   ) => {
     const operatorID = request.employee?.id;
     const body = request.body.data;
@@ -81,10 +88,19 @@ export const ConfirmAttractionZReportsController = makeReplyingController(
 export const GetAccountingAttractionReportsController = makeReplyingController(
   "attraction-reports",
   async (
-    request: FastifyRequest<RouteWithQuery<GetAccountingAttractionReportsQuery>>,
+    request: FastifyRequest<
+      RouteWithQuery<GetAccountingAttractionReportsQuery>
+    >,
   ) => {
     const params = request.params;
 
     return GetAccountingAttractionReportsService(request.query);
   },
 );
+
+export const GetNotConfirmedAttractionZReportDatesController =
+  makeReplyingController(["dates"], async () => {
+    const dates = await GetNotConfirmedAttractionZReportDatesService();
+
+    return [dates];
+  });

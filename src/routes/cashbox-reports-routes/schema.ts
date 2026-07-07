@@ -455,10 +455,7 @@ export const statusCashboxReportSchema = {
       },
       report_type: {
         type: "string",
-        enum: [
-          CashboxReportTypes.ZREPORT,
-          CashboxReportTypes.XREPORT,
-        ],
+        enum: [CashboxReportTypes.ZREPORT, CashboxReportTypes.XREPORT],
       },
       report: {
         type: "number",
@@ -682,5 +679,24 @@ export const getAccountingCashboxReportsSchema = {
         },
       },
     }),
+  },
+};
+
+export const getNotConfirmedZReportDatesSchema = {
+  tags: ["Cashbox Reports route"],
+  summary: "Get not confirmed zreport dates",
+  response: {
+    200: {
+      type: "object",
+      properties: {
+        dates: {
+          type: "array",
+          items: {
+            type: "string",
+            format: "date",
+          },
+        },
+      },
+    },
   },
 };
