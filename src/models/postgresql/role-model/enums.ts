@@ -5,4 +5,5 @@ export enum RoleTypes {
   HEADOPERATOR = "head_operator",
   OPERATOR = "operator",
   HEADACCOUNTANT = "head_accountant",
+  HEADMARKETING = "head_marketing",
 }
