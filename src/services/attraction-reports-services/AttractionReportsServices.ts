@@ -34,23 +34,25 @@ export const OpenAttractionReportService = async (
 ) => {
   const attractionID = Number(params.attractionID);
 
+  if (!attractionID || Number.isNaN(attractionID)) {
+    throw BadRequest("Attraction ID is invalid!");
+  }
+
   return await AttractionReportModel.sequelize!.transaction(
     async (transaction) => {
       const { start, end } = getTodayRange();
 
-      const operatorAttraction = await AttractionOperatorModel.findOne({
+      const superAdmin = await EmployeeModel.findOne({
         where: {
-          operator: operatorID,
-          attraction: attractionID,
-          status: AttractionOperatorStatusTypes.ACTIVE,
+          id: operatorID,
         },
         include: [
           {
-            model: AttractionModel,
-            as: "attractions",
+            model: RoleModel,
+            as: "roles",
             required: true,
             where: {
-              status: AttractionStatusTypes.ACTIVE,
+              name: "superadmin",
             },
           },
         ],
@@ -58,8 +60,45 @@ export const OpenAttractionReportService = async (
         lock: transaction.LOCK.UPDATE,
       });
 
-      if (operatorAttraction === null) {
-        throw NotFound("Operator attraction not found!");
+      const isSuperAdmin = superAdmin !== null;
+
+      if (isSuperAdmin) {
+        const attraction = await AttractionModel.findOne({
+          where: {
+            id: attractionID,
+            status: AttractionStatusTypes.ACTIVE,
+          },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+
+        if (attraction === null) {
+          throw NotFound("Attraction not found or not active!");
+        }
+      } else {
+        const operatorAttraction = await AttractionOperatorModel.findOne({
+          where: {
+            operator: operatorID,
+            attraction: attractionID,
+            status: AttractionOperatorStatusTypes.ACTIVE,
+          },
+          include: [
+            {
+              model: AttractionModel,
+              as: "attractions",
+              required: true,
+              where: {
+                status: AttractionStatusTypes.ACTIVE,
+              },
+            },
+          ],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+
+        if (operatorAttraction === null) {
+          throw NotFound("Operator attraction not found!");
+        }
       }
 
       const openXReport = await AttractionReportModel.findOne({
@@ -260,6 +299,7 @@ export const GetOrCreateOpenAttractionRoundService = async (
     },
   );
 };
+
 export const UpdateAttractionReportStatusService = async (
   operatorID: number,
   params: AttractionReportParams,
