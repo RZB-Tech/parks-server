@@ -9,7 +9,7 @@ export class AttractionReportModel
   public id!: number;
 
   public attraction!: number;
-  public operator!: number;
+  public operator!: number | null;
 
   public status!: import("./enums").AttractionReportStatusTypes;
   public report_type!: import("./enums").AttractionReportTypes;
@@ -56,7 +56,7 @@ export class AttractionReportModel
 
         operator: {
           type: DataTypes.BIGINT,
-          allowNull: false,
+          allowNull: true,
         },
 
         status: {

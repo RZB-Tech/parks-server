@@ -1,7 +1,7 @@
 declare interface AttractionReportModelI {
   id: number;
   attraction: number;
-  operator: number;
+  operator: number | null;
   status: import("./enums").AttractionReportStatusTypes;
   report_type: import("./enums").AttractionReportTypes;
   zreport: number | null;

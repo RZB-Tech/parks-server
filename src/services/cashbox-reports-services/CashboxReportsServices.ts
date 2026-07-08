@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, Transaction } from "sequelize";
 import { BadRequest, NotFound } from "../../exceptions";
 import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
 import {
@@ -685,4 +685,114 @@ export const GetNotConfirmedZReportDatesService = async () => {
   });
 
   return reports.map((report) => report.get("report_date"));
+};
+
+
+export const AutoCloseUnclosedXReportsService = async () => {
+  const sequelize = CashboxReportModel.sequelize!;
+  return await sequelize.transaction(async (transaction) => {
+    const now = new Date();
+
+    const notClosedStatuses = [
+      CashboxReportStatusTypes.OPEN,
+      CashboxReportStatusTypes.STOPPED,
+    ];
+
+    const xreports = await CashboxReportModel.findAll({
+      where: {
+        report_type: CashboxReportTypes.XREPORT,
+        status: {
+          [Op.in]: notClosedStatuses,
+        },
+        closed_at: null,
+        opened_at: {
+          [Op.lte]: now,
+        },
+      },
+      attributes: ["id", "zreport"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (xreports.length === 0) {
+      return {
+        closed_xreports: 0,
+        message: "No unclosed X reports found.",
+      };
+    }
+
+    const xreportIDs = xreports.map((item) => Number(item.id));
+
+    const [closedCount] = await CashboxReportModel.update(
+      {
+        status: CashboxReportStatusTypes.CLOSED,
+        closed_at: now,
+      },
+      {
+        where: {
+          id: {
+            [Op.in]: xreportIDs,
+          },
+          report_type: CashboxReportTypes.XREPORT,
+          status: {
+            [Op.in]: notClosedStatuses,
+          },
+          closed_at: null,
+        },
+        transaction,
+      },
+    );
+
+    const zreportIDs = [
+      ...new Set(
+        xreports
+          .map((item) => Number(item.zreport))
+          .filter((id) => Number.isFinite(id) && id > 0),
+      ),
+    ];
+
+    let closedZreports = 0;
+
+    for (const zreportID of zreportIDs) {
+      const openedXReportsCount = await CashboxReportModel.count({
+        where: {
+          zreport: zreportID,
+          report_type: CashboxReportTypes.XREPORT,
+          status: {
+            [Op.in]: notClosedStatuses,
+          },
+          closed_at: null,
+        },
+        transaction,
+      });
+
+      if (openedXReportsCount === 0) {
+        const [updatedZReports] = await CashboxReportModel.update(
+          {
+            operator: null,
+            status: CashboxReportStatusTypes.CLOSED,
+            closed_at: now,
+          },
+          {
+            where: {
+              id: zreportID,
+              report_type: CashboxReportTypes.ZREPORT,
+              status: {
+                [Op.in]: notClosedStatuses,
+              },
+            },
+            transaction,
+          },
+        );
+
+        closedZreports += updatedZReports;
+      }
+    }
+
+    return {
+      closed_xreports: closedCount,
+      closed_zreports: closedZreports,
+      message: "Unclosed X reports and Z reports closed successfully.",
+    };
+  });
 };

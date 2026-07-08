@@ -2,12 +2,14 @@
   "name": "parks-server",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
-  "scripts": {
-    "dev": "concurrently \"tsc -w\" \"nodemon build/server.js\"",
+  "main": "build/server.js",
+   "scripts": {
+    "dev": "concurrently -n TSC,SERVER,SCHEDULE \"npm run dev:tsc\" \"npm run dev:server\" \"npm run dev:schedule\"",
+    "dev:tsc": "tsc -w",
+    "dev:server": "nodemon --watch build --delay 500ms --exec \"node build/server.js\"",
+    "dev:schedule": "node build/temporal/schedule.js",
     "build": "tsc",
-    "start": "node build/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node build/server.js"
   },
   "keywords": [],
   "author": "RZB Tech",
@@ -32,6 +34,9 @@
     "@fastify/multipart": "^10.0.0",
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^6.0.0",
+    "@temporalio/client": "^1.20.1",
+    "@temporalio/worker": "^1.20.1",
+    "@temporalio/workflow": "^1.20.1",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "fastify": "^5.8.5",
