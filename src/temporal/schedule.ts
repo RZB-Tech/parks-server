@@ -55,16 +55,16 @@ const run = async () => {
     scheduleId: "nightly-close-unclosed-xreports",
     workflowType: closeUnclosedXReportsWorkflow,
     taskQueue: "cashbox-report-queue",
-    hour: 17,
-    minute: 45,
+    hour: 2,
+    minute: 59,
   });
 
   await createScheduleSafe({
     scheduleId: "nightly-close-unclosed-attraction-reports",
     workflowType: closeUnclosedAttractionReportsWorkflow,
     taskQueue: "attraction-report-queue",
-    hour: 17,
-    minute: 45,
+    hour: 2,
+    minute: 59,
   });
 };
 
