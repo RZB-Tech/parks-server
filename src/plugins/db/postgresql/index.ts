@@ -11,7 +11,6 @@ import {
   CashboxModel,
   CashboxOperatorModel,
   CashboxReportModel,
-  CategoryModel,
   EmployeeModel,
   FileModel,
   RoleModel,
@@ -25,7 +24,6 @@ const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     await FileModel.sync({ alter: true });
     await RoleModel.sync({ alter: true });
     await EmployeeModel.sync({ alter: true });
-    await CategoryModel.sync({ alter: true });
     await AttractionModel.sync({ alter: true });
     await AttractionOperatorModel.sync({ alter: true });
     await CashboxModel.sync({ alter: true });

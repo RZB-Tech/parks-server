@@ -1,4 +1,3 @@
-import { MultipartFile, MultipartValue } from "@fastify/multipart";
 import { BadRequest, NotFound } from "../../exceptions";
 import { CardStatusTypes, CardType } from "../../models/postgresql/cards-model/enums";
 import {
@@ -9,15 +8,26 @@ import {
 import { ParseCardExcel, ValidateCardExcel } from "../../utils/excelHelpers";
 import {
   CardDTO,
-  CardStatsDTO,
   UpdateCardDTO,
 } from "../../dtos/card-dtos/CardDto";
-import { Op } from "sequelize";
+import { col, fn, Op } from "sequelize";
 
 export const GetCardStatsService = async () => {
-  const cardBatches = await CardBatchModel.findAll({
-    raw: true,
-  });
+  const [cardBatches, balanceResult] = await Promise.all([
+    CardBatchModel.findAll({
+      raw: true,
+    }),
+
+    CardModel.findOne({
+      attributes: [[fn("SUM", col("balance")), "total_balance"]],
+      raw: true,
+    }),
+  ]);
+
+  const totalBalance = Number(
+    (balanceResult as unknown as { total_balance: string | number | null })
+      ?.total_balance ?? 0,
+  );
 
   const stats = {
     total: 0,
@@ -27,6 +37,8 @@ export const GetCardStatsService = async () => {
     lost: 0,
     frozen: 0,
     tethered: 0,
+
+    totalBalance,
 
     types: {} as Record<string, number>,
 

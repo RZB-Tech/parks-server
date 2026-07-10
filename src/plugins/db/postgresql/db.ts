@@ -3,7 +3,6 @@ import { EmployeeModel } from "../../../models/postgresql/employees-model/Employ
 import { RoleModel } from "../../../models/postgresql/role-model/RoleModel";
 import { AttractionModel } from "../../../models/postgresql/attraction-model/AttractionModel";
 import { AttractionOperatorModel } from "../../../models/postgresql/attraction-operator-model/AttractionOperatorModel";
-import { CategoryModel } from "../../../models/postgresql/category-model/CategoryModel";
 import { FileModel } from "../../../models/postgresql/file-model/FileModel";
 import { CashboxModel } from "../../../models/postgresql/cashbox-model/CashboxModel";
 import { CashboxOperatorModel } from "../../../models/postgresql/cashbox-operator-model/CashboxOperatorModel";
@@ -33,7 +32,6 @@ const models = {
   EmployeeModel,
   AttractionModel,
   AttractionOperatorModel,
-  CategoryModel,
   CashboxModel,
   CashboxOperatorModel,
   CardBatchModel,
@@ -64,7 +62,6 @@ export {
   EmployeeModel,
   AttractionModel,
   AttractionOperatorModel,
-  CategoryModel,
   CashboxModel,
   CashboxOperatorModel,
   CardBatchModel,

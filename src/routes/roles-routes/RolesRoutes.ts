@@ -6,7 +6,6 @@ import {
 import { GetRolesController } from "../../controllers/roles-controllers/RolesController";
 import { getRolesSchema } from "./schema";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
-import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const RolesRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -14,7 +13,7 @@ const RolesRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/roles",
-    { schema: getRolesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin'])] },
+    { schema: getRolesSchema, preHandler: [AuthMiddleware] },
     GetRolesController,
   );
 };

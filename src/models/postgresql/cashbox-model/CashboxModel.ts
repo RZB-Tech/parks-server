@@ -11,6 +11,8 @@ export class CashboxModel
   public place!: string;
   public description!: string;
   public status!: import("./enums").CashboxStatusTypes;
+  public main_file!: number;
+  public dashboard_file!: number
 
   // timestamps
   public readonly created_at!: Date;
@@ -47,6 +49,14 @@ export class CashboxModel
         status: {
           type: DataTypes.ENUM("active", "inactive", "maintenance", "closed"),
           allowNull: false,
+        },
+        main_file: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+        },
+        dashboard_file: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
         },
       },
       {
