@@ -15,7 +15,10 @@ import {
   PaymentType,
 } from "../../models/postgresql/card-transactions-model/enums";
 import { CardModel } from "../../models/postgresql/cards-model/CardModel";
-import { CardStatusTypes } from "../../models/postgresql/cards-model/enums";
+import {
+  CardStatusTypes,
+  CardType,
+} from "../../models/postgresql/cards-model/enums";
 import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
 import {
   CashboxReportStatusTypes,
@@ -27,30 +30,35 @@ import {
   validateTopUpPaymentType,
 } from "../../utils/transactionHelpers";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
-import { GetOpenAttractionReportService, GetOrCreateOpenAttractionRoundService, GetPaymentOperatorAttractionService } from "../attraction-reports-services/AttractionReportsServices";
+import {
+  GetOpenAttractionReportService,
+  GetOrCreateOpenAttractionRoundService,
+  GetPaymentOperatorAttractionService,
+} from "../attraction-reports-services/AttractionReportsServices";
 
 export const CheckNfcCardService = async (
   operatorID: number,
   body: CheckNFCCardData,
 ) => {
-  if (!body.nfc) {
+  if (!body.nfc?.trim()) {
     throw BadRequest("NFC is required!");
   }
 
   const openXReport = await CashboxReportModel.findOne({
     where: {
       operator: operatorID,
+      report_type: CashboxReportTypes.XREPORT,
       status: CashboxReportStatusTypes.OPEN,
     },
   });
 
-  if (openXReport === null) {
+  if (!openXReport) {
     throw BadRequest("Open X report required!");
   }
 
   const card = await CardModel.findOne({
     where: {
-      nfc: body.nfc,
+      nfc: body.nfc.trim(),
     },
     include: [
       {
@@ -62,7 +70,7 @@ export const CheckNfcCardService = async (
     ],
   });
 
-  if (card === null) {
+  if (!card) {
     throw NotFound("Card not found!");
   }
 
@@ -76,6 +84,16 @@ export const CheckNfcCardService = async (
     throw BadRequest("Card is not available!");
   }
 
+  if (card.type === CardType.VIP) {
+    throw BadRequest("VIP cards cannot be topped up!");
+  }
+
+  if (card.type === CardType.ORGANIZATION && Number(card.balance) > 12000) {
+    throw BadRequest(
+      "Organization card balance must be less than 12,000 to allow top-up.",
+    );
+  }
+
   const lastTransaction = await CardTransactionModel.findOne({
     where: {
       card: card.id,
@@ -84,11 +102,17 @@ export const CheckNfcCardService = async (
     order: [["id", "DESC"]],
   });
 
-  const cardData = card.get({ plain: true }) as CardWithTransactionDto;
+  const cardData = card.get({
+    plain: true,
+  }) as CardWithTransactionDto;
 
   return CardDTO({
     ...cardData,
-    transaction: lastTransaction ? lastTransaction.get({ plain: true }) : null,
+    transaction: lastTransaction
+      ? lastTransaction.get({
+          plain: true,
+        })
+      : null,
   });
 };
 
@@ -100,11 +124,13 @@ export const CardTopUpTransactionService = async (
     throw BadRequest("Operator is required!");
   }
 
-  if (!body.nfc) {
+  if (!body.nfc?.trim()) {
     throw BadRequest("NFC is required!");
   }
 
-  if (!body.amount || Number(body.amount) <= 0) {
+  const amount = Number(body.amount);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
     throw BadRequest("Amount must be greater than 0!");
   }
 
@@ -127,19 +153,23 @@ export const CardTopUpTransactionService = async (
       lock: dbTransaction.LOCK.UPDATE,
     });
 
-    if (openXReport === null) {
+    if (!openXReport) {
       throw BadRequest("Open X report required!");
+    }
+
+    if (!openXReport.zreport) {
+      throw BadRequest("Z report is required!");
     }
 
     const card = await CardModel.findOne({
       where: {
-        nfc: body.nfc,
+        nfc: body.nfc.trim(),
       },
       transaction: dbTransaction,
       lock: dbTransaction.LOCK.UPDATE,
     });
 
-    if (card === null) {
+    if (!card) {
       throw NotFound("Card not found!");
     }
 
@@ -153,28 +183,35 @@ export const CardTopUpTransactionService = async (
       throw BadRequest("Card is not available!");
     }
 
-    const lastTransaction = await CardTransactionModel.findOne({
-      where: {
-        card: card.id,
-        status: CardTransactionStatusTypes.SUCCESS,
-      },
-      order: [["id", "DESC"]],
-      transaction: dbTransaction,
-      lock: dbTransaction.LOCK.UPDATE,
-    });
+    /*
+     * VIP kartani to‘ldirish mumkin emas.
+     */
+    if (card.type === CardType.VIP) {
+      throw BadRequest("VIP cards cannot be topped up!");
+    }
 
-    const amount = Number(body.amount);
-    const balanceBefore = Number(lastTransaction?.balance_after || 0);
+    const balanceBefore = Number(card.balance || 0);
+
+    /*
+     * Organization kartani faqat joriy balansi
+     * 12 000 dan kam bo‘lsa to‘ldirish mumkin.
+     */
+    if (card.type === CardType.ORGANIZATION && balanceBefore > 12000) {
+      throw BadRequest(
+        "Organization card balance must be less than 12,000 to allow top-up!",
+      );
+    }
+
     const balanceAfter = balanceBefore + amount;
-
     const isCardActivated = card.status === CardStatusTypes.INACTIVE;
+    const isOrganizationCard = card.type === CardType.ORGANIZATION;
 
-    const transaction = await CardTransactionModel.create(
+    const cardTransaction = await CardTransactionModel.create(
       {
         card: Number(card.id),
         operator: operatorID,
         xreport: Number(openXReport.id),
-        cashbox: openXReport.cashbox,
+        cashbox: Number(openXReport.cashbox),
         type: CardTransactionType.TOPUP,
         payment_type: body.payment_type,
         payment_card_type:
@@ -195,6 +232,30 @@ export const CardTopUpTransactionService = async (
       },
     );
 
+    /*
+     * Card modeldagi balance yangilanadi.
+     *
+     * Organization karta to‘ldirilsa:
+     * organization -> classic bo‘ladi.
+     *
+     * Inactive karta birinchi top-upda active bo‘ladi.
+     */
+    await card.update(
+      {
+        balance: balanceAfter,
+        ...(isOrganizationCard ? { type: CardType.CLASSIC } : {}),
+        ...(isCardActivated
+          ? {
+              status: CardStatusTypes.ACTIVE,
+              activated_at: new Date(),
+            }
+          : {}),
+      },
+      {
+        transaction: dbTransaction,
+      },
+    );
+
     const incrementData = getReportTopUpIncrementData(
       body,
       amount,
@@ -208,10 +269,6 @@ export const CardTopUpTransactionService = async (
       transaction: dbTransaction,
     });
 
-    if (!openXReport.zreport) {
-      throw BadRequest("Z report is required!");
-    }
-
     await CashboxReportModel.increment(incrementData, {
       where: {
         id: openXReport.zreport,
@@ -220,16 +277,6 @@ export const CardTopUpTransactionService = async (
     });
 
     if (isCardActivated) {
-      await card.update(
-        {
-          status: CardStatusTypes.ACTIVE,
-          activated_at: new Date(),
-        },
-        {
-          transaction: dbTransaction,
-        },
-      );
-
       await CardBatchModel.increment(
         {
           active_cards: 1,
@@ -245,11 +292,13 @@ export const CardTopUpTransactionService = async (
     }
 
     return CardTransactionDTO({
-      ...transaction.get({ plain: true }),
-      card_data: {
-        ...card.get({ plain: true }),
-        status: isCardActivated ? CardStatusTypes.ACTIVE : card.status,
-      },
+      ...cardTransaction.get({
+        plain: true,
+      }),
+
+      card_data: card.get({
+        plain: true,
+      }),
     });
   });
 };

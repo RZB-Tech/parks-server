@@ -18,7 +18,7 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.post(
     "/cards/nfc/check",
-    { schema: checkNfcCardSchema,preHandler: [AuthMiddleware] },
+    { schema: checkNfcCardSchema, preHandler: [AuthMiddleware] },
     CheckNfcCardController,
   );
 
