@@ -112,10 +112,6 @@ export class AttractionModel
       as: "attraction_operator",
       onDelete: "CASCADE",
     });
-    AttractionModel.belongsTo(models.CategoryModel, {
-      foreignKey: "category",
-      as: "categories",
-    });
     AttractionModel.hasMany(models.AttractionReportModel, {
       foreignKey: "attraction",
       as: "reports",
