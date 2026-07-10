@@ -61,9 +61,8 @@ export const cashboxStatsProperties = {
 
 export const getCashboxSchema = {
   summary: "Get cashbox",
-  description: "Get cashbox by id",
+  description: "Get cashbox by id or device id superadmin, admin, owner, director, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
-
   headers: {
     type: "object",
     required: ["authorization"],
@@ -75,7 +74,6 @@ export const getCashboxSchema = {
       },
     },
   },
-
   querystring: {
     type: "object",
     additionalProperties: false,
@@ -118,7 +116,19 @@ export const getCashboxSchema = {
 
 export const getCashboxStatsSchema = {
   summary: "Get cashbox status statistics",
+  description: "Get cashbox stats superadmin, admin, owner, director, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   response: {
     200: successAnswerTemplate({
       cashbox_stats: {
@@ -131,8 +141,19 @@ export const getCashboxStatsSchema = {
 
 export const getCashboxesSchema = {
   summary: "Get cashboxes",
-  description: "Get cashboxes",
+  description: "Get cashboxes superadmin, admin, owner, director, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   querystring: {
     type: "object",
     properties: {
@@ -198,8 +219,19 @@ export const getCashboxesSchema = {
 
 export const createCashboxSchema = {
   summary: "Create cashbox",
-  description: "Create cashbox",
+  description: "Create cashbox superadmin, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   body: reqBodyWrapper({
     type: "object",
     required: ["name", "place"],
@@ -221,8 +253,19 @@ export const createCashboxSchema = {
 
 export const updateCashboxSchema = {
   summary: "Update cashbox",
-  description: "Update cashbox",
+  description: "Update cashbox superadmin, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["cashboxID"],
@@ -254,8 +297,19 @@ export const updateCashboxSchema = {
 
 export const deleteCashboxesSchema = {
   summary: "Delete cashboxes",
-  description: "Delete cashboxes",
+  description: "Delete cashboxes superadmin, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   body: reqBodyWrapper({
     type: "object",
     required: ["cashboxIDs"],

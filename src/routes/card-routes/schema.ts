@@ -33,34 +33,102 @@ export const cardProperties = {
 
 export const getCardStatsSchema = {
   summary: "Get card statistics",
-  description: "Returns card status statistics grouped by batch or globally",
+  description:
+    "Returns global card statistics, totals grouped by card type, and batch summaries",
   tags: ["Cards route"],
-  // querystring: {
-  //   type: "object",
-  //   properties: {
-  //     batch: {
-  //       type: "number",
-  //       description: "Filter by batch ID (optional)",
-  //     },
-  //   },
-  // },
-
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   response: {
     200: successAnswerTemplate({
       card_stats: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            batch: { type: "number" },
-            batchName: { type: "string" },
-            total: { type: "number" },
-            active: { type: "number" },
-            inactive: { type: "number" },
-            blocked: { type: "number" },
-            lost: { type: "number" },
-            frozen: { type: "number" },
-            tethered: { type: "number" },
+        type: "object",
+        required: [
+          "total",
+          "active",
+          "inactive",
+          "blocked",
+          "lost",
+          "frozen",
+          "tethered",
+          "types",
+          "batches",
+        ],
+        properties: {
+          total: {
+            type: "number",
+            example: 126,
+          },
+          active: {
+            type: "number",
+            example: 9,
+          },
+          inactive: {
+            type: "number",
+            example: 117,
+          },
+          blocked: {
+            type: "number",
+            example: 0,
+          },
+          lost: {
+            type: "number",
+            example: 0,
+          },
+          frozen: {
+            type: "number",
+            example: 0,
+          },
+          tethered: {
+            type: "number",
+            example: 0,
+          },
+
+          types: {
+            type: "object",
+            description: "Total cards grouped by card type",
+            additionalProperties: {
+              type: "number",
+            },
+            example: {
+              classic: 55,
+              vip: 19,
+              organization: 16,
+            },
+          },
+
+          batches: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "name", "type", "total"],
+              properties: {
+                id: {
+                  type: "number",
+                  example: 1,
+                },
+                name: {
+                  type: "string",
+                  example: "part-yana-100",
+                },
+                type: {
+                  type: "string",
+                  example: "classic",
+                },
+                total: {
+                  type: "number",
+                  example: 100,
+                },
+              },
+            },
           },
         },
       },
@@ -72,7 +140,17 @@ export const getCardsSchema = {
   summary: "Get cards",
   description: "Get cards by batch with filters",
   tags: ["Cards route"],
-
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   querystring: {
     type: "object",
     required: ["batch"],
@@ -130,7 +208,17 @@ export const uploadCardSchema = {
   summary: "Upload nfc card from xlslx",
   description: "Upload xls which creates new nfc cards",
   tags: ["Cards route"],
-
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   body: reqBodyWrapper({
     type: "object",
   }),
@@ -140,6 +228,17 @@ export const updateCardSchema = {
   summary: "Update card status",
   description: "Change card status and update batch counters",
   tags: ["Cards route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["cardID"],
@@ -178,6 +277,17 @@ export const deleteCardsSchema = {
   summary: "Delete cards",
   description: "Delete cards",
   tags: ["Cards route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   body: reqBodyWrapper({
     type: "object",
     required: ["cardIDs"],

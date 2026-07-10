@@ -19,6 +19,8 @@ import {
   getAttractionsStatsSchema,
   updateAttractionSchema,
 } from "./schema";
+import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
+import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const AttractionsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -26,37 +28,37 @@ const AttractionsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/attraction",
-    { schema: getAttractionSchema, preHandler: [] },
+    { schema: getAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "operator"])] },
     GetAttractionController,
   );
 
   fastify.get(
     "/attraction/stats",
-    { schema: getAttractionsStatsSchema, preHandler: [] },
+    { schema: getAttractionsStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator"])] },
     GetAttractionStatsController,
   );
 
   fastify.get(
     "/attractions",
-    { schema: getAttractionsSchema, preHandler: [] },
+    { schema: getAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "operator"])] },
     GetAttractionsController,
   );
 
   fastify.post(
     "/attractions",
-    { schema: createAttractionSchema, preHandler: [] },
+    { schema: createAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
     CreateAttractionsController,
   );
 
   fastify.put(
     "/attractions/:attractionID",
-    { schema: updateAttractionSchema, preHandler: [] },
+    { schema: updateAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
     UpdateAttractionsController,
   );
 
   fastify.delete(
     "/attractions",
-    { schema: deleteAttractionsSchema, preHandler: [] },
+    { schema: deleteAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
     DeleteAttractionsController,
   );
 };

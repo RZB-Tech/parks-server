@@ -110,7 +110,6 @@ export const AttractionZReportAttractionDTO = (
     id: Number(data.id),
     name: data.name,
     manufacturer: data.manufacturer ?? null,
-    category: Number(data.category),
     status: data.status,
 
     dashboard_file:
@@ -166,7 +165,6 @@ export const AccountingAttractionReportsDTO = (data: {
           id: Number(attraction.id),
           name: attraction.name,
           manufacturer: attraction.manufacturer ?? null,
-          category: Number(attraction.category),
           status: attraction.status,
 
           dashboard_file:

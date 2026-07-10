@@ -14,6 +14,7 @@ import {
   RouteWithQuery,
 } from "../../types/routes";
 import { BadRequest } from "../../exceptions";
+import { CardType } from "../../models/postgresql/cards-model/enums";
 
 export const GetCardStatsController = makeReplyingController(
   "card_stats",
@@ -43,8 +44,11 @@ export const GetCardsController = makeReplyingController(
 export const CreateCardsController = makeReplyingController(
   "cards",
   async (request: FastifyRequest) => {
+    const employeeID = request.employee?.id;
     let fileBuffer: Buffer | null = null;
     let batchName: string | null = null;
+    let type: string | null = null;
+    let balance: number | null = null;
 
     for await (const part of request.parts()) {
       if (part.type === "file") {
@@ -59,6 +63,20 @@ export const CreateCardsController = makeReplyingController(
         if (part.fieldname === "batch_name") {
           batchName = String(part.value);
         }
+
+        if (part.fieldname === "type") {
+          type = String(part.value);
+        }
+
+        if (part.fieldname === "balance") {
+          const parsedBalance = Number(part.value);
+
+          if (Number.isNaN(parsedBalance)) {
+            throw BadRequest("Balance is invalid.");
+          }
+
+          balance = parsedBalance;
+        }
       }
     }
 
@@ -70,9 +88,15 @@ export const CreateCardsController = makeReplyingController(
       throw BadRequest("Batch name is required.");
     }
 
-    return CreateCardsService({
+    if (!type || !type.trim()) {
+      throw BadRequest("Card type is required.");
+    }
+
+    return CreateCardsService(Number(employeeID), {
       file: fileBuffer,
       batch_name: batchName.trim(),
+      type: type.trim() as CardType,
+      balance: balance ?? null,
     });
   },
 );

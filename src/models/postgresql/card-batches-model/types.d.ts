@@ -1,6 +1,7 @@
 declare interface CardBatchModelI {
   id: number;
   name: string;
+  type?: CardType;
   total_cards: number;
   inactive_cards: number;
   active_cards: number;

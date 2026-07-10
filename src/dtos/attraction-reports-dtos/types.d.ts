@@ -94,7 +94,6 @@ declare type AccountingAttractionReportDTO = {
     id: number;
     name: string;
     manufacturer: string | null;
-    category: number;
     status: string;
     dashboard_file: number | null;
     main_file: number | null;

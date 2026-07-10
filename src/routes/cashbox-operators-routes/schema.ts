@@ -1,12 +1,6 @@
 import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
 import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
-import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
-import {
-  employee_id,
-  getSchemaHeaders,
-  reqBodyWrapper,
-  successAnswerTemplate,
-} from "../schemas";
+import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
 
 export const cashboxOperatorEmployeeProperties = {
   id: {
@@ -69,11 +63,22 @@ export const cashboxOperatorCashboxProperties = {
   },
 };
 
-
 export const createCashboxOperatorsSchema = {
   summary: "Create cashbox operators",
-  description: "Create cashbox operators",
+  description:
+    "Create cashbox operators superadmin, head_marketing, head_cashier",
   tags: ["Cashboxes operators route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["cashboxID"],
@@ -105,8 +110,20 @@ export const createCashboxOperatorsSchema = {
 
 export const deleteCashboxOperatorsSchema = {
   summary: "Delete cashbox operators",
-  description: "Delete cashbox operators",
+  description:
+    "Delete cashbox operators superadmin, head_marketing, head_cashier",
   tags: ["Cashboxes operators route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["cashboxID", "operatorID"],

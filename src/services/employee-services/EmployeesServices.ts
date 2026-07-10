@@ -10,7 +10,14 @@ import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import bcrypt from "bcrypt";
 import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
-import { RoleModel, sequelize } from "../../plugins/db/postgresql/db";
+import {
+  AttractionModel,
+  AttractionOperatorModel,
+  CashboxModel,
+  CashboxOperatorModel,
+  RoleModel,
+  sequelize,
+} from "../../plugins/db/postgresql/db";
 import { Op } from "sequelize";
 
 export const GetEmployeeService = async (
@@ -104,18 +111,124 @@ export const GetEmployeesService = async (
   }
 
   if (query.statuses) {
-    where.status = query.statuses;
+    const statuses = query.statuses
+      .split(",")
+      .map((status) => status.trim())
+      .filter(Boolean);
+
+    where.status = {
+      [Op.in]: statuses,
+    };
   }
 
   const { rows, count } = await EmployeeModel.findAndCountAll({
     where,
     limit,
     offset,
-    order: [['id', 'DESC']]
+    order: [["id", "DESC"]],
   });
 
+  const employeeIds = rows.map((employee) => Number(employee.id));
+
+  if (employeeIds.length === 0) {
+    return {
+      employees: [],
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
+    };
+  }
+
+  const cashboxOperators = await CashboxOperatorModel.findAll({
+    where: {
+      operator: {
+        [Op.in]: employeeIds,
+      },
+      status: {
+        [Op.in]: ["active", "inactive"],
+      },
+    },
+    include: [
+      {
+        model: CashboxModel,
+        as: "cashboxes",
+        attributes: ["id", "name"],
+        required: true,
+      },
+    ],
+  });
+
+  const attractionOperators = await AttractionOperatorModel.findAll({
+    where: {
+      operator: {
+        [Op.in]: employeeIds,
+      },
+      status: {
+        [Op.in]: ["active", "inactive"],
+      },
+    },
+    include: [
+      {
+        model: AttractionModel,
+        as: "attractions",
+        attributes: ["id", "name"],
+        required: true,
+      },
+    ],
+  });
+
+  const cashboxesMap = new Map<number, EmployeeShortCashboxDTO[]>();
+  const attractionsMap = new Map<number, EmployeeShortAttractionDTO[]>();
+
+  for (const item of cashboxOperators) {
+    const plain = item.get({ plain: true }) as CashboxOperatorModelI & {
+      cashboxes?: CashboxModelI;
+    };
+
+    const operatorID = Number(plain.operator);
+
+    if (!cashboxesMap.has(operatorID)) {
+      cashboxesMap.set(operatorID, []);
+    }
+
+    if (plain.cashboxes) {
+      cashboxesMap.get(operatorID)!.push({
+        id: Number(plain.cashboxes.id),
+        name: plain.cashboxes.name,
+      });
+    }
+  }
+
+  for (const item of attractionOperators) {
+    const plain = item.get({ plain: true }) as AttractionOperatorModelI & {
+      attractions?: AttractionModelI;
+    };
+
+    const operatorID = Number(plain.operator);
+
+    if (!attractionsMap.has(operatorID)) {
+      attractionsMap.set(operatorID, []);
+    }
+
+    if (plain.attractions) {
+      attractionsMap.get(operatorID)!.push({
+        id: Number(plain.attractions.id),
+        name: plain.attractions.name,
+      });
+    }
+  }
+
   return {
-    employees: rows.map((employee) => EmployeeDTO(employee)),
+    employees: rows.map((employee) => {
+      const plainEmployee = employee.get({ plain: true }) as GetEmployeeDTO;
+
+      return EmployeeDTO({
+        ...plainEmployee,
+        cashboxes: cashboxesMap.get(Number(plainEmployee.id)) ?? [],
+        attractions: attractionsMap.get(Number(plainEmployee.id)) ?? [],
+      });
+    }),
     total: count,
     page,
     limit,

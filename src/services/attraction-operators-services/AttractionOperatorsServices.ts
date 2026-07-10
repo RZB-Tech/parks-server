@@ -1,7 +1,6 @@
 import { Op } from "sequelize";
 import { AttractionOperatorDTO } from "../../dtos/attraction-operators-dtos/AttractionOperatorDto";
 import { BadRequest, Conflict, NotFound } from "../../exceptions";
-import { AttractionStatusTypes } from "../../models/postgresql/attraction-model/enums";
 import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
 import {
@@ -58,11 +57,6 @@ export const CreateAttractionOperatorsService = async (
     },
   );
 
-  await AttractionModel.update(
-    { status: AttractionStatusTypes.ACTIVE },
-    { where: { id: params.attractionID } },
-  );
-
   const attractionOperators = await AttractionOperatorModel.findByPk(
     attractionOperator.id,
     {
@@ -89,7 +83,10 @@ export const CreateAttractionOperatorsService = async (
 export const DeleteAttractionOperatorsService = async (
   params: AttractionOperatorParams,
 ) => {
-  const attraction = await AttractionModel.findByPk(params.attractionID);
+  const attractionID = Number(params.attractionID);
+  const operatorID = Number(params.operatorID);
+
+  const attraction = await AttractionModel.findByPk(attractionID);
 
   if (!attraction) {
     throw NotFound("Attraction not found");
@@ -101,23 +98,30 @@ export const DeleteAttractionOperatorsService = async (
     },
     {
       where: {
-        attraction: params.attractionID,
-        operator: params.operatorID,
+        attraction: attractionID,
+        operator: operatorID,
       },
     },
   );
 
-  const operators = await AttractionOperatorModel.findAll({
+  const operatorActiveAttractions = await AttractionOperatorModel.findAll({
     where: {
-      attraction: params.attractionID,
-      status: AttractionStatusTypes.ACTIVE,
+      operator: operatorID,
+      status: AttractionOperatorStatusTypes.ACTIVE,
     },
   });
 
-  if (operators.length === 0) {
-    await attraction.update({
-      status: AttractionStatusTypes.INACTIVE,
-    });
+  if (operatorActiveAttractions.length === 0) {
+    await EmployeeModel.update(
+      {
+        status: EmployeeStatusTypes.INACTIVE,
+      },
+      {
+        where: {
+          id: operatorID,
+        },
+      },
+    );
   }
 
   return true;

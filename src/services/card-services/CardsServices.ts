@@ -1,6 +1,6 @@
 import { MultipartFile, MultipartValue } from "@fastify/multipart";
 import { BadRequest, NotFound } from "../../exceptions";
-import { CardStatusTypes } from "../../models/postgresql/cards-model/enums";
+import { CardStatusTypes, CardType } from "../../models/postgresql/cards-model/enums";
 import {
   CardBatchModel,
   CardModel,
@@ -19,7 +19,42 @@ export const GetCardStatsService = async () => {
     raw: true,
   });
 
-  return cardBatches.map((cardStats) => CardStatsDTO(cardStats));
+  const stats = {
+    total: 0,
+    active: 0,
+    inactive: 0,
+    blocked: 0,
+    lost: 0,
+    frozen: 0,
+    tethered: 0,
+
+    types: {} as Record<string, number>,
+
+    batches: cardBatches.map((batch) => ({
+      id: Number(batch.id),
+      name: batch.name,
+      type: batch.type,
+      total: Number(batch.total_cards || 0),
+    })),
+  };
+
+  for (const batch of cardBatches) {
+    stats.total += Number(batch.total_cards || 0);
+    stats.active += Number(batch.active_cards || 0);
+    stats.inactive += Number(batch.inactive_cards || 0);
+    stats.blocked += Number(batch.blocked_cards || 0);
+    stats.lost += Number(batch.lost_cards || 0);
+    stats.frozen += Number(batch.frozen_cards || 0);
+    stats.tethered += Number(batch.tethered_cards || 0);
+
+    if (!stats.types[batch.type]) {
+      stats.types[batch.type] = 0;
+    }
+
+    stats.types[batch.type] += Number(batch.total_cards || 0);
+  }
+
+  return stats;
 };
 
 export const GetCardsService = async (query: GetCardsQuery) => {
@@ -76,13 +111,58 @@ export const GetCardsService = async (query: GetCardsQuery) => {
   };
 };
 
-export const CreateCardsService = async (data: UploadCardsFromFile) => {
+export const CreateCardsService = async (employeeID: number, data: UploadCardsFromFile) => {
   if (!data.file) {
     throw BadRequest("Excel file is required.");
   }
 
   if (!data.batch_name || !data.batch_name.trim()) {
     throw BadRequest("Batch name is required.");
+  }
+
+  if (!data.type) {
+    throw BadRequest("Card type is required.");
+  }
+
+  const allowedCardTypes = Object.values(CardType);
+
+  if (!allowedCardTypes.includes(data.type)) {
+    throw BadRequest("Invalid card type.");
+  }
+
+  const isOrganizationCard = data.type === CardType.ORGANIZATION;
+
+  if (
+    isOrganizationCard &&
+    (data.balance === undefined || data.balance === null)
+  ) {
+    throw BadRequest("Balance is required for organization cards.");
+  }
+
+  if (
+    !isOrganizationCard &&
+    data.balance !== undefined &&
+    data.balance !== null
+  ) {
+    throw BadRequest("Balance is only allowed for organization cards.");
+  }
+
+  let balance = 0;
+
+  if (isOrganizationCard) {
+    balance = Number(data.balance);
+
+    if (Number.isNaN(balance)) {
+      throw BadRequest("Balance is invalid.");
+    }
+
+    if (balance < 0) {
+      throw BadRequest("Balance cannot be negative.");
+    }
+
+    if (!Number.isInteger(balance)) {
+      throw BadRequest("Balance must be an integer.");
+    }
   }
 
   const rows = ParseCardExcel(data.file);
@@ -93,12 +173,18 @@ export const CreateCardsService = async (data: UploadCardsFromFile) => {
     return await sequelize.transaction(async (transaction) => {
       const now = new Date();
 
+      const cardStatus = isOrganizationCard
+        ? CardStatusTypes.ACTIVE
+        : CardStatusTypes.INACTIVE;
+
       const batch = await CardBatchModel.create(
         {
-          name: data.batch_name,
+          name: data.batch_name.trim(),
+          type: data.type,
           total_cards: rows.length,
-          inactive_cards: rows.length,
-          imported_by: 4,
+          active_cards: isOrganizationCard ? rows.length : 0,
+          inactive_cards: isOrganizationCard ? 0 : rows.length,
+          imported_by: employeeID,
           imported_at: now,
         },
         {
@@ -111,14 +197,17 @@ export const CreateCardsService = async (data: UploadCardsFromFile) => {
           batch: batch.id,
           card: row.card_id.trim(),
           nfc: row.nfc_id.trim(),
-          status: CardStatusTypes.INACTIVE,
+          type: data.type,
+          balance: isOrganizationCard ? balance : 0,
+          status: cardStatus,
           imported_at: now,
-          activated_at: null,
+          activated_at: isOrganizationCard ? now : null,
         })),
         {
           transaction,
         },
       );
+
       return {
         batch: {
           id: batch.id,
@@ -128,11 +217,7 @@ export const CreateCardsService = async (data: UploadCardsFromFile) => {
       };
     });
   } catch (error) {
-    if (error) {
-      throw BadRequest("Some cards or NFC IDs already exist.");
-    }
-
-    throw error;
+    throw BadRequest("Some cards or NFC IDs already exist.");
   }
 };
 

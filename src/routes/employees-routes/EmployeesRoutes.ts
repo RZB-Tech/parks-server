@@ -12,40 +12,39 @@ const EmployeesRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  // (AuthMiddleware, RoleMiddleware(["superadmin"]));
   fastify.get(
     "/employee/:employeeID",
-    { schema: getEmployeeSchema, preHandler: [] },
+    { schema: getEmployeeSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
     GetEmployeeController,
   );
 
   fastify.get(
     "/employee/stats",
-    { schema: getEmployeeStatsSchema, preHandler: [] },
+    { schema: getEmployeeStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
     GetEmployeeStatsController,
   );
 
   fastify.get(
     "/employees",
-    { schema: getEmployeesSchema, preHandler: [] },
+    { schema: getEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
     GetEmployeesController,
   );
 
   fastify.post(
     "/employees",
-    { schema: createEmployeesSchema, preHandler: [] },
+    { schema: createEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin"])] },
     CreateEmployeesController,
   );
 
   fastify.put(
     "/employee/:employeeID",
-    { schema: updateEmployeesSchema, preHandler: [] },
+    { schema: updateEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin"])] },
     UpdateEmployeesController,
   );
 
   fastify.delete(
     "/employees",
-    { schema: deleteEmployeesSchema, preHandler: [] },
+    { schema: deleteEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin"])] },
     DeleteEmployeesController,
   );
 };

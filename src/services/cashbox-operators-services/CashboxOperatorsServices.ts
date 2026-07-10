@@ -1,6 +1,5 @@
 import { CashboxOperatorDTO } from "../../dtos/cashbox-operators-dtos/CashboxOperatorDto";
 import { BadRequest, Conflict, NotFound } from "../../exceptions";
-import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
 import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
 import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
 import {
@@ -55,11 +54,6 @@ export const CreateCashboxOperatorsService = async (
     },
   );
 
-  await CashboxModel.update(
-    { status: CashboxStatusTypes.ACTIVE },
-    { where: { id: params.cashboxID } },
-  );
-
   const cashboxOperators = await CashboxOperatorModel.findByPk(
     cashboxOperator.id,
     {
@@ -101,17 +95,24 @@ export const DeleteCashboxOperatorsService = async (
     },
   );
 
-  const operators = await CashboxOperatorModel.findAll({
+  const operatorActiveCashboxes = await CashboxOperatorModel.findAll({
     where: {
-      cashbox: params.cashboxID,
-      status: CashboxStatusTypes.ACTIVE,
+      operator: params.operatorID,
+      status: CashboxOperatorStatusTypes.ACTIVE,
     },
   });
 
-  if (operators.length === 0) {
-    await cashbox.update({
-      status: CashboxStatusTypes.INACTIVE,
-    });
+  if (operatorActiveCashboxes.length === 0) {
+    await EmployeeModel.update(
+      {
+        status: EmployeeStatusTypes.INACTIVE,
+      },
+      {
+        where: {
+          id: params.operatorID,
+        },
+      },
+    );
   }
 
   return true;

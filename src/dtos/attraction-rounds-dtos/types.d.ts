@@ -13,7 +13,6 @@ declare type AttractionRoundAttractionPlain = {
   id: number;
   name: string;
   manufacturer: string;
-  category: number;
   status: string;
   dashboard_file: number | null;
   main_file: number | null;

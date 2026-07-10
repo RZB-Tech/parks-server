@@ -8,7 +8,6 @@ import { AttractionStatusTypes } from "../../models/postgresql/attraction-model/
 import {
   AttractionModel,
   AttractionOperatorModel,
-  CategoryModel,
   EmployeeModel,
   FileModel,
   sequelize,
@@ -130,12 +129,6 @@ export const GetAttractionsService = async (query: GetAttractionsQuery) => {
     ];
   }
 
-  if (query.categories) {
-    where.category = Array.isArray(query.categories)
-      ? { [Op.in]: query.categories }
-      : query.categories;
-  }
-
   if (query.statuses) {
     where.status = Array.isArray(query.statuses)
       ? { [Op.in]: query.statuses }
@@ -208,12 +201,6 @@ export const CreateAttractionsService = async (body: CreateAttractionData) => {
   if (findAttraction !== null)
     throw Conflict("Attraction already exists at this name");
 
-  const category = await CategoryModel.findByPk(body.category);
-
-  if (category === null) {
-    throw NotFound("Category not found");
-  }
-
   const fileIds = [
     body.dashboard_file,
     body.main_file,
@@ -235,7 +222,6 @@ export const CreateAttractionsService = async (body: CreateAttractionData) => {
   const attraction = await AttractionModel.create({
     name: body.name,
     manufacturer: body.manufacturer,
-    category: body.category,
     status: AttractionStatusTypes.INACTIVE,
     dashboard_file: body.dashboard_file ?? null,
     main_file: body.main_file ?? null,
@@ -272,14 +258,6 @@ export const UpdateAttractionsService = async (
     }
   }
 
-  if (body.category !== undefined) {
-    const category = await CategoryModel.findByPk(body.category);
-
-    if (category === null) {
-      throw NotFound("Category not found");
-    }
-  }
-
   const fileIds = [
     body.dashboard_file,
     body.main_file,
@@ -302,7 +280,6 @@ export const UpdateAttractionsService = async (
     device: body.device,
     name: body.name,
     manufacturer: body.manufacturer,
-    category: body.category,
     status: body.status,
     dashboard_file: body.dashboard_file,
     main_file: body.main_file,

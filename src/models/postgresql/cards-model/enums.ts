@@ -5,3 +5,9 @@ export enum CardStatusTypes {
   LOST = "lost",
   FROZEN = "frozen",
 }
+
+export enum CardType {
+  CLASSIC = "calssic",
+  VIP = "vip",
+  ORGANIZATION = "organization",
+}

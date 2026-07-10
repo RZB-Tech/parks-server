@@ -3,7 +3,6 @@ declare interface AttractionModelI {
   device: number;
   name: string;
   manufacturer: string;
-  category: number;
   status: import("./enums").AttractionStatusTypes;
   dashboard_file: number;
   main_file: number;

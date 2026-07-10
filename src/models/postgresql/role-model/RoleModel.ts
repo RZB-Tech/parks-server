@@ -29,11 +29,15 @@ export class RoleModel
         name: {
           type: DataTypes.ENUM(
             "superadmin",
+            "admin",
+            "owner",
+            "director",
             "cashier",
             "head_cashier",
             "operator",
             "head_operator",
             "head_accountant",
+            "head_marketing",
           ),
           allowNull: false,
         },

@@ -10,6 +10,8 @@ export class CardModel
   public card!: string;
   public nfc!: string;
   public status!: import("./enums").CardStatusTypes;
+  public type!: import("./enums").CardType;
+  public balance!: number;
   public imported_at!: Date;
   public activated_at!: Date | null;
 
@@ -45,6 +47,15 @@ export class CardModel
         status: {
           type: DataTypes.ENUM("active", "inactive", "block", "lost", "frozen"),
           allowNull: false,
+        },
+        type: {
+          type: DataTypes.ENUM("classic", "vip", "organization"),
+          allowNull: false,
+        },
+        balance: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0.0,
         },
         imported_at: {
           type: DataTypes.DATE,

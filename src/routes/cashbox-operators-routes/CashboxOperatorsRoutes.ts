@@ -11,6 +11,8 @@ import {
   CreateCashboxOperatorsController,
   DeleteCashboxOperatorsController,
 } from "../../controllers/cashbox-operator-controllers/CashboxOperatorController";
+import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
+import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const CashboxOperatorsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -18,13 +20,13 @@ const CashboxOperatorsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.post(
     "/cashbox/:cashboxID/operators",
-    { schema: createCashboxOperatorsSchema, preHandler: [] },
+    { schema: createCashboxOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_cashier"])] },
     CreateCashboxOperatorsController,
   );
 
   fastify.delete(
     "/cashbox/:cashboxID/operators/:operatorID",
-    { schema: deleteCashboxOperatorsSchema, preHandler: [] },
+    { schema: deleteCashboxOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_cashier"])] },
     DeleteCashboxOperatorsController,
   );
 };

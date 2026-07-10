@@ -5,7 +5,7 @@ declare interface CardsParams {
 declare interface GetCardsQuery {
   search?: string;
   statuses?: string;
-  batch: number;
+  batch?: number;
 
   page?: number;
   limit?: number;
@@ -26,4 +26,6 @@ declare interface DeleteCardsData {
 declare interface UploadCardsFromFile {
   file: Buffer;
   batch_name: string;
+  type?: CardType;
+  balance?: number | null;
 }

@@ -1,4 +1,4 @@
-export const EmployeeDTO = (employee: EmployeeModelI): EmployeeResponseDTO => ({
+export const EmployeeDTO = (employee: GetEmployeeDTO): EmployeeResponseDTO => ({
   id: employee.id,
   firstname: employee.firstname,
   lastname: employee.lastname,
@@ -9,4 +9,11 @@ export const EmployeeDTO = (employee: EmployeeModelI): EmployeeResponseDTO => ({
   status: employee.status,
   salary: employee.salary,
   file: employee.file,
+  ...(employee.cashboxes && employee.cashboxes.length > 0 && {
+    cashboxes: employee.cashboxes,
+  }),
+
+  ...(employee.attractions && employee.attractions.length > 0 && {
+    attractions: employee.attractions,
+  }),
 });

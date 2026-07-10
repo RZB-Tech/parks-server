@@ -9,7 +9,6 @@ export class AttractionModel
   public device!: number;
   public name!: string;
   public manufacturer!: string;
-  public category!: number;
   public status!: import("./enums").AttractionStatusTypes;
   public dashboard_file!: number;
   public main_file!: number;
@@ -49,10 +48,6 @@ export class AttractionModel
         },
         manufacturer: {
           type: DataTypes.STRING,
-          allowNull: false,
-        },
-        category: {
-          type: DataTypes.INTEGER,
           allowNull: false,
         },
         status: {

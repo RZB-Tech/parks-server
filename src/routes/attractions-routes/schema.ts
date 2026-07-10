@@ -22,11 +22,6 @@ export const attractionProperties = {
     description: "Manufacturer company name",
     examples: ["Intamin"],
   },
-  category: {
-    type: "number",
-    description: "Category ID. Must exist",
-    examples: [2],
-  },
   status: {
     type: "string",
     description: "Attraction status",
@@ -108,9 +103,19 @@ export const AttractionStatsProperties = {
 
 export const getAttractionSchema = {
   summary: "Get attraction",
-  description: "Get attraction by id",
+  description: "Get attraction by id and device id superadmin, admin, owner, director, head_marketing, head_operator, operator",
   tags: ["Attractions route"],
-
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   querystring: {
     type: "object",
     additionalProperties: false,
@@ -154,7 +159,19 @@ export const getAttractionSchema = {
 
 export const getAttractionsStatsSchema = {
   summary: "Get attractions status statistics",
+  description: "Get attraction stats superadmin, admin, owner, director, head_marketing, head_operator, operator",
   tags: ["Attractions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   response: {
     200: successAnswerTemplate({
       attraction_stats: {
@@ -167,8 +184,19 @@ export const getAttractionsStatsSchema = {
 
 export const getAttractionsSchema = {
   summary: "Get attractions",
-  description: "Get attraction",
+  description: "Get attraction superadmin, admin, owner, director, head_marketing, head_operator, operator",
   tags: ["Attractions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   querystring: {
     type: "object",
     properties: {
@@ -232,14 +260,24 @@ export const getAttractionsSchema = {
 
 export const createAttractionSchema = {
   summary: "Create attraction",
-  description: "Create attraction",
+  description: "Create attraction superadmin, head_marketing, head_operator",
   tags: ["Attractions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   body: reqBodyWrapper({
     type: "object",
     required: [
       "name",
       "manufacturer",
-      "category",
       "price",
       "duration",
       "seats",
@@ -251,7 +289,6 @@ export const createAttractionSchema = {
     properties: {
       name: attractionProperties.name,
       manufacturer: attractionProperties.manufacturer,
-      category: attractionProperties.category,
       dashboard_file: attractionProperties.dashboard_file,
       main_file: attractionProperties.main_file,
       files: attractionProperties.files,
@@ -276,8 +313,19 @@ export const createAttractionSchema = {
 
 export const updateAttractionSchema = {
   summary: "Update attraction",
-  description: "Update attraction",
+  description: "Update attraction superadmin, head_marketing, head_operator",
   tags: ["Attractions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["attractionID"],
@@ -294,7 +342,6 @@ export const updateAttractionSchema = {
       device: attractionProperties.device,
       name: attractionProperties.name,
       manufacturer: attractionProperties.manufacturer,
-      category: attractionProperties.category,
       status: attractionProperties.status,
       dashboard_file: attractionProperties.dashboard_file,
       main_file: attractionProperties.main_file,
@@ -320,8 +367,19 @@ export const updateAttractionSchema = {
 
 export const deleteAttractionsSchema = {
   summary: "Delete attractions",
-  description: "Delete attractions",
+  description: "Delete attractions superadmin, head_marketing, head_operator",
   tags: ["Attractions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   body: reqBodyWrapper({
     type: "object",
     required: ["attractionIDs"],

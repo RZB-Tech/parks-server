@@ -1,11 +1,9 @@
 import "@fastify/cookie";
-import crypto from "crypto";
 import { FastifyReply, FastifyRequest, preHandlerHookHandler } from "fastify";
 import jwt from "jsonwebtoken";
 import { Unauthorized } from "../../exceptions";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
-
 
 type JwtPayload = {
   employee_id: number;
@@ -39,12 +37,6 @@ export const AuthMiddleware: preHandlerHookHandler = async (
     throw Unauthorized("Invalid authorization format");
   }
 
-  // const fingerprint = request.cookies.fingerprint;
-
-  // if (!fingerprint) {
-  //   throw Unauthorized("Fingerprint is required");
-  // }
-
   let decoded: JwtPayload;
 
   try {
@@ -57,15 +49,6 @@ export const AuthMiddleware: preHandlerHookHandler = async (
     throw Unauthorized("Invalid token");
   }
 
-  // const currentFingerprintHash = crypto
-  //   .createHash("sha256")
-  //   .update(fingerprint)
-  //   .digest("hex");
-
-  // if (decoded.fingerprint !== currentFingerprintHash) {
-  //   throw Unauthorized("Invalid token fingerprint");
-  // }
-
   const employee = await EmployeeModel.findOne({
     where: {
       id: decoded.employee_id,
@@ -76,19 +59,19 @@ export const AuthMiddleware: preHandlerHookHandler = async (
     throw Unauthorized("Employee not found");
   }
 
-  // const role = await RoleModel.findOne({
-  //   where: {
-  //     id: employee.role,
-  //   },
-  // });
+  const role = await RoleModel.findOne({
+    where: {
+      id: employee.role,
+    },
+  });
 
-  // if (!role) {
-  //   throw Unauthorized("Role not found");
-  // }
+  if (!role) {
+    throw Unauthorized("Role not found");
+  }
 
   request.employee = {
     id: employee.id,
     role_id: employee.role,
-    // role_name: role.name,
+    role_name: role.name,
   };
 };

@@ -14,6 +14,26 @@ export const EmployeeProperties = {
   salary: { type: "number" },
   status: { type: "string" },
   file: { type: "number" },
+  cashboxes: {
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "number" },
+        name: { type: "string" },
+      },
+    },
+  },
+  attractions: {
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "number" },
+        name: { type: "string" },
+      },
+    },
+  },
 };
 
 export const EmployeeStatsProperties = {
@@ -26,10 +46,19 @@ export const EmployeeStatsProperties = {
 
 export const getEmployeeSchema = {
   summary: "Get employee",
-  description: "Get employee",
+  description: "Get employee superadmin admin owner director head_marketing",
   tags: ["Employees route"],
-  //   headers: getSchemaHeaders({
-  //   }),
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["employeeID"],
@@ -51,6 +80,18 @@ export const getEmployeeSchema = {
 export const getEmployeeStatsSchema = {
   summary: "Get employees status statistics",
   tags: ["Employees route"],
+  description: "Get employee stats superadmin admin owner director head_marketing",
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   response: {
     200: successAnswerTemplate({
       employee_stats: {
@@ -63,10 +104,19 @@ export const getEmployeeStatsSchema = {
 
 export const getEmployeesSchema = {
   summary: "Get employees",
-  description: "Get employees",
+  description: "Get employees superadmin admin owner director head_marketing",
   tags: ["Employees route"],
-  //   headers: getSchemaHeaders({
-  //   }),
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   querystring: {
     type: "object",
     properties: {
@@ -131,10 +181,19 @@ export const getEmployeesSchema = {
 
 export const createEmployeesSchema = {
   summary: "Create employee",
-  description: "Create employee",
+  description: "Create employee superadmin admin",
   tags: ["Employees route"],
-  //   headers: getSchemaHeaders({
-  //   }),
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   body: reqBodyWrapper({
     type: "object",
     additionalProperties: false,
@@ -183,10 +242,19 @@ export const createEmployeesSchema = {
 
 export const updateEmployeesSchema = {
   summary: "Update employee",
-  description: "Update employee",
+  description: "Update employee superadmin admin",
   tags: ["Employees route"],
-  //   headers: getSchemaHeaders({
-  //   }),
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["employeeID"],
@@ -235,10 +303,19 @@ export const updateEmployeesSchema = {
 
 export const deleteEmployeesSchema = {
   summary: "Delete employees",
-  description: "Delete employees",
+  description: "Delete employees superadmin admin",
   tags: ["Employees route"],
-  //   headers: getSchemaHeaders({
-  //   }),
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   body: reqBodyWrapper({
     type: "object",
     required: ["employeeIDs"],

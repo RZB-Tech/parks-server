@@ -4,7 +4,6 @@ export const AttractionWithOperatorsDTO = (data: any) => {
     device: Number(data.device),
     name: data.name,
     manufacturer: data.manufacturer,
-    category: data.category,
     status: data.status,
 
     dashboard_file: Number(data.dashboard_file) ?? null,
@@ -38,7 +37,6 @@ export const AttractionDTO = (data: AttractionModelI) => {
     id: Number(data.id),
     name: data.name,
     manufacturer: data.manufacturer,
-    category: data.category,
     status: data.status,
 
     dashboard_file: data.dashboard_file ?? null,

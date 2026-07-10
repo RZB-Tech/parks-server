@@ -1,13 +1,15 @@
 import { CardLastTransactionDTO } from "../card-transaction-dtos/CardTransactionDto";
 
-export const CardDTO = (data: CardWithTransactionDto) => {
+export const CardDTO = (data: CardWithTransactionDto): CardResponseDTO => {
   const lastTransaction = data.transaction ?? null;
 
   return {
     id: Number(data.id),
     batch: data.batches?.name ?? null,
+    type: data.type,
     card: data.card,
     nfc: data.nfc,
+    balance: Number(data.balance || 0),
     status: data.status,
     imported_at: data.imported_at,
     activated_at: data.activated_at,
@@ -15,7 +17,6 @@ export const CardDTO = (data: CardWithTransactionDto) => {
     ...(lastTransaction
       ? {
           last_transaction: CardLastTransactionDTO(lastTransaction),
-          balance: Number(lastTransaction.balance_after || 0),
         }
       : {}),
   };
@@ -32,6 +33,7 @@ export const CardStatsDTO = (data: CardBatchModelI): CardStatsDto => {
   return {
     batch: Number(data.id || 0),
     batchName: data.name,
+    type: data.type,
     total: Number(data.total_cards || 0),
     active: Number(data.active_cards || 0),
     inactive: Number(data.inactive_cards || 0),

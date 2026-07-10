@@ -20,6 +20,7 @@ import {
   updateCashboxSchema,
 } from "./schema";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
+import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const CashboxesRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -27,37 +28,37 @@ const CashboxesRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/cashbox",
-    { schema: getCashboxSchema, preHandler: [AuthMiddleware] },
+    { schema: getCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
     GetCashboxController,
   );
 
   fastify.get(
     "/cashbox/stats",
-    { schema: getCashboxStatsSchema, preHandler: [] },
+    { schema: getCashboxStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
     GetCashboxStatsController,
   );
 
   fastify.get(
     "/cashboxes",
-    { schema: getCashboxesSchema, preHandler: [] },
+    { schema: getCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
     GetCashboxesController,
   );
 
   fastify.post(
     "/cashbox",
-    { schema: createCashboxSchema, preHandler: [] },
+    { schema: createCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier'])] },
     CreateCashboxesController,
   );
 
   fastify.put(
     "/cashbox/:cashboxID",
-    { schema: updateCashboxSchema, preHandler: [] },
+    { schema: updateCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier'])] },
     UpdateCashboxesController,
   );
 
   fastify.delete(
     "/cashbox",
-    { schema: deleteCashboxesSchema, preHandler: [] },
+    { schema: deleteCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier'])] },
     DeleteCashboxesController,
   );
 };

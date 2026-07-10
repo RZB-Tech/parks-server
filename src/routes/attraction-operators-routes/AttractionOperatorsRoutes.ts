@@ -11,6 +11,8 @@ import {
   createAttractionOperatorsSchema,
   deleteAttractionOperatorsSchema,
 } from "./schema";
+import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
+import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const AttractionOperatorsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -18,13 +20,13 @@ const AttractionOperatorsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.post(
     "/attractions/:attractionID/operators",
-    { schema: createAttractionOperatorsSchema, preHandler: [] },
+    { schema: createAttractionOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
     CreateAttractionOperatorsController,
   );
 
   fastify.delete(
     "/attractions/:attractionID/operators/:operatorID",
-    { schema: deleteAttractionOperatorsSchema, preHandler: [] },
+    { schema: deleteAttractionOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
     DeleteAttractionOperatorsController,
   );
 };

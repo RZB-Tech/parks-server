@@ -1,5 +1,6 @@
-import { Model, DataTypes, Sequelize, Optional } from "sequelize";
+import { Model, DataTypes, Sequelize } from "sequelize";
 import { ModelsType } from "../../../plugins/db/postgresql/db";
+import { CardType } from "../cards-model/enums";
 
 export class CardBatchModel
   extends Model<CardBatchModelI, TableOptionalAttributes>
@@ -7,6 +8,7 @@ export class CardBatchModel
 {
   public id!: number;
   public name!: string;
+  public type!: CardType;
   public total_cards!: number;
   public inactive_cards!: number;
   public active_cards!: number;
@@ -36,6 +38,10 @@ export class CardBatchModel
         name: {
           type: DataTypes.STRING(255),
           allowNull: false,
+        },
+        type: {
+          type: DataTypes.ENUM(...Object.values(CardType)),
+          allowNull: true,
         },
         total_cards: {
           type: DataTypes.INTEGER,

@@ -56,78 +56,111 @@ export const attractionOperatorProperties = {
   },
 };
 
-export const operatorAttractionsProperties = {
-  id: { type: "number" },
-  name: { type: "string" },
-  status: { type: "string" },
-  main_file: {
-    oneOf: [{ type: "number" }, { type: "null" }],
-  },
-  dashboard_file: {
-    oneOf: [{ type: "number" }, { type: "null" }],
-  },
-  price: { type: "number" },
-  age_limit: { type: "number" },
-  min_height: { type: "number" },
-  max_weight: { type: "number" },
-  duration: { type: "number" },
-  seats: { type: "number" },
-};
+// export const operatorAttractionsProperties = {
+//   id: { type: "number" },
+//   name: { type: "string" },
+//   status: { type: "string" },
+//   main_file: {
+//     oneOf: [{ type: "number" }, { type: "null" }],
+//   },
+//   dashboard_file: {
+//     oneOf: [{ type: "number" }, { type: "null" }],
+//   },
+//   price: { type: "number" },
+//   age_limit: { type: "number" },
+//   min_height: { type: "number" },
+//   max_weight: { type: "number" },
+//   duration: { type: "number" },
+//   seats: { type: "number" },
+// };
 
-export const getOperatorAttractionsSchema = {
-  summary: "Get operator attractions",
-  description: "Get attractions assigned to current operator",
-  tags: ["Attraction operators route"],
-  response: {
-    200: successAnswerTemplate({
-      "operator-attractions": {
-        type: "array",
-        items: {
-          type: "object",
-          properties: operatorAttractionsProperties,
-        },
-      },
-    }),
-  },
-};
+// export const getOperatorAttractionsSchema = {
+//   summary: "Get operator attractions",
+//   description: "Get attractions assigned to current operator",
+//   tags: ["Attraction operators route"],
+//   headers: {
+//     type: "object",
+//     required: ["authorization"],
+//     additionalProperties: true,
+//     properties: {
+//       authorization: {
+//         type: "string",
+//         description: "Bearer access token",
+//       },
+//     },
+//   },
+//   response: {
+//     200: successAnswerTemplate({
+//       "operator-attractions": {
+//         type: "array",
+//         items: {
+//           type: "object",
+//           properties: operatorAttractionsProperties,
+//         },
+//       },
+//     }),
+//   },
+// };
 
 
-export const getOperatorAttractionSchema = {
-  summary: "Get operator attraction",
-  description: "Get selected attraction assigned to current operator",
-  tags: ["Attraction operators route"],
-  params: {
-    type: "object",
-    required: ["attractionID"],
-    properties: {
-      attractionID: {
-        type: "number",
-      },
-    },
-  },
-  response: {
-    200: successAnswerTemplate({
-      "operator-attraction": {
-        type: "object",
-        properties: {
-          operator: {
-            type: "object",
-            properties: attractionOperatorEmployeeProperties,
-          },
-          attraction: {
-            type: "object",
-            properties: operatorAttractionsProperties,
-          },
-        },
-      },
-    }),
-  },
-};
+// export const getOperatorAttractionSchema = {
+//   summary: "Get operator attraction",
+//   description: "Get selected attraction assigned to current operator",
+//   tags: ["Attraction operators route"],
+//   headers: {
+//     type: "object",
+//     required: ["authorization"],
+//     additionalProperties: true,
+//     properties: {
+//       authorization: {
+//         type: "string",
+//         description: "Bearer access token",
+//       },
+//     },
+//   },
+//   params: {
+//     type: "object",
+//     required: ["attractionID"],
+//     properties: {
+//       attractionID: {
+//         type: "number",
+//       },
+//     },
+//   },
+//   response: {
+//     200: successAnswerTemplate({
+//       "operator-attraction": {
+//         type: "object",
+//         properties: {
+//           operator: {
+//             type: "object",
+//             properties: attractionOperatorEmployeeProperties,
+//           },
+//           attraction: {
+//             type: "object",
+//             properties: operatorAttractionsProperties,
+//           },
+//         },
+//       },
+//     }),
+//   },
+// };
 
 export const createAttractionOperatorsSchema = {
   summary: "Create attraction operators",
-  description: "Create attraction operators",
+  description: "Create attraction operators superadmin, head_marketing, head_operator",
   tags: ["Attraction operators route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["attractionID"],
@@ -163,8 +196,19 @@ export const createAttractionOperatorsSchema = {
 
 export const deleteAttractionOperatorsSchema = {
   summary: "Delete attraction operators",
-  description: "Delete attraction operators",
+  description: "Delete attraction operators superadmin, head_marketing, head_operator",
   tags: ["Attraction operators route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
   params: {
     type: "object",
     required: ["attractionID", "operatorID"],
