@@ -14,7 +14,9 @@ export class CashboxReportModel
   public zreport!: number | null;
   public report_date!: Date;
   public status!: import("./enums").CashboxReportStatusTypes;
+  public description!: string | null;
   public opened_at!: Date;
+  public stopped_at!: Date | null;
   public closed_at!: Date | null;
   public total_amount!: number;
   public cash_amount!: number;
@@ -83,10 +85,20 @@ export class CashboxReportModel
           defaultValue: CashboxReportStatusTypes.OPEN,
         },
 
+        description: {
+          type: DataTypes.STRING,
+          allowNull: true,
+        },
+
         opened_at: {
           type: DataTypes.DATE,
           allowNull: false,
           defaultValue: DataTypes.NOW,
+        },
+
+        stopped_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
         },
 
         closed_at: {

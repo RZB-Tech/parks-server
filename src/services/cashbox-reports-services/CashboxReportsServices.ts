@@ -27,6 +27,7 @@ import {
   CashboxWithZReportsPlain,
 } from "../../dtos/cashbox-reports-dtos/types";
 import { CashboxModel } from "../../models/postgresql/cashbox-model/CashboxModel";
+import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
 
 export const OpenCashboxReportService = async (
   operatorID: number,
@@ -46,7 +47,12 @@ export const OpenCashboxReportService = async (
       where: {
         operator: operatorID,
         report_type: CashboxReportTypes.XREPORT,
-        status: CashboxReportStatusTypes.OPEN,
+        status: {
+          [Op.in]: [
+            CashboxReportStatusTypes.OPEN,
+            CashboxReportStatusTypes.STOPPED,
+          ],
+        },
         created_at: {
           [Op.between]: [startDate, endDate],
         },
@@ -109,6 +115,18 @@ export const OpenCashboxReportService = async (
       {
         where: {
           id: zReport.id,
+        },
+        transaction: transaction,
+      },
+    );
+
+    await CashboxModel.update(
+      {
+        status: CashboxStatusTypes.ACTIVE,
+      },
+      {
+        where: {
+          id: cashboxID,
         },
         transaction: transaction,
       },
@@ -198,12 +216,26 @@ export const GetTodayCashboxReportsService = async (
     ),
   });
 };
-
 export const StatusCashboxReportService = async (
   operatorID: number,
   params: CashboxReportsParams,
   body: CloseCashboxReportData,
 ) => {
+  if (!operatorID || Number.isNaN(Number(operatorID))) {
+    throw BadRequest("Operator is required!");
+  }
+
+  const cashboxID = Number(params.cashboxID);
+  const reportID = Number(body.report);
+
+  if (!cashboxID || Number.isNaN(cashboxID)) {
+    throw BadRequest("Cashbox ID is invalid!");
+  }
+
+  if (!reportID || !Number.isFinite(reportID)) {
+    throw BadRequest("Report ID is invalid!");
+  }
+
   const allowedReportTypes = [
     CashboxReportTypes.XREPORT,
     CashboxReportTypes.ZREPORT,
@@ -223,99 +255,93 @@ export const StatusCashboxReportService = async (
     throw BadRequest("Invalid report status!");
   }
 
-  if (!body.report) {
-    throw BadRequest("Report id is required!");
-  }
-
-  const reportID = Number(body.report);
-
-  if (!Number.isFinite(reportID) || reportID <= 0) {
-    throw BadRequest("Invalid report id!");
+  if (
+    body.status === CashboxReportStatusTypes.STOPPED &&
+    !body.description?.trim()
+  ) {
+    throw BadRequest("Description is required when stopping report!");
   }
 
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
     const { startDate, endDate } = getTashkentDayRangeUTC();
+    const now = new Date();
 
-    const targetStatus = body.status;
-
-    const getSourceStatuses = () => {
-      if (targetStatus === CashboxReportStatusTypes.STOPPED) {
-        return [CashboxReportStatusTypes.OPEN];
-      }
-
-      if (targetStatus === CashboxReportStatusTypes.OPEN) {
-        return [
-          CashboxReportStatusTypes.STOPPED,
-          CashboxReportStatusTypes.CLOSED,
-        ];
-      }
-
-      if (targetStatus === CashboxReportStatusTypes.CLOSED) {
-        return [
-          CashboxReportStatusTypes.OPEN,
-          CashboxReportStatusTypes.STOPPED,
-        ];
-      }
-
-      return [];
-    };
-
-    const sourceStatuses = getSourceStatuses();
-
-    const baseWhere: any = {
+    const reportWhere: any = {
       id: reportID,
-      cashbox: params.cashboxID,
+      cashbox: cashboxID,
       report_type: body.report_type,
       created_at: {
         [Op.between]: [startDate, endDate],
       },
     };
 
+    /*
+     * X-report statusini faqat o‘sha report operatori o‘zgartiradi.
+     * Z-report uchun operator filter yo‘q.
+     */
     if (body.report_type === CashboxReportTypes.XREPORT) {
-      baseWhere.operator = operatorID;
+      reportWhere.operator = operatorID;
     }
 
     const report = await CashboxReportModel.findOne({
-      where: {
-        ...baseWhere,
-        status: {
-          [Op.in]: sourceStatuses,
-        },
-      },
+      where: reportWhere,
       transaction: dbTransaction,
       lock: dbTransaction.LOCK.UPDATE,
     });
 
     if (!report) {
-      const alreadySameStatus = await CashboxReportModel.findOne({
-        where: {
-          ...baseWhere,
-          status: targetStatus,
-        },
-        transaction: dbTransaction,
-        lock: dbTransaction.LOCK.UPDATE,
-      });
-
-      if (alreadySameStatus) {
-        throw BadRequest(`Report is already ${targetStatus}!`);
-      }
-
-      throw BadRequest("Report not found!");
+      throw NotFound("Report not found!");
     }
 
-    /**
-     * ZREPORT CLOSED qilinayotgan bo‘lsa,
-     * unga tegishli hamma XREPORT CLOSED bo‘lishi kerak.
+    if (report.status === body.status) {
+      throw BadRequest(`Report is already ${body.status}!`);
+    }
+
+    /*
+     * Ruxsat berilgan status o‘tishlari:
+     *
+     * OPEN    -> STOPPED
+     * OPEN    -> CLOSED
+     * STOPPED -> OPEN
+     * STOPPED -> CLOSED
+     *
+     * CLOSED report qayta ochilmaydi.
+     */
+    const allowedTransitions: Record<string, CashboxReportStatusTypes[]> = {
+      [CashboxReportStatusTypes.OPEN]: [
+        CashboxReportStatusTypes.STOPPED,
+        CashboxReportStatusTypes.CLOSED,
+      ],
+
+      [CashboxReportStatusTypes.STOPPED]: [
+        CashboxReportStatusTypes.OPEN,
+        CashboxReportStatusTypes.CLOSED,
+      ],
+
+      [CashboxReportStatusTypes.CLOSED]: [],
+    };
+
+    const transitions = allowedTransitions[report.status] ?? [];
+
+    if (!transitions.includes(body.status)) {
+      throw BadRequest(
+        `Cannot change report status from ${report.status} to ${body.status}!`,
+      );
+    }
+
+    /*
+     * Z-report yopilishidan oldin uning barcha X-reportlari
+     * CLOSED bo‘lishi kerak.
      */
     if (
       body.report_type === CashboxReportTypes.ZREPORT &&
-      targetStatus === CashboxReportStatusTypes.CLOSED
+      body.status === CashboxReportStatusTypes.CLOSED
     ) {
-      const notClosedXReport = await CashboxReportModel.findOne({
+      const activeXReport = await CashboxReportModel.findOne({
         where: {
-          cashbox: params.cashboxID,
+          cashbox: cashboxID,
           report_type: CashboxReportTypes.XREPORT,
           zreport: report.id,
           status: {
@@ -329,101 +355,134 @@ export const StatusCashboxReportService = async (
         lock: dbTransaction.LOCK.UPDATE,
       });
 
-      if (notClosedXReport) {
+      if (activeXReport) {
         throw BadRequest("Close all X reports before closing Z report!");
       }
     }
 
     const updateData: any = {
-      status: targetStatus,
+      status: body.status,
     };
 
-    if (targetStatus === CashboxReportStatusTypes.STOPPED) {
-      updateData.stopped_at = new Date();
+    /*
+     * OPEN -> STOPPED
+     */
+    if (body.status === CashboxReportStatusTypes.STOPPED) {
+      updateData.stopped_at = now;
+      updateData.description = body.description?.trim();
     }
 
-    if (targetStatus === CashboxReportStatusTypes.OPEN) {
+    /*
+     * STOPPED -> OPEN
+     */
+    if (body.status === CashboxReportStatusTypes.OPEN) {
       updateData.stopped_at = null;
-      updateData.closed_at = null;
+      updateData.description = null;
     }
 
-    if (targetStatus === CashboxReportStatusTypes.CLOSED) {
-      updateData.closed_at = new Date();
+    /*
+     * OPEN/STOPPED -> CLOSED
+     */
+    if (body.status === CashboxReportStatusTypes.CLOSED) {
+      updateData.closed_at = now;
+
+      if (body.description?.trim()) {
+        updateData.description = body.description.trim();
+      }
     }
 
     await report.update(updateData, {
       transaction: dbTransaction,
     });
 
-    /**
-     * CASE 1:
-     * XREPORT STOPPED qilinsa va shu parent ZREPORT ichida
-     * boshqa OPEN XREPORT qolmasa, ZREPORT ham STOPPED bo‘ladi.
+    /*
+     * X-report STOPPED bo‘lsa,
+     * uning parent Z-reporti ham STOPPED bo‘ladi.
      */
     if (
       body.report_type === CashboxReportTypes.XREPORT &&
-      targetStatus === CashboxReportStatusTypes.STOPPED &&
+      body.status === CashboxReportStatusTypes.STOPPED &&
       report.zreport
     ) {
-      const anotherOpenXReport = await CashboxReportModel.findOne({
-        where: {
-          id: {
-            [Op.ne]: report.id,
-          },
-          cashbox: params.cashboxID,
-          report_type: CashboxReportTypes.XREPORT,
-          zreport: report.zreport,
-          status: CashboxReportStatusTypes.OPEN,
+      await CashboxReportModel.update(
+        {
+          status: CashboxReportStatusTypes.STOPPED,
+          stopped_at: now,
+          description: body.description?.trim(),
         },
-        transaction: dbTransaction,
-        lock: dbTransaction.LOCK.UPDATE,
-      });
-
-      if (!anotherOpenXReport) {
-        await CashboxReportModel.update(
-          {
-            status: CashboxReportStatusTypes.STOPPED,
-            closed_at: new Date(),
+        {
+          where: {
+            id: report.zreport,
+            cashbox: cashboxID,
+            report_type: CashboxReportTypes.ZREPORT,
+            status: CashboxReportStatusTypes.OPEN,
           },
-          {
-            where: {
-              id: report.zreport,
-              cashbox: params.cashboxID,
-              report_type: CashboxReportTypes.ZREPORT,
-              status: CashboxReportStatusTypes.OPEN,
-            },
-            transaction: dbTransaction,
-          },
-        );
-      }
+          transaction: dbTransaction,
+        },
+      );
     }
 
-    /**
-     * CASE 2:
-     * XREPORT OPEN qilinsa va parent ZREPORT STOPPED/CLOSED bo‘lsa,
-     * ZREPORT ham OPEN bo‘ladi.
+    /*
+     * X-report STOPPED holatdan OPEN qilinsa,
+     * uning parent Z-reporti ham OPEN bo‘ladi.
      */
     if (
       body.report_type === CashboxReportTypes.XREPORT &&
-      targetStatus === CashboxReportStatusTypes.OPEN &&
+      body.status === CashboxReportStatusTypes.OPEN &&
       report.zreport
     ) {
       await CashboxReportModel.update(
         {
           status: CashboxReportStatusTypes.OPEN,
-          closed_at: null,
+          stopped_at: null,
+          description: null,
         },
         {
           where: {
             id: report.zreport,
-            cashbox: params.cashboxID,
+            cashbox: cashboxID,
             report_type: CashboxReportTypes.ZREPORT,
-            status: {
-              [Op.in]: [
-                CashboxReportStatusTypes.STOPPED,
-                CashboxReportStatusTypes.CLOSED,
-              ],
-            },
+            status: CashboxReportStatusTypes.STOPPED,
+          },
+          transaction: dbTransaction,
+        },
+      );
+    }
+
+    /*
+     * X-report CLOSED bo‘lsa, Z-report o‘zgarmaydi.
+     *
+     * Z-report faqat alohida request orqali CLOSED qilinadi.
+     */
+    if (
+      body.report_type === CashboxReportTypes.ZREPORT &&
+      body.status === CashboxReportStatusTypes.CLOSED
+    ) {
+      await CashboxModel.update(
+        {
+          status: CashboxStatusTypes.INACTIVE,
+        },
+        {
+          where: {
+            id: cashboxID,
+          },
+          transaction: dbTransaction,
+        },
+      );
+    }
+
+    /*
+     * Z-report OPEN yoki X-report OPEN bo‘lsa,
+     * cashbox ACTIVE holatda turadi.
+     */
+    if (body.status === CashboxReportStatusTypes.OPEN) {
+      await CashboxModel.update(
+        {
+          status: CashboxStatusTypes.ACTIVE,
+        },
+        {
+          where: {
+            id: cashboxID,
           },
           transaction: dbTransaction,
         },
@@ -686,7 +745,6 @@ export const GetNotConfirmedZReportDatesService = async () => {
 
   return reports.map((report) => report.get("report_date"));
 };
-
 
 export const AutoCloseUnclosedXReportsService = async () => {
   const sequelize = CashboxReportModel.sequelize!;

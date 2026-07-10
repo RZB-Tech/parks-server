@@ -18,8 +18,9 @@ import { CardType } from "../../models/postgresql/cards-model/enums";
 
 export const GetCardStatsController = makeReplyingController(
   "card_stats",
-  async (request: FastifyRequest) => {
-    return GetCardStatsService();
+  async (request: FastifyRequest<RouteWithQuery<GetCardsQuery>>) => {
+    const query = request.query;
+    return GetCardStatsService(query);
   },
 );
 

@@ -12,21 +12,40 @@ import {
 } from "../../dtos/card-dtos/CardDto";
 import { col, fn, Op } from "sequelize";
 
-export const GetCardStatsService = async () => {
+export const GetCardStatsService = async (query: GetCardsQuery) => {
+  const batchWhere: Record<string, unknown> = {};
+  const cardWhere: Record<string, unknown> = {};
+
+  if (query.type) {
+    batchWhere.type = query.type;
+    cardWhere.type = query.type;
+  }
+
+  if(query.batch) {
+    batchWhere.id = Number(query.batch);
+    cardWhere.batch = Number(query.batch);
+  }
+
   const [cardBatches, balanceResult] = await Promise.all([
     CardBatchModel.findAll({
+      where: batchWhere,
       raw: true,
+      order: [["id", "ASC"]],
     }),
 
     CardModel.findOne({
+      where: cardWhere,
       attributes: [[fn("SUM", col("balance")), "total_balance"]],
       raw: true,
     }),
   ]);
 
   const totalBalance = Number(
-    (balanceResult as unknown as { total_balance: string | number | null })
-      ?.total_balance ?? 0,
+    (
+      balanceResult as unknown as {
+        total_balance: string | number | null;
+      }
+    )?.total_balance ?? 0,
   );
 
   const stats = {
@@ -59,11 +78,10 @@ export const GetCardStatsService = async () => {
     stats.frozen += Number(batch.frozen_cards || 0);
     stats.tethered += Number(batch.tethered_cards || 0);
 
-    if (!stats.types[batch.type]) {
-      stats.types[batch.type] = 0;
-    }
+    const type = String(batch.type);
 
-    stats.types[batch.type] += Number(batch.total_cards || 0);
+    stats.types[type] =
+      Number(stats.types[type] || 0) + Number(batch.total_cards || 0);
   }
 
   return stats;
@@ -78,6 +96,9 @@ export const GetCardsService = async (query: GetCardsQuery) => {
 
   if (query.batch) {
     where.batch = Number(query.batch);
+  }
+  if (query.type) {
+    where.type = query.type;
   }
 
   if (query.search) {

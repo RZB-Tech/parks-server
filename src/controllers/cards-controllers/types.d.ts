@@ -6,6 +6,7 @@ declare interface GetCardsQuery {
   search?: string;
   statuses?: string;
   batch?: number;
+  type?: string;
 
   page?: number;
   limit?: number;

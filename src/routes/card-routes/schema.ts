@@ -22,6 +22,10 @@ export const cardProperties = {
     type: "string",
     enum: Object.values(CardStatusTypes),
   },
+  balance: {
+    type: "number",
+    description: "Card balance",
+  },
   imported_at: {
     type: "string",
     description: "Import date",
@@ -47,22 +51,33 @@ export const getCardStatsSchema = {
       },
     },
   },
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      type: {
+        type: "string",
+        enum: ["classic", "vip", "organization"],
+        description:
+          "Filter card statistics by card type. If omitted, statistics for all card types are returned.",
+      },
+      batch: {
+        type: "number",
+        description:
+          "Filter card statistics by batch ID. If omitted, statistics for all batches are returned.",
+      },
+    },
+  },
+
   response: {
     200: successAnswerTemplate({
       card_stats: {
         type: "object",
-        required: [
-          "total",
-          "active",
-          "inactive",
-          "blocked",
-          "lost",
-          "frozen",
-          "tethered",
-          "types",
-          "batches",
-        ],
         properties: {
+          totalBalance: {
+            type: "number",
+            example: 10000,
+          },
           total: {
             type: "number",
             example: 126,
@@ -155,6 +170,12 @@ export const getCardsSchema = {
     type: "object",
     required: ["batch"],
     properties: {
+      type: {
+        type: "string",
+        enum: ["classic", "vip", "organization"],
+        description:
+          "Filter card statistics by card type. If omitted, statistics for all card types are returned.",
+      },
       batch: { type: "number" },
       search: {
         type: "string",

@@ -7,7 +7,9 @@ declare interface CashboxReportModelI {
   zreport: number | null;
   report_date: Date;
   status: import("./enums").CashboxReportStatusTypes;
+  description: string | null;
   opened_at: Date;
+  stopped_at: Date | null;
   closed_at: Date | null;
   total_amount: number;
   cash_amount: number;

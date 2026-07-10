@@ -7,7 +7,7 @@ export enum CardStatusTypes {
 }
 
 export enum CardType {
-  CLASSIC = "calssic",
+  CLASSIC = "classic",
   VIP = "vip",
   ORGANIZATION = "organization",
 }
