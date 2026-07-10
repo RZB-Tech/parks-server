@@ -8,11 +8,13 @@ import { CashboxModel } from "../../models/postgresql/cashbox-model/CashboxModel
 import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
 import {
   CashboxOperatorModel,
+  CashboxReportModel,
   EmployeeModel,
   RoleModel,
   sequelize,
 } from "../../plugins/db/postgresql/db";
 import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
+import { CashboxReportStatusTypes } from "../../models/postgresql/cashbox-report-model/enums";
 
 export const GetCashboxService = async (
   operatorID: number,
@@ -258,51 +260,165 @@ export const UpdateCashboxesService = async (
   params: CashboxParams,
   body: UpdateCashboxData,
 ): Promise<CashboxResnponseDTO> => {
-  const cashbox = await CashboxModel.findByPk(params.cashboxID);
+  const cashboxID = Number(params.cashboxID);
 
-  if (cashbox == null) throw NotFound("Cashbox not found");
-
-  if (body.name !== undefined && body.name !== cashbox.name) {
-    const findCashbox = await CashboxModel.findOne({
-      where: {
-        name: body.name,
-      },
-    });
-
-    if (findCashbox !== null) {
-      throw Conflict("Cashbox already exists at this name");
-    }
+  if (!cashboxID || Number.isNaN(cashboxID)) {
+    throw BadRequest("Cashbox ID is invalid!");
   }
 
-  await cashbox.update({
-    device: body.device,
-    name: body.name,
-    status: body.status,
-    place: body.place,
-    description: body.description,
-  });
+  const sequelize = CashboxModel.sequelize!;
 
-  const cashboxData = cashbox.get();
-  return CashboxDTO(cashboxData);
+  return await sequelize.transaction(async (dbTransaction) => {
+    const cashbox = await CashboxModel.findByPk(cashboxID, {
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!cashbox) {
+      throw NotFound("Cashbox not found!");
+    }
+
+    if (body.name !== undefined && body.name !== cashbox.name) {
+      const existingCashbox = await CashboxModel.findOne({
+        where: {
+          name: body.name,
+          id: {
+            [Op.ne]: cashbox.id,
+          },
+        },
+        transaction: dbTransaction,
+      });
+
+      if (existingCashbox) {
+        throw Conflict("Cashbox already exists with this name!");
+      }
+    }
+
+    const isStatusChanging =
+      body.status !== undefined && body.status !== cashbox.status;
+
+    if (isStatusChanging) {
+      /**
+       * ACTIVE cashboxni inactive, blocked, maintenance yoki
+       * boshqa statusga o'tkazishdan oldin barcha faol reportlar
+       * yopilgan bo'lishi kerak.
+       */
+      if (
+        cashbox.status === CashboxStatusTypes.ACTIVE &&
+        body.status !== CashboxStatusTypes.ACTIVE
+      ) {
+        const activeReport = await CashboxReportModel.findOne({
+          where: {
+            cashbox: cashbox.id,
+            status: {
+              [Op.in]: [
+                CashboxReportStatusTypes.OPEN,
+                CashboxReportStatusTypes.STOPPED,
+              ],
+            },
+          },
+          transaction: dbTransaction,
+          lock: dbTransaction.LOCK.UPDATE,
+        });
+
+        if (activeReport) {
+          throw BadRequest(
+            "This cashbox is currently in use. Close all X and Z reports before changing its status!",
+          );
+        }
+      }
+
+      /**
+       * Cashboxni qo'lda ACTIVE qilish mumkin emas.
+       * U X-report ochilganda avtomatik ACTIVE bo'ladi.
+       */
+      if (
+        cashbox.status !== CashboxStatusTypes.ACTIVE &&
+        body.status === CashboxStatusTypes.ACTIVE
+      ) {
+        throw BadRequest(
+          "This cashbox cannot be activated manually because no operator is currently working on it. Open an X report to activate the cashbox!",
+        );
+      }
+    }
+
+    await cashbox.update(
+      {
+        ...(body.device !== undefined && { device: body.device }),
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.status !== undefined && { status: body.status }),
+        ...(body.place !== undefined && { place: body.place }),
+        ...(body.description !== undefined && {
+          description: body.description,
+        }),
+      },
+      {
+        transaction: dbTransaction,
+      },
+    );
+
+    return CashboxDTO(
+      cashbox.get({
+        plain: true,
+      }),
+    );
+  });
 };
 
 export const DeleteCashboxesService = async (body: DeleteCashboxesData) => {
   const transaction = await sequelize.transaction();
 
   try {
-    const cashboxIDs = [...new Set(body.cashboxIDs)];
+    const cashboxIDs = [...new Set(body.cashboxIDs.map((id) => Number(id)))];
 
-    const existingCount = await CashboxModel.count({
+    if (cashboxIDs.length === 0) {
+      throw BadRequest("Cashbox IDs are required!");
+    }
+
+    const cashboxes = await CashboxModel.findAll({
       where: {
         id: {
           [Op.in]: cashboxIDs,
         },
       },
       transaction,
+      lock: transaction.LOCK.UPDATE,
     });
 
-    if (existingCount !== cashboxIDs.length) {
-      throw NotFound("Cashbox not found");
+    if (cashboxes.length !== cashboxIDs.length) {
+      throw NotFound("Cashbox not found!");
+    }
+
+    const activeCashbox = cashboxes.find(
+      (cashbox) => cashbox.status === CashboxStatusTypes.ACTIVE,
+    );
+
+    if (activeCashbox) {
+      throw BadRequest(
+        `Cashbox "${activeCashbox.name}" is currently active and cannot be deleted. Close all reports first!`,
+      );
+    }
+
+    const activeReport = await CashboxReportModel.findOne({
+      where: {
+        cashbox: {
+          [Op.in]: cashboxIDs,
+        },
+        status: {
+          [Op.in]: [
+            CashboxReportStatusTypes.OPEN,
+            CashboxReportStatusTypes.STOPPED,
+          ],
+        },
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (activeReport) {
+      throw BadRequest(
+        "One or more cashboxes are currently in use. Close all X and Z reports before deleting them!",
+      );
     }
 
     await CashboxModel.destroy({
@@ -311,7 +427,6 @@ export const DeleteCashboxesService = async (body: DeleteCashboxesData) => {
           [Op.in]: cashboxIDs,
         },
       },
-      force: true,
       transaction,
     });
 
