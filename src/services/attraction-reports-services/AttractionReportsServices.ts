@@ -30,171 +30,168 @@ import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
 
 export const OpenAttractionReportService = async (
   operatorID: number,
+  deviceID: number,
   params: AttractionReportParams,
 ) => {
+  if (!operatorID || Number.isNaN(operatorID)) {
+    throw BadRequest("Operator ID is invalid!");
+  }
+
+  if (!deviceID || Number.isNaN(deviceID)) {
+    throw BadRequest("Device ID is invalid!");
+  }
+
   const attractionID = Number(params.attractionID);
 
   if (!attractionID || Number.isNaN(attractionID)) {
     throw BadRequest("Attraction ID is invalid!");
   }
 
-  return await AttractionReportModel.sequelize!.transaction(
-    async (transaction) => {
-      const { start, end } = getTodayRange();
+  const sequelize = AttractionReportModel.sequelize!;
 
-      const superAdmin = await EmployeeModel.findOne({
-        where: {
-          id: operatorID,
-        },
-        include: [
-          {
-            model: RoleModel,
-            as: "roles",
-            required: true,
-            where: {
-              name: "superadmin",
-            },
-          },
-        ],
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
+  return await sequelize.transaction(async (transaction) => {
+    const { start, end } = getTodayRange();
+    const now = new Date();
 
-      const isSuperAdmin = superAdmin !== null;
+    /*
+     * Attraction lock qilinadi.
+     */
+    const attraction = await AttractionModel.findByPk(attractionID, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
 
-      if (isSuperAdmin) {
-        const attraction = await AttractionModel.findOne({
-          where: {
-            id: attractionID,
-            status: AttractionStatusTypes.ACTIVE,
-          },
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        });
+    if (!attraction) {
+      throw NotFound("Attraction not found!");
+    }
 
-        if (attraction === null) {
-          throw NotFound("Attraction not found or not active!");
-        }
-      } else {
-        const operatorAttraction = await AttractionOperatorModel.findOne({
-          where: {
-            operator: operatorID,
-            attraction: attractionID,
-            status: AttractionOperatorStatusTypes.ACTIVE,
-          },
-          include: [
-            {
-              model: AttractionModel,
-              as: "attractions",
-              required: true,
-              where: {
-                status: AttractionStatusTypes.ACTIVE,
-              },
-            },
+    /*
+     * Headerdagi device-id aynan shu attractionga
+     * biriktirilgan bo‘lishi kerak.
+     */
+    if (Number(attraction.device) !== deviceID) {
+      throw BadRequest("This device is not assigned to this attraction!");
+    }
+
+    /*
+     * Shu attractionda OPEN yoki STOPPED X-report mavjudligini
+     * tekshiramiz.
+     */
+    const activeXReport = await AttractionReportModel.findOne({
+      where: {
+        attraction: attractionID,
+        report_type: AttractionReportTypes.XREPORT,
+        status: {
+          [Op.in]: [
+            AttractionReportStatusTypes.OPEN,
+            AttractionReportStatusTypes.STOPPED,
           ],
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        });
+        },
+        createdAt: {
+          [Op.between]: [start, end],
+        },
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
 
-        if (operatorAttraction === null) {
-          throw NotFound("Operator attraction not found!");
-        }
+    if (activeXReport) {
+      if (Number(activeXReport.operator) === operatorID) {
+        throw Conflict(
+          "You already have an active X report on this attraction!",
+        );
       }
 
-      const openXReport = await AttractionReportModel.findOne({
-        where: {
-          operator: operatorID,
-          report_type: AttractionReportTypes.XREPORT,
-          status: {
-            [Op.in]: [
-              AttractionReportStatusTypes.OPEN,
-              AttractionReportStatusTypes.STOPPED,
-            ],
-          },
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
+      throw Conflict(
+        "Another operator already has an active X report on this attraction!",
+      );
+    }
 
-      if (openXReport !== null) {
-        throw Conflict("Operator already has open X report!");
+    /*
+     * Bugungi Z-reportni topamiz.
+     */
+    let zReport = await AttractionReportModel.findOne({
+      where: {
+        attraction: attractionID,
+        report_type: AttractionReportTypes.ZREPORT,
+        createdAt: {
+          [Op.between]: [start, end],
+        },
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (zReport) {
+      if (
+        [
+          AttractionReportStatusTypes.CLOSED,
+          AttractionReportStatusTypes.CONFIRMED,
+        ].includes(zReport.status)
+      ) {
+        throw BadRequest("Today Z report is already closed!");
       }
 
-      let zReport = await AttractionReportModel.findOne({
-        where: {
-          attraction: attractionID,
-          report_type: AttractionReportTypes.ZREPORT,
-          status: {
-            [Op.in]: [
-              AttractionReportStatusTypes.OPEN,
-              AttractionReportStatusTypes.STOPPED,
-            ],
-          },
-          createdAt: {
-            [Op.between]: [start, end],
-          },
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (zReport === null) {
-        const closedTodayZReport = await AttractionReportModel.findOne({
-          where: {
-            attraction: attractionID,
-            report_type: AttractionReportTypes.ZREPORT,
-            status: {
-              [Op.in]: [
-                AttractionReportStatusTypes.CLOSED,
-                AttractionReportStatusTypes.CONFIRMED,
-              ],
-            },
-            createdAt: {
-              [Op.between]: [start, end],
-            },
-          },
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        });
-
-        if (closedTodayZReport !== null) {
-          throw BadRequest("Today Z report is already closed!");
-        }
-
-        zReport = await AttractionReportModel.create(
+      if (zReport.status === AttractionReportStatusTypes.STOPPED) {
+        await zReport.update(
           {
-            attraction: attractionID,
-            operator: operatorID,
-            report_type: AttractionReportTypes.ZREPORT,
-            zreport: null,
             status: AttractionReportStatusTypes.OPEN,
-            opened_at: new Date(),
+            stopped_at: null,
+            closed_at: null,
           },
           {
             transaction,
           },
         );
       }
-
-      const xReport = await AttractionReportModel.create(
+    } else {
+      zReport = await AttractionReportModel.create(
         {
           attraction: attractionID,
           operator: operatorID,
-          report_type: AttractionReportTypes.XREPORT,
-          zreport: zReport.id,
+          report_type: AttractionReportTypes.ZREPORT,
+          zreport: null,
           status: AttractionReportStatusTypes.OPEN,
-          opened_at: new Date(),
+          opened_at: now,
         },
         {
           transaction,
         },
       );
+    }
 
-      const reportData = xReport.get({ plain: true });
+    /*
+     * Yangi X-report ochiladi.
+     */
+    const xReport = await AttractionReportModel.create(
+      {
+        attraction: attractionID,
+        operator: operatorID,
+        report_type: AttractionReportTypes.XREPORT,
+        zreport: Number(zReport.id),
+        status: AttractionReportStatusTypes.OPEN,
+        opened_at: now,
+      },
+      {
+        transaction,
+      },
+    );
 
-      return AttractionReportDTO(reportData);
-    },
-  );
+    await attraction.update(
+      {
+        status: AttractionStatusTypes.ACTIVE,
+      },
+      {
+        transaction,
+      },
+    );
+
+    return AttractionReportDTO(
+      xReport.get({
+        plain: true,
+      }),
+    );
+  });
 };
 
 export const GetPaymentOperatorAttractionService = async (
@@ -312,11 +309,11 @@ export const UpdateAttractionReportStatusService = async (
   const attractionID = Number(params.attractionID);
   const reportID = Number(params.reportID);
 
-  if (!attractionID || Number.isNaN(attractionID)) {
+  if (!attractionID || !Number.isFinite(attractionID)) {
     throw BadRequest("Attraction ID is invalid!");
   }
 
-  if (!reportID || Number.isNaN(reportID)) {
+  if (!reportID || !Number.isFinite(reportID)) {
     throw BadRequest("Report ID is invalid!");
   }
 
@@ -330,308 +327,324 @@ export const UpdateAttractionReportStatusService = async (
     throw BadRequest("Invalid report status!");
   }
 
-  return await AttractionReportModel.sequelize!.transaction(
-    async (transaction: Transaction) => {
-      const currentEmployee = await EmployeeModel.findByPk(operatorID, {
-        attributes: ["id", "role"],
+  const sequelize = AttractionReportModel.sequelize!;
+
+  return await sequelize.transaction(async (transaction: Transaction) => {
+    const { startDate, endDate } = getTashkentDayRangeUTC();
+
+    const now = new Date();
+
+    /*
+     * Attraction mavjudligini tekshiramiz va lock qilamiz.
+     */
+    const attraction = await AttractionModel.findByPk(attractionID, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!attraction) {
+      throw NotFound("Attraction not found!");
+    }
+
+    /*
+     * Current employee va uning rolini olamiz.
+     */
+    const currentEmployee = await EmployeeModel.findByPk(operatorID, {
+      attributes: ["id", "role"],
+      transaction,
+    });
+
+    if (!currentEmployee) {
+      throw NotFound("Employee not found!");
+    }
+
+    const currentRole = await RoleModel.findByPk(Number(currentEmployee.role), {
+      attributes: ["id", "name"],
+      transaction,
+    });
+
+    if (!currentRole) {
+      throw Forbidden("Employee role not found!");
+    }
+
+    const roleName = currentRole.name;
+
+    const isSuperAdmin = roleName === "superadmin";
+
+    /*
+     * Operator shu attractionga ACTIVE holatda
+     * biriktirilganini tekshiramiz.
+     */
+    const operatorAttraction = await AttractionOperatorModel.findOne({
+      where: {
+        operator: operatorID,
+        attraction: attractionID,
+        status: AttractionOperatorStatusTypes.ACTIVE,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    /*
+     * Report faqat bugungi reportlar orasidan topiladi.
+     */
+    const report = await AttractionReportModel.findOne({
+      where: {
+        id: reportID,
+        attraction: attractionID,
+        createdAt: {
+          [Op.between]: [startDate, endDate],
+        },
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!report) {
+      throw NotFound("Attraction report not found!");
+    }
+
+    const isXReport = report.report_type === AttractionReportTypes.XREPORT;
+
+    const isZReport = report.report_type === AttractionReportTypes.ZREPORT;
+
+    if (!isXReport && !isZReport) {
+      throw BadRequest("Invalid attraction report type!");
+    }
+
+    /*
+     * X-reportni faqat o‘sha report operatori boshqaradi.
+     *
+     * Superadmin istalgan X-reportni boshqarishi mumkin.
+     */
+    if (isXReport && !isSuperAdmin) {
+      if (!operatorAttraction) {
+        throw Forbidden("Operator is not assigned to this attraction!");
+      }
+
+      if (Number(report.operator) !== operatorID) {
+        throw Forbidden("You can update only your own X report!");
+      }
+    }
+
+    /*
+     * Ruxsat berilgan status transitionlar:
+     *
+     * OPEN    -> STOPPED
+     * OPEN    -> CLOSED
+     * STOPPED -> OPEN
+     * STOPPED -> CLOSED
+     *
+     * CLOSED report qayta ochilmaydi.
+     */
+    const allowedTransitions: Record<string, AttractionReportStatusTypes[]> = {
+      [AttractionReportStatusTypes.OPEN]: [
+        AttractionReportStatusTypes.STOPPED,
+        AttractionReportStatusTypes.CLOSED,
+      ],
+
+      [AttractionReportStatusTypes.STOPPED]: [
+        AttractionReportStatusTypes.OPEN,
+        AttractionReportStatusTypes.CLOSED,
+      ],
+
+      [AttractionReportStatusTypes.CLOSED]: [],
+      [AttractionReportStatusTypes.CONFIRMED]: [],
+    };
+
+    const transitions = allowedTransitions[report.status] ?? [];
+
+    if (!transitions.includes(body.status)) {
+      throw BadRequest(
+        `Cannot change report status from ${report.status} to ${body.status}!`,
+      );
+    }
+
+    /*
+     * X-reportni yopishdan oldin uning ochiq roundini
+     * tekshiramiz.
+     */
+    if (isXReport && body.status === AttractionReportStatusTypes.CLOSED) {
+      const openRound = await AttractionRoundModel.findOne({
+        where: {
+          report: Number(report.id),
+          attraction: attractionID,
+          status: AttractionRoundStatusTypes.OPEN,
+        },
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
 
-      if (!currentEmployee) {
-        throw NotFound("Employee not found!");
+      /*
+       * Round ichida odamlar bo‘lsa, avval GO bosilib
+       * round tugatilishi kerak.
+       */
+      if (openRound && Number(openRound.people_count || 0) > 0) {
+        throw BadRequest("Close current round first!");
       }
 
-      const currentEmployeeData = currentEmployee.get({
-        plain: true,
-      }) as EmployeeModelI;
+      /*
+       * Bo‘sh round bo‘lsa avtomatik CANCELLED qilamiz.
+       */
+      if (openRound && Number(openRound.people_count || 0) === 0) {
+        await openRound.update(
+          {
+            status: AttractionRoundStatusTypes.CANCELLED,
+            finished_at: now,
+          },
+          {
+            transaction,
+          },
+        );
+      }
+    }
 
-      const currentRole = await RoleModel.findByPk(
-        Number(currentEmployeeData.role),
+    /*
+     * Z-report yopilishidan oldin unga bog‘langan barcha
+     * X-reportlar CLOSED bo‘lishi kerak.
+     */
+    if (isZReport && body.status === AttractionReportStatusTypes.CLOSED) {
+      const activeXReport = await AttractionReportModel.findOne({
+        where: {
+          attraction: attractionID,
+          report_type: AttractionReportTypes.XREPORT,
+          zreport: Number(report.id),
+          status: {
+            [Op.in]: [
+              AttractionReportStatusTypes.OPEN,
+              AttractionReportStatusTypes.STOPPED,
+            ],
+          },
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (activeXReport) {
+        throw BadRequest("Close all X reports before closing Z report!");
+      }
+    }
+
+    const updateData: Partial<AttractionReportModelI> = {
+      status: body.status,
+    };
+
+    /*
+     * OPEN -> STOPPED
+     */
+    if (body.status === AttractionReportStatusTypes.STOPPED) {
+      updateData.stopped_at = now;
+    }
+
+    /*
+     * STOPPED -> OPEN
+     */
+    if (body.status === AttractionReportStatusTypes.OPEN) {
+      updateData.stopped_at = null;
+      updateData.closed_at = null;
+    }
+
+    /*
+     * OPEN/STOPPED -> CLOSED
+     */
+    if (body.status === AttractionReportStatusTypes.CLOSED) {
+      updateData.closed_at = now;
+    }
+
+    await report.update(updateData, {
+      transaction,
+    });
+
+    /*
+     * X-report STOPPED bo‘lsa,
+     * uning parent Z-reporti ham STOPPED bo‘ladi.
+     */
+    if (
+      isXReport &&
+      body.status === AttractionReportStatusTypes.STOPPED &&
+      report.zreport
+    ) {
+      await AttractionReportModel.update(
         {
-          attributes: ["id", "name"],
+          status: AttractionReportStatusTypes.STOPPED,
+          description: body.description,
+          stopped_at: now,
+        },
+        {
+          where: {
+            id: Number(report.zreport),
+            attraction: attractionID,
+            report_type: AttractionReportTypes.ZREPORT,
+            status: AttractionReportStatusTypes.OPEN,
+          },
           transaction,
         },
       );
+    }
 
-      const roleName = currentRole
-        ? (currentRole.get({ plain: true }) as RoleModelI).name
-        : "";
-
-      const isHeadOperator = ["head_operator", "superadmin"].includes(roleName);
-
-      const operatorAttraction = await AttractionOperatorModel.findOne({
-        where: {
-          operator: operatorID,
-          attraction: attractionID,
-          status: AttractionOperatorStatusTypes.ACTIVE,
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      const report = await AttractionReportModel.findOne({
-        where: {
-          id: reportID,
-          attraction: attractionID,
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (report === null) {
-        throw NotFound("Attraction report not found!");
-      }
-
-      const isXReport = report.report_type === AttractionReportTypes.XREPORT;
-      const isZReport = report.report_type === AttractionReportTypes.ZREPORT;
-
-      if (isXReport) {
-        if (operatorAttraction === null) {
-          throw NotFound("Operator attraction not found!");
-        }
-
-        if (Number(report.operator) !== Number(operatorID)) {
-          throw Forbidden("You can update only your own X report!");
-        }
-      }
-
-      if (isZReport) {
-        const canUpdateZReport = operatorAttraction !== null || isHeadOperator;
-
-        if (!canUpdateZReport) {
-          throw Forbidden("You do not have access to this Z report!");
-        }
-
-        if (
-          body.status === AttractionReportStatusTypes.OPEN &&
-          !isHeadOperator
-        ) {
-          throw Forbidden("Only head operator can reopen Z report!");
-        }
-      }
-
-      if (report.status === body.status) {
-        throw BadRequest(`Report is already ${body.status}!`);
-      }
-
-      const syncZReportAfterXReportStopped = async () => {
-        if (!isXReport || !report.zreport) {
-          return;
-        }
-
-        const openXReport = await AttractionReportModel.findOne({
-          where: {
-            attraction: attractionID,
-            report_type: AttractionReportTypes.XREPORT,
-            zreport: Number(report.zreport),
-            status: AttractionReportStatusTypes.OPEN,
-            id: {
-              [Op.ne]: Number(report.id),
-            },
-          },
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        });
-
-        if (openXReport !== null) {
-          return;
-        }
-
-        await AttractionReportModel.update(
-          {
-            status: AttractionReportStatusTypes.STOPPED,
-            stopped_at: new Date(),
-          },
-          {
-            where: {
-              id: Number(report.zreport),
-              attraction: attractionID,
-              report_type: AttractionReportTypes.ZREPORT,
-              status: AttractionReportStatusTypes.OPEN,
-            },
-            transaction,
-          },
-        );
-      };
-
-      const syncZReportAfterXReportOpened = async () => {
-        if (!isXReport || !report.zreport) {
-          return;
-        }
-
-        await AttractionReportModel.update(
-          {
-            status: AttractionReportStatusTypes.OPEN,
-            stopped_at: null,
-            closed_at: null,
-          },
-          {
-            where: {
-              id: Number(report.zreport),
-              attraction: attractionID,
-              report_type: AttractionReportTypes.ZREPORT,
-              status: AttractionReportStatusTypes.STOPPED,
-            },
-            transaction,
-          },
-        );
-      };
-
-      if (body.status === AttractionReportStatusTypes.STOPPED) {
-        if (report.status !== AttractionReportStatusTypes.OPEN) {
-          throw BadRequest("Only open report can be stopped!");
-        }
-
-        const stoppedAt = new Date();
-
-        await report.update(
-          {
-            status: AttractionReportStatusTypes.STOPPED,
-            stopped_at: stoppedAt,
-          },
-          {
-            transaction,
-          },
-        );
-
-        await syncZReportAfterXReportStopped();
-
-        const reportData = report.get({ plain: true });
-
-        return AttractionReportDTO({
-          ...reportData,
-          status: AttractionReportStatusTypes.STOPPED,
-          stopped_at: stoppedAt,
-        });
-      }
-
-      if (body.status === AttractionReportStatusTypes.OPEN) {
-        if (
-          isXReport &&
-          report.status !== AttractionReportStatusTypes.STOPPED
-        ) {
-          throw BadRequest("Only stopped X report can be reopened!");
-        }
-
-        if (
-          isZReport &&
-          ![
-            AttractionReportStatusTypes.STOPPED,
-            AttractionReportStatusTypes.CLOSED,
-          ].includes(report.status)
-        ) {
-          throw BadRequest("Only stopped or closed Z report can be reopened!");
-        }
-
-        await report.update(
-          {
-            status: AttractionReportStatusTypes.OPEN,
-            stopped_at: null,
-            closed_at: null,
-          },
-          {
-            transaction,
-          },
-        );
-
-        await syncZReportAfterXReportOpened();
-
-        const reportData = report.get({ plain: true });
-
-        return AttractionReportDTO({
-          ...reportData,
+    /*
+     * X-report STOPPED holatdan OPEN qilinsa,
+     * uning parent Z-reporti ham OPEN bo‘ladi.
+     */
+    if (
+      isXReport &&
+      body.status === AttractionReportStatusTypes.OPEN &&
+      report.zreport
+    ) {
+      await AttractionReportModel.update(
+        {
           status: AttractionReportStatusTypes.OPEN,
+          description: null,
           stopped_at: null,
           closed_at: null,
-        });
-      }
-
-      if (body.status === AttractionReportStatusTypes.CLOSED) {
-        if (
-          ![
-            AttractionReportStatusTypes.OPEN,
-            AttractionReportStatusTypes.STOPPED,
-          ].includes(report.status)
-        ) {
-          throw BadRequest("Only open or stopped report can be closed!");
-        }
-
-        if (isXReport) {
-          const openRound = await AttractionRoundModel.findOne({
-            where: {
-              report: Number(report.id),
-              attraction: attractionID,
-              operator: operatorID,
-              status: AttractionRoundStatusTypes.OPEN,
-            },
-            transaction,
-            lock: transaction.LOCK.UPDATE,
-          });
-
-          if (openRound !== null && Number(openRound.people_count || 0) > 0) {
-            throw BadRequest("Close current round first!");
-          }
-
-          if (openRound !== null && Number(openRound.people_count || 0) === 0) {
-            await openRound.update(
-              {
-                status: AttractionRoundStatusTypes.CANCELLED,
-                finished_at: new Date(),
-              },
-              {
-                transaction,
-              },
-            );
-          }
-        }
-
-        if (isZReport) {
-          const notClosedXReport = await AttractionReportModel.findOne({
-            where: {
-              attraction: attractionID,
-              report_type: AttractionReportTypes.XREPORT,
-              zreport: Number(report.id),
-              status: {
-                [Op.in]: [
-                  AttractionReportStatusTypes.OPEN,
-                  AttractionReportStatusTypes.STOPPED,
-                ],
-              },
-            },
-            transaction,
-            lock: transaction.LOCK.UPDATE,
-          });
-
-          if (notClosedXReport !== null) {
-            throw BadRequest("Close all X reports before closing Z report!");
-          }
-        }
-
-        const closedAt = new Date();
-
-        await report.update(
-          {
-            status: AttractionReportStatusTypes.CLOSED,
-            closed_at: closedAt,
+        },
+        {
+          where: {
+            id: Number(report.zreport),
+            attraction: attractionID,
+            report_type: AttractionReportTypes.ZREPORT,
+            status: AttractionReportStatusTypes.STOPPED,
           },
-          {
-            transaction,
-          },
-        );
+          transaction,
+        },
+      );
+    }
 
-        const reportData = report.get({ plain: true });
+    /*
+     * X-report CLOSED bo‘lsa parent Z-report o‘zgarmaydi.
+     * Z-report alohida request orqali yopiladi.
+     */
 
-        return AttractionReportDTO({
-          ...reportData,
-          status: AttractionReportStatusTypes.CLOSED,
-          closed_at: closedAt,
-        });
-      }
+    /*
+     * Z-report CLOSED bo‘lsa attraction INACTIVE bo‘ladi.
+     */
+    if (isZReport && body.status === AttractionReportStatusTypes.CLOSED) {
+      await attraction.update(
+        {
+          status: AttractionStatusTypes.INACTIVE,
+        },
+        {
+          transaction,
+        },
+      );
+    }
 
-      throw BadRequest("Invalid report status!");
-    },
-  );
+    /*
+     * X yoki Z report OPEN bo‘lsa attraction ACTIVE bo‘ladi.
+     */
+    if (body.status === AttractionReportStatusTypes.OPEN) {
+      await attraction.update(
+        {
+          status: AttractionStatusTypes.ACTIVE,
+        },
+        {
+          transaction,
+        },
+      );
+    }
+
+    return true;
+  });
 };
 
 export const GetTodayAttractionReportsService = async (
@@ -1028,27 +1041,61 @@ export const AutoCloseUnclosedAttractionReportsService = async () => {
         transaction,
       });
 
-      if (openedXReportsCount === 0) {
-        const [updatedZReports] = await AttractionReportModel.update(
+      if (openedXReportsCount > 0) {
+        continue;
+      }
+
+      const zReport = await AttractionReportModel.findOne({
+        where: {
+          id: zreportID,
+          report_type: AttractionReportTypes.ZREPORT,
+          status: {
+            [Op.in]: closeableStatuses,
+          },
+          closed_at: null,
+        },
+        attributes: ["id", "attraction"],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (!zReport) {
+        continue;
+      }
+
+      const [updatedZReports] = await AttractionReportModel.update(
+        {
+          status: AttractionReportStatusTypes.CLOSED,
+          closed_at: now,
+        },
+        {
+          where: {
+            id: zreportID,
+            report_type: AttractionReportTypes.ZREPORT,
+            status: {
+              [Op.in]: closeableStatuses,
+            },
+            closed_at: null,
+          },
+          transaction,
+        },
+      );
+
+      if (updatedZReports > 0) {
+        await AttractionModel.update(
           {
-            status: AttractionReportStatusTypes.CLOSED,
-            closed_at: now,
+            status: AttractionStatusTypes.INACTIVE,
           },
           {
             where: {
-              id: zreportID,
-              report_type: AttractionReportTypes.ZREPORT,
-              status: {
-                [Op.in]: closeableStatuses,
-              },
-              closed_at: null,
+              id: zReport.attraction,
             },
             transaction,
           },
         );
-
-        closedZReports += updatedZReports;
       }
+
+      closedZReports += updatedZReports;
     }
 
     return {

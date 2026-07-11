@@ -125,12 +125,15 @@ export const openAttractionReportSchema = {
 
   headers: {
     type: "object",
-    required: ["authorization"],
+    required: ["authorization", "device-id"],
     additionalProperties: true,
     properties: {
       authorization: {
         type: "string",
         description: "Bearer access token",
+      },
+      "device-id": {
+        type: "string",
       },
     },
   },
@@ -356,6 +359,9 @@ export const attractionWithZReportsProperties = {
   },
 
   status: {
+    type: "string",
+  },
+  description: {
     type: "string",
   },
 

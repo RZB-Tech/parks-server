@@ -20,8 +20,7 @@ export class AttractionRoundModel
   public offline_count!: number;
   public online_count!: number;
   public vip_count!: number;
-  public guest_count!: number;
-  public park_staff_count!: number;
+  public organization_count!: number;
 
   public paid_amount!: number;
   public total_amount!: number;
@@ -99,13 +98,7 @@ export class AttractionRoundModel
           defaultValue: 0,
         },
 
-        guest_count: {
-          type: DataTypes.INTEGER,
-          allowNull: false,
-          defaultValue: 0,
-        },
-
-        park_staff_count: {
+        organization_count: {
           type: DataTypes.INTEGER,
           allowNull: false,
           defaultValue: 0,
@@ -145,19 +138,19 @@ export class AttractionRoundModel
   }
 
   public static associate(models: ModelsType) {
-   AttractionRoundModel.belongsTo(models.AttractionReportModel, {
-     foreignKey: "report",
-     as: "reports",
-   });
+    AttractionRoundModel.belongsTo(models.AttractionReportModel, {
+      foreignKey: "report",
+      as: "reports",
+    });
 
-   AttractionRoundModel.belongsTo(models.AttractionModel, {
-     foreignKey: "attraction",
-     as: "attractions",
-   });
+    AttractionRoundModel.belongsTo(models.AttractionModel, {
+      foreignKey: "attraction",
+      as: "attractions",
+    });
 
-   AttractionRoundModel.belongsTo(models.EmployeeModel, {
-     foreignKey: "operator",
-     as: "operators",
-   });
+    AttractionRoundModel.belongsTo(models.EmployeeModel, {
+      foreignKey: "operator",
+      as: "operators",
+    });
   }
 }

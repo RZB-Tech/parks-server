@@ -35,6 +35,11 @@ import {
   GetOrCreateOpenAttractionRoundService,
   GetPaymentOperatorAttractionService,
 } from "../attraction-reports-services/AttractionReportsServices";
+import { AttractionRoundModel } from "../../models/postgresql/attraction-round-model/AttractionRoundModel";
+import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
+import { AttractionReportTypes } from "../../models/postgresql/attraction-model/enums";
+import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
+import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
 
 export const CheckNfcCardService = async (
   operatorID: number,
@@ -365,6 +370,10 @@ export const CardPaymentTransactionService = async (
   operatorID: number,
   body: CardPaymentTransactionData,
 ) => {
+  if (!operatorID || Number.isNaN(Number(operatorID))) {
+    throw BadRequest("Operator ID is invalid!");
+  }
+
   if (!body.nfc || !body.nfc.trim()) {
     throw BadRequest("NFC is required!");
   }
@@ -375,55 +384,154 @@ export const CardPaymentTransactionService = async (
     throw BadRequest("Attraction ID is invalid!");
   }
 
-  return await CardTransactionModel.sequelize!.transaction(
-    async (transaction) => {
-      const operatorAttraction = await GetPaymentOperatorAttractionService(
-        operatorID,
-        attractionID,
-        transaction,
-      );
+  const sequelize = CardTransactionModel.sequelize!;
 
-      const attraction = operatorAttraction.attractions;
-      const amount = Number(attraction.price);
-      const seats = Number(attraction.seats);
+  return await sequelize.transaction(async (transaction) => {
+    /*
+     * Operator shu attractionga ACTIVE holatda
+     * biriktirilganini tekshiramiz.
+     */
+    const operatorAttraction = await GetPaymentOperatorAttractionService(
+      operatorID,
+      attractionID,
+      transaction,
+    );
 
-      const report = await GetOpenAttractionReportService(
-        operatorID,
-        attractionID,
-        transaction,
-      );
+    const attraction = operatorAttraction.attractions;
 
-      if (report === null) {
-        throw BadRequest("Open report required!");
-      }
+    if (!attraction) {
+      throw NotFound("Attraction not found!");
+    }
 
-      const round = await GetOrCreateOpenAttractionRoundService(
-        report,
-        attractionID,
-        operatorID,
-        transaction,
-      );
+    const attractionPrice = Number(attraction.price);
+    const seats = Number(attraction.seats);
 
-      if (Number(round.people_count) >= seats) {
-        return CardPaymentFailedDTO("Round is full. Press GO first!");
-      }
+    if (!Number.isFinite(attractionPrice) || attractionPrice < 0) {
+      throw BadRequest("Attraction price is invalid!");
+    }
 
-      const card = await CardModel.findOne({
-        where: {
-          nfc: body.nfc.trim(),
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
+    if (!Number.isFinite(seats) || seats <= 0) {
+      throw BadRequest("Attraction seats count is invalid!");
+    }
 
-      if (card === null) {
-        return NotFound("Card not found!");
-      }
+    /*
+     * Operatorning shu attractiondagi ochiq X-reportini topamiz.
+     */
+    const openReport = await GetOpenAttractionReportService(
+      operatorID,
+      attractionID,
+      transaction,
+    );
 
-      if (card.status !== CardStatusTypes.ACTIVE) {
-        return Conflict("Card is not active!");
-      }
+    if (!openReport) {
+      throw BadRequest("Open report required!");
+    }
 
+    /*
+     * Parallel payment yoki report yopilishi bilan conflict
+     * bo‘lmasligi uchun reportni lock bilan qayta olamiz.
+     */
+    const report = await AttractionReportModel.findOne({
+      where: {
+        id: Number(openReport.id),
+        operator: operatorID,
+        attraction: attractionID,
+        report_type: AttractionReportTypes.XREPORT,
+        status: AttractionReportStatusTypes.OPEN,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!report) {
+      throw BadRequest("Open report required!");
+    }
+
+    /*
+     * Ochiq roundni olamiz yoki yangisini yaratamiz.
+     */
+    const currentRound = await GetOrCreateOpenAttractionRoundService(
+      report,
+      attractionID,
+      operatorID,
+      transaction,
+    );
+
+    /*
+     * Bir vaqtning o‘zida bir nechta payment kelganda
+     * seats limit buzilmasligi uchun roundni lock qilamiz.
+     */
+    const round = await AttractionRoundModel.findOne({
+      where: {
+        id: Number(currentRound.id),
+        report: Number(report.id),
+        attraction: attractionID,
+        operator: operatorID,
+        status: AttractionRoundStatusTypes.OPEN,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!round) {
+      throw NotFound("Open attraction round not found!");
+    }
+
+    if (Number(round.people_count) >= seats) {
+      return CardPaymentFailedDTO("Round is full. Press GO first!");
+    }
+
+    /*
+     * NFC orqali kartani topib, parallel yechimlardan
+     * himoyalash uchun lock qilamiz.
+     */
+    const card = await CardModel.findOne({
+      where: {
+        nfc: body.nfc.trim(),
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!card) {
+      throw NotFound("Card not found!");
+    }
+
+    /*
+     * Faqat ACTIVE kartadan foydalanish mumkin.
+     */
+    if (card.status !== CardStatusTypes.ACTIVE) {
+      throw Conflict("Card is not active!");
+    }
+
+    /*
+     * Attraction payment uchun ruxsat berilgan card typelar.
+     */
+    const allowedCardTypes: CardType[] = [
+      CardType.CLASSIC,
+      CardType.VIP,
+      CardType.ORGANIZATION,
+    ];
+
+    if (!allowedCardTypes.includes(card.type)) {
+      throw BadRequest("Card type is not allowed for attraction payment!");
+    }
+
+    const isClassicCard = card.type === CardType.CLASSIC;
+    const isVipCard = card.type === CardType.VIP;
+    const isOrganizationCard = card.type === CardType.ORGANIZATION;
+
+    /*
+     * VIP kartada balans mavjud emas va pul yechilmaydi.
+     *
+     * CLASSIC va ORGANIZATION kartalarda esa balans
+     * tekshiriladi va attraction narxi yechiladi.
+     */
+    let balanceBefore = 0;
+    let balanceAfter = 0;
+    let chargedAmount = 0;
+
+    if (!isVipCard) {
       const lastTransaction = await CardTransactionModel.findOne({
         where: {
           card: Number(card.id),
@@ -434,60 +542,140 @@ export const CardPaymentTransactionService = async (
         lock: transaction.LOCK.UPDATE,
       });
 
-      const balanceBefore =
-        lastTransaction !== null ? Number(lastTransaction.balance_after) : 0;
+      balanceBefore = lastTransaction
+        ? Number(lastTransaction.balance_after)
+        : Number(card.balance ?? 0);
 
-      if (balanceBefore < amount) {
+      if (!Number.isFinite(balanceBefore) || balanceBefore < 0) {
+        throw BadRequest("Card balance is invalid!");
+      }
+
+      if (balanceBefore < attractionPrice) {
         return CardPaymentFailedDTO("Not enough balance!");
       }
 
-      const balanceAfter = balanceBefore - amount;
+      chargedAmount = attractionPrice;
+      balanceAfter = balanceBefore - chargedAmount;
+    }
 
-      const payment = await CardTransactionModel.create(
+    /*
+     * VIP:
+     * amount = 0
+     * balance_before = 0
+     * balance_after = 0
+     *
+     * CLASSIC va ORGANIZATION:
+     * amount = attraction price
+     */
+    const payment = await CardTransactionModel.create(
+      {
+        card: Number(card.id),
+        operator: operatorID,
+
+        cashbox: null,
+        attraction: attractionID,
+        xreport: Number(report.id),
+
+        type: CardTransactionType.PAYMENT,
+
+        amount: chargedAmount,
+        balance_before: balanceBefore,
+        balance_after: balanceAfter,
+
+        payment_type: PaymentType.CARD,
+        payment_card_type: null,
+        payment_service: null,
+
+        status: CardTransactionStatusTypes.SUCCESS,
+      },
+      {
+        transaction,
+      },
+    );
+
+    /*
+     * Round hisoblari:
+     *
+     * CLASSIC      -> offline_count
+     * VIP          -> vip_count
+     * ORGANIZATION -> organization_count
+     *
+     * paid_amount faqat real yechilgan summaga oshadi.
+     * VIP uchun chargedAmount = 0.
+     */
+    await round.update(
+      {
+        people_count: Number(round.people_count) + 1,
+
+        offline_count: Number(round.offline_count) + (isClassicCard ? 1 : 0),
+
+        vip_count: Number(round.vip_count) + (isVipCard ? 1 : 0),
+
+        organization_count:
+          Number(round.organization_count) + (isOrganizationCard ? 1 : 0),
+
+        paid_amount: Number(round.paid_amount) + chargedAmount,
+
+        /*
+         * total_amount barcha kirishlarning umumiy qiymati.
+         * VIP pul to‘lamasa ham attraction narxi shu yerga qo‘shiladi.
+         */
+        total_amount: Number(round.total_amount) + attractionPrice,
+      },
+      {
+        transaction,
+      },
+    );
+
+    /*
+     * X-report umumiy hisoblari.
+     */
+    await report.update(
+      {
+        total_people: Number(report.total_people) + 1,
+
+        total_offline: Number(report.total_offline) + (isClassicCard ? 1 : 0),
+
+        total_vip: Number(report.total_vip) + (isVipCard ? 1 : 0),
+
+        total_organization:
+          Number(report.total_organization) + (isOrganizationCard ? 1 : 0),
+
+        paid_amount: Number(report.paid_amount) + chargedAmount,
+
+        total_amount: Number(report.total_amount) + attractionPrice,
+      },
+      {
+        transaction,
+      },
+    );
+
+    /*
+     * VIP kartada balans yo‘q va o‘zgarmaydi.
+     * Faqat CLASSIC va ORGANIZATION kartalar balansi yangilanadi.
+     */
+    if (!isVipCard) {
+      await card.update(
         {
-          card: Number(card.id),
-          operator: operatorID,
-          cashbox: null,
-          attraction: attractionID,
-          xreport: null,
-          type: CardTransactionType.PAYMENT,
-          amount,
-          balance_before: balanceBefore,
-          balance_after: balanceAfter,
-          payment_type: PaymentType.CARD,
-          payment_card_type: null,
-          payment_service: null,
-
-          status: CardTransactionStatusTypes.SUCCESS,
+          balance: balanceAfter,
         },
         {
           transaction,
         },
       );
+    }
 
-      await round.update(
-        {
-          people_count: Number(round.people_count) + 1,
-          paid_amount: Number(round.paid_amount) + amount,
-          total_amount: Number(round.total_amount) + amount,
-        },
-        {
-          transaction,
-        },
-      );
+    const paymentData = payment.get({
+      plain: true,
+    }) as CardTransactionModelI;
 
-      const paymentData = payment.get({
-        plain: true,
-      }) as CardTransactionModelI;
+    const cardData = card.get({
+      plain: true,
+    }) as CardsModelI;
 
-      const cardData = card.get({
-        plain: true,
-      }) as CardsModelI;
-
-      return CardPaymentSuccessDTO({
-        ...paymentData,
-        card_data: cardData,
-      });
-    },
-  );
+    return CardPaymentSuccessDTO({
+      ...paymentData,
+      card_data: cardData,
+    });
+  });
 };

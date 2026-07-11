@@ -97,13 +97,15 @@ export const AttractionStatsProperties = {
   attractions: { type: "integer" },
   active: { type: "integer" },
   inactive: { type: "integer" },
+  stopped: { type: "integer" },
   maintenance: { type: "integer" },
   closed: { type: "integer" },
 };
 
 export const getAttractionSchema = {
   summary: "Get attraction",
-  description: "Get attraction by id and device id superadmin, admin, owner, director, head_marketing, head_operator, operator",
+  description:
+    "Get attraction by id and device id superadmin, admin, owner, director, head_marketing, head_operator, operator",
   tags: ["Attractions route"],
   headers: {
     type: "object",
@@ -159,7 +161,8 @@ export const getAttractionSchema = {
 
 export const getAttractionsStatsSchema = {
   summary: "Get attractions status statistics",
-  description: "Get attraction stats superadmin, admin, owner, director, head_marketing, head_operator, operator",
+  description:
+    "Get attraction stats superadmin, admin, owner, director, head_marketing, head_operator, operator",
   tags: ["Attractions route"],
   headers: {
     type: "object",
@@ -184,7 +187,8 @@ export const getAttractionsStatsSchema = {
 
 export const getAttractionsSchema = {
   summary: "Get attractions",
-  description: "Get attraction superadmin, admin, owner, director, head_marketing, head_operator, operator",
+  description:
+    "Get attraction superadmin, admin, owner, director, head_marketing, head_operator, operator",
   tags: ["Attractions route"],
   headers: {
     type: "object",

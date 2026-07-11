@@ -2,6 +2,7 @@ declare interface AttractionsStatusDto {
   attractions: number;
   active: number;
   inactive: number;
+  stopped: number;
   maintenance: number;
   closed: number;
 }

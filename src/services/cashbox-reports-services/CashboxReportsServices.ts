@@ -216,6 +216,7 @@ export const GetTodayCashboxReportsService = async (
     ),
   });
 };
+
 export const StatusCashboxReportService = async (
   operatorID: number,
   params: CashboxReportsParams,
@@ -824,27 +825,50 @@ export const AutoCloseUnclosedXReportsService = async () => {
         transaction,
       });
 
-      if (openedXReportsCount === 0) {
-        const [updatedZReports] = await CashboxReportModel.update(
-          {
-            operator: null,
-            status: CashboxReportStatusTypes.CLOSED,
-            closed_at: now,
-          },
-          {
-            where: {
-              id: zreportID,
-              report_type: CashboxReportTypes.ZREPORT,
-              status: {
-                [Op.in]: notClosedStatuses,
-              },
-            },
-            transaction,
-          },
-        );
-
-        closedZreports += updatedZReports;
+      if (openedXReportsCount > 0) {
+        continue;
       }
+
+      const zReport = await CashboxReportModel.findOne({
+        where: {
+          id: zreportID,
+          report_type: CashboxReportTypes.ZREPORT,
+          status: {
+            [Op.in]: notClosedStatuses,
+          },
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (!zReport) {
+        continue;
+      }
+
+      await zReport.update(
+        {
+          operator: null,
+          status: CashboxReportStatusTypes.CLOSED,
+          closed_at: now,
+        },
+        {
+          transaction,
+        },
+      );
+
+      await CashboxModel.update(
+        {
+          status: CashboxStatusTypes.INACTIVE,
+        },
+        {
+          where: {
+            id: zReport.cashbox,
+          },
+          transaction,
+        },
+      );
+
+      closedZreports += 1;
     }
 
     return {

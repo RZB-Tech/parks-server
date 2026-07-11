@@ -12,6 +12,7 @@ export class AttractionReportModel
   public operator!: number | null;
 
   public status!: import("./enums").AttractionReportStatusTypes;
+  public description!: string | null;
   public report_type!: import("./enums").AttractionReportTypes;
   public zreport!: number | null;
 
@@ -27,8 +28,7 @@ export class AttractionReportModel
   public total_offline!: number;
   public total_online!: number;
   public total_vip!: number;
-  public total_guest!: number;
-  public total_park_staff!: number;
+  public total_organization!: number;
 
   public paid_amount!: number;
   public total_amount!: number;
@@ -68,6 +68,10 @@ export class AttractionReportModel
           ),
           allowNull: false,
           defaultValue: AttractionReportStatusTypes.OPEN,
+        },
+        description: {
+          type: DataTypes.STRING,
+          allowNull: true,
         },
         report_type: {
           type: DataTypes.ENUM(...Object.values(AttractionReportTypes)),
@@ -133,13 +137,7 @@ export class AttractionReportModel
           defaultValue: 0,
         },
 
-        total_guest: {
-          type: DataTypes.INTEGER,
-          allowNull: false,
-          defaultValue: 0,
-        },
-
-        total_park_staff: {
+        total_organization: {
           type: DataTypes.INTEGER,
           allowNull: false,
           defaultValue: 0,

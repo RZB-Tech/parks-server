@@ -5,6 +5,7 @@ import {
   RouteWithData,
   RouteWithParams,
   RouteWithParamsAndData,
+  RouteWithParamsAndHeaders,
   RouteWithQuery,
 } from "../../types/routes";
 import {
@@ -19,11 +20,12 @@ import {
 
 export const AttractionReportOpenController = makeReplyingController(
   "attraction-report",
-  async (request: FastifyRequest<RouteWithParams<AttractionReportParams>>) => {
+  async (request: FastifyRequest<RouteWithParamsAndHeaders<AttractionReportParams, AttractionReportHeaders>>) => {
     const operatorID = request.employee?.id;
     const params = request.params;
+    const deviceID = request.headers["device-id"]
 
-    return OpenAttractionReportService(Number(operatorID), params);
+    return OpenAttractionReportService(Number(operatorID), Number(deviceID), params);
   },
 );
 

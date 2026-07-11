@@ -50,8 +50,7 @@ export const AttractionReportDTO = (
     total_offline: Number(data.total_offline || 0),
     total_online: Number(data.total_online || 0),
     total_vip: Number(data.total_vip || 0),
-    total_guest: Number(data.total_guest || 0),
-    total_park_staff: Number(data.total_park_staff || 0),
+    total_guest: Number(data.total_organization || 0),
 
     paid_amount: Number(data.paid_amount || 0),
     total_amount: Number(data.total_amount || 0),
@@ -96,8 +95,7 @@ export const addAttractionZReportsTotals = (
   target.total_offline += Number(report.total_offline || 0);
   target.total_online += Number(report.total_online || 0);
   target.total_vip += Number(report.total_vip || 0);
-  target.total_guest += Number(report.total_guest || 0);
-  target.total_park_staff += Number(report.total_park_staff || 0);
+  target.total_guest += Number(report.total_organization || 0);
 
   target.paid_amount += Number(report.paid_amount || 0);
   target.total_amount += Number(report.total_amount || 0);

@@ -3,6 +3,7 @@ declare interface AttractionReportModelI {
   attraction: number;
   operator: number | null;
   status: import("./enums").AttractionReportStatusTypes;
+  description: string | null;
   report_type: import("./enums").AttractionReportTypes;
   zreport: number | null;
   opened_at: Date;
@@ -15,8 +16,7 @@ declare interface AttractionReportModelI {
   total_offline: number;
   total_online: number;
   total_vip: number;
-  total_guest: number;
-  total_park_staff: number;
+  total_organization: number;
   paid_amount: number;
   total_amount: number;
   createdAt?: Date;

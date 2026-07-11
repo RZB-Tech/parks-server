@@ -3,10 +3,17 @@ declare interface AttractionReportParams {
   reportID?: number;
 }
 
+declare interface AttractionReportHeaders {
+  authorization: string;
+  "device-id": string;
+}
+
 declare interface UpdateAttractionReportStatusData {
   status:
     | AttractionReportStatusTypes.STOPPED
     | AttractionReportStatusTypes.CLOSED;
+
+  description: string;
 }
 
 declare interface GetAttractionZReportsQuery {
