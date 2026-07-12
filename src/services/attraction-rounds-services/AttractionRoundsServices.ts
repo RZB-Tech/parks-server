@@ -275,8 +275,7 @@ export const CloseCurrentAttractionRoundService = async (
         total_offline: Number(round.offline_count || 0),
         total_online: Number(round.online_count || 0),
         total_vip: Number(round.vip_count || 0),
-        total_guest: Number(round.guest_count || 0),
-        total_park_staff: Number(round.park_staff_count || 0),
+        total_organization: Number(round.organization_count || 0),
         paid_amount: Number(round.paid_amount || 0),
         total_amount: Number(round.total_amount || 0),
       };

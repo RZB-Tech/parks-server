@@ -57,8 +57,7 @@ declare type AttractionReportDto = {
   total_offline: number;
   total_online: number;
   total_vip: number;
-  total_guest: number;
-  total_park_staff: number;
+  total_organization: number;
 
   paid_amount: number;
   total_amount: number;
@@ -78,8 +77,7 @@ declare interface AttractionZReportTotalsDTO {
   total_offline: number;
   total_online: number;
   total_vip: number;
-  total_guest: number;
-  total_park_staff: number;
+  total_organization: number;
 
   paid_amount: number;
   total_amount: number;

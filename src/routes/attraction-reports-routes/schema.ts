@@ -96,11 +96,7 @@ export const attractionReportProperties = {
     type: "number",
   },
 
-  total_guest: {
-    type: "number",
-  },
-
-  total_park_staff: {
+  total_organization: {
     type: "number",
   },
 
@@ -326,11 +322,7 @@ export const attractionZReportsTotalsProperties = {
     type: "number",
   },
 
-  total_guest: {
-    type: "number",
-  },
-
-  total_park_staff: {
+  total_organization: {
     type: "number",
   },
 
@@ -580,11 +572,7 @@ export const accountingAttractionZReportProperties = {
     type: "number",
   },
 
-  total_guest: {
-    type: "number",
-  },
-
-  total_park_staff: {
+  total_organization: {
     type: "number",
   },
 

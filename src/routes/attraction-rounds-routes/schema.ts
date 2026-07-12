@@ -162,11 +162,7 @@ export const attractionRoundProperties = {
     type: "number",
   },
 
-  guest_count: {
-    type: "number",
-  },
-
-  park_staff_count: {
+  organization_count: {
     type: "number",
   },
 
