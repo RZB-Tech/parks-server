@@ -321,7 +321,7 @@ export const StatusCashboxReportService = async (
         CashboxReportStatusTypes.CLOSED,
       ],
 
-      [CashboxReportStatusTypes.CLOSED]: [],
+      [CashboxReportStatusTypes.CLOSED]: [CashboxReportStatusTypes.OPEN],
     };
 
     const transitions = allowedTransitions[report.status] ?? [];
