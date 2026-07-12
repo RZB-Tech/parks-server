@@ -168,7 +168,6 @@ export const getCardsSchema = {
   },
   querystring: {
     type: "object",
-    required: ["batch"],
     properties: {
       type: {
         type: "string",
