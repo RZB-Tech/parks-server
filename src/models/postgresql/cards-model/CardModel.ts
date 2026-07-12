@@ -45,7 +45,7 @@ export class CardModel
           unique: true,
         },
         status: {
-          type: DataTypes.ENUM("active", "inactive", "block", "lost", "frozen"),
+          type: DataTypes.ENUM("active", "inactive", "blocked", "lost", "frozen"),
           allowNull: false,
         },
         type: {
