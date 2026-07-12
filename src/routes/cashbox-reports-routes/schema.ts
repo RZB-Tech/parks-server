@@ -460,6 +460,9 @@ export const statusCashboxReportSchema = {
       report: {
         type: "number",
       },
+      description: {
+        type: "string",
+      },
     },
   }),
 

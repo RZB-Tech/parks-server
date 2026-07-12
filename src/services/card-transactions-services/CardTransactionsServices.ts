@@ -187,7 +187,7 @@ export const CardTopUpTransactionService = async (
     ) {
       throw BadRequest("Card is not available!");
     }
-
+    
     /*
      * VIP kartani to‘ldirish mumkin emas.
      */
