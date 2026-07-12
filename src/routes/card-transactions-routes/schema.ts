@@ -75,6 +75,10 @@ export const checkNfcCardProperties = {
     type: "string",
   },
 
+  type: {
+    type: "string",
+  },
+  
   card: {
     type: "string",
   },
