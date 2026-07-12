@@ -72,6 +72,7 @@ export const ZReportDTO = (
 ) => {
   return {
     id: Number(data.id),
+    description: data.description,
     operator: CashboxReportOperatorDTO(data.operators ?? null),
     checked_by: data.checked_by !== null ? Number(data.checked_by) : null,
     report_type: data.report_type,

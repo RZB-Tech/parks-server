@@ -158,6 +158,7 @@ export const zReportProperties = {
   id: {
     type: "number",
   },
+  description: {type: "string"},
   operator: {
     oneOf: [
       {
