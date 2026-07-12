@@ -371,7 +371,6 @@ export const StatusCashboxReportService = async (
     if (body.status === CashboxReportStatusTypes.STOPPED) {
       updateData.stopped_at = now;
       updateData.description = body.description?.trim();
-      updateData.closed_at = null;
     }
 
     /*
@@ -380,6 +379,7 @@ export const StatusCashboxReportService = async (
     if (body.status === CashboxReportStatusTypes.OPEN) {
       updateData.stopped_at = null;
       updateData.description = null;
+      updateData.closed_at = null;
     }
 
     /*
