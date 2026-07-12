@@ -62,5 +62,9 @@ export class AttractionOperatorModel
       foreignKey: "operator",
       as: "operators",
     });
+    AttractionOperatorModel.hasMany(models.SosModel, {
+      foreignKey: "attraction_operator",
+      as: "sosReports",
+    });
   }
 }

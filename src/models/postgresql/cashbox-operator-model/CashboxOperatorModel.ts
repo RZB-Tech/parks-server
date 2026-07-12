@@ -63,5 +63,9 @@ export class CashboxOperatorModel
       foreignKey: "operator",
       as: "operators",
     });
+    CashboxOperatorModel.hasMany(models.SosModel, {
+      foreignKey: "cashbox_operator",
+      as: "sosReports",
+    });
   }
 }

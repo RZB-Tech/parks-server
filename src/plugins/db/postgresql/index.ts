@@ -15,6 +15,7 @@ import {
   FileModel,
   RoleModel,
   sequelize,
+  SosModel,
 } from "./db";
 
 const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
@@ -34,6 +35,7 @@ const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     await CardTransactionModel.sync({ alter: true });
     await AttractionReportModel.sync({ alter: true });
     await AttractionRoundModel.sync({ alter: true });
+    await SosModel.sync({ alter: true });
 
     fastify.log.info({ actor: "PostgresSQL" }, "connected");
 

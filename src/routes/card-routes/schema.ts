@@ -10,6 +10,9 @@ export const cardProperties = {
     type: "string",
     description: "Batch ID",
   },
+  type: {
+    type: "string",
+  },
   card: {
     type: "string",
     description: "Card number",

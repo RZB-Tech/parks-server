@@ -268,7 +268,6 @@ export const UpdateCardsService = async (
 ) => {
   return sequelize.transaction(async (transaction) => {
     const card = await CardModel.findByPk(params.cardID);
-    console.log(card)
 
     if (card == null) throw NotFound("Card not found");
 
