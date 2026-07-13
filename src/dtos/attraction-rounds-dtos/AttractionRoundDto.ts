@@ -63,6 +63,36 @@ export const AttractionRoundAttractionDTO = (
   };
 };
 
+export const AttractionRoundTransactionDTO = (
+  data: AttractionRoundTransactionPlain,
+) => {
+  return {
+    id: Number(data.id),
+
+    transaction_type: data.type,
+
+    amount: Number(data.amount || 0),
+    balance_before: Number(data.balance_before || 0),
+    balance_after: Number(data.balance_after || 0),
+
+    card:
+      data.cards !== undefined
+        ? {
+            id: Number(data.cards.id),
+            card: data.cards.card,
+            nfc: data.cards.nfc,
+            type: data.cards.type,
+            status: data.cards.status,
+            balance: Number(data.cards.balance || 0),
+          }
+        : {
+            id: Number(data.card),
+          },
+
+    created_at: data.createdAt,
+  };
+};
+
 export const AttractionRoundDTO = (data: AttractionRoundWithRelationsPlain) => {
   return {
     id: Number(data.id),

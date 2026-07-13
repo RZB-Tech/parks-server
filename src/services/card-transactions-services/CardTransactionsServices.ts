@@ -95,7 +95,7 @@ export const CheckNfcCardService = async (
 
   if (card.type === CardType.ORGANIZATION && Number(card.balance) > 12000) {
     throw BadRequest(
-      "Organization card balance must be less than 12,000 to allow top-up.",
+      `Organization card balance must be less than 12,000 to allow top-up. Card balance ${Number(card.balance)} `,
     );
   }
 
@@ -187,7 +187,7 @@ export const CardTopUpTransactionService = async (
     ) {
       throw BadRequest("Card is not available!");
     }
-    
+
     /*
      * VIP kartani to‘ldirish mumkin emas.
      */
@@ -603,19 +603,19 @@ export const CardPaymentTransactionService = async (
      * paid_amount faqat real yechilgan summaga oshadi.
      * VIP uchun chargedAmount = 0.
      */
+
+    const currentTransactionIDs = Array.isArray(round.transactions)
+      ? round.transactions.map(Number)
+      : [];
     await round.update(
       {
+        transactions: [...currentTransactionIDs, Number(payment.id)],
         people_count: Number(round.people_count) + 1,
-
         offline_count: Number(round.offline_count) + (isClassicCard ? 1 : 0),
-
         vip_count: Number(round.vip_count) + (isVipCard ? 1 : 0),
-
         organization_count:
           Number(round.organization_count) + (isOrganizationCard ? 1 : 0),
-
         paid_amount: Number(round.paid_amount) + chargedAmount,
-
         /*
          * total_amount barcha kirishlarning umumiy qiymati.
          * VIP pul to‘lamasa ham attraction narxi shu yerga qo‘shiladi.
@@ -633,16 +633,11 @@ export const CardPaymentTransactionService = async (
     await report.update(
       {
         total_people: Number(report.total_people) + 1,
-
         total_offline: Number(report.total_offline) + (isClassicCard ? 1 : 0),
-
         total_vip: Number(report.total_vip) + (isVipCard ? 1 : 0),
-
         total_organization:
           Number(report.total_organization) + (isOrganizationCard ? 1 : 0),
-
         paid_amount: Number(report.paid_amount) + chargedAmount,
-
         total_amount: Number(report.total_amount) + attractionPrice,
       },
       {

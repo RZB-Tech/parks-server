@@ -13,6 +13,7 @@ export class AttractionRoundModel
   public operator!: number;
 
   public round_number!: number;
+  public transactions!: Array<number>;
   public status!: import("./enums").AttractionRoundStatusTypes;
 
   public people_count!: number;
@@ -62,6 +63,11 @@ export class AttractionRoundModel
         round_number: {
           type: DataTypes.INTEGER,
           allowNull: false,
+        },
+
+        transactions: {
+          type: DataTypes.ARRAY(DataTypes.INTEGER),
+          allowNull: true
         },
 
         status: {

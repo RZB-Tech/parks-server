@@ -26,6 +26,28 @@ declare type AttractionRoundAttractionPlain = {
   description: string;
 };
 
+declare interface AttractionRoundTransactionCardPlain {
+  id: number;
+  card: string;
+  nfc: string;
+  type: CardType;
+  status: CardStatusTypes;
+  balance: number;
+}
+
+declare interface AttractionRoundTransactionPlain {
+  id: number;
+  card: number;
+  type: CardTransactionType;
+  amount: number;
+  balance_before: number;
+  balance_after: number;
+  created_at?: Date;
+  createdAt?: Date;
+
+  cards?: AttractionRoundTransactionCardPlain;
+}
+
 declare type AttractionRoundWithRelationsPlain = AttractionRoundModelI & {
   operators?: AttractionRoundOperatorPlain | null;
   attractions?: AttractionRoundAttractionPlain | null;

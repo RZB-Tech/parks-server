@@ -22,20 +22,20 @@ const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   try {
     await sequelize.authenticate();
 
-    await FileModel.sync({ alter: true });
-    await RoleModel.sync({ alter: true });
-    await EmployeeModel.sync({ alter: true });
-    await AttractionModel.sync({ alter: true });
-    await AttractionOperatorModel.sync({ alter: true });
-    await CashboxModel.sync({ alter: true });
-    await CashboxOperatorModel.sync({ alter: true });
-    await CardBatchModel.sync({ alter: true });
-    await CardModel.sync({ alter: true });
-    await CashboxReportModel.sync({ alter: true });
-    await CardTransactionModel.sync({ alter: true });
-    await AttractionReportModel.sync({ alter: true });
-    await AttractionRoundModel.sync({ alter: true });
-    await SosModel.sync({ alter: true });
+    // await FileModel.sync({ alter: true });
+    // await RoleModel.sync({ alter: true });
+    // await EmployeeModel.sync({ alter: true });
+    // await AttractionModel.sync({ alter: true });
+    // await AttractionOperatorModel.sync({ alter: true });
+    // await CashboxModel.sync({ alter: true });
+    // await CashboxOperatorModel.sync({ alter: true });
+    // await CardBatchModel.sync({ alter: true });
+    // await CardModel.sync({ alter: true });
+    // await CashboxReportModel.sync({ alter: true });
+    // await CardTransactionModel.sync({ alter: true });
+    // await AttractionReportModel.sync({ alter: true });
+    // await AttractionRoundModel.sync({ alter: true });
+    // await SosModel.sync({ alter: true });
 
     fastify.log.info({ actor: "PostgresSQL" }, "connected");
 

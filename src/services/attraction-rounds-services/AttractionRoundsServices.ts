@@ -1,5 +1,5 @@
 import { Op } from "sequelize";
-import { AttractionRoundDTO } from "../../dtos/attraction-rounds-dtos/AttractionRoundDto";
+import { AttractionRoundDTO, AttractionRoundTransactionDTO } from "../../dtos/attraction-rounds-dtos/AttractionRoundDto";
 import { BadRequest, NotFound } from "../../exceptions";
 import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
@@ -14,6 +14,9 @@ import {
 } from "../../models/postgresql/attraction-model/enums";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { getTashkentDayRangeUTC } from "../../utils/date";
+import { CardTransactionModel } from "../../models/postgresql/card-transactions-model/CardTransactionModel";
+import { CardModel } from "../../models/postgresql/cards-model/CardModel";
+import { CardTransactionStatusTypes } from "../../models/postgresql/card-transactions-model/enums";
 
 export const GetCurrentAttractionRoundService = async (
   operatorID: number,
@@ -52,11 +55,45 @@ export const GetCurrentAttractionRoundService = async (
     return null;
   }
 
+  const transactionIDs = Array.isArray(round.transactions)
+    ? round.transactions.map(Number).filter(Number.isFinite)
+    : [];
+
+  const transactions =
+    transactionIDs.length > 0
+      ? await CardTransactionModel.findAll({
+          where: {
+            id: {
+              [Op.in]: transactionIDs,
+            },
+            status: CardTransactionStatusTypes.SUCCESS,
+          },
+          include: [
+            {
+              model: CardModel,
+              as: "cards",
+              required: true,
+            },
+          ],
+          order: [["id", "ASC"]],
+        })
+      : [];
+
   const roundData = round.get({
     plain: true,
   }) as AttractionRoundModelI;
 
-  return AttractionRoundDTO(roundData);
+  const transactionData = transactions.map((item) =>
+    item.get({
+      plain: true,
+    }),
+  ) as AttractionRoundTransactionPlain[];
+
+ return {
+   ...AttractionRoundDTO(roundData),
+
+   transactions: transactionData.map(AttractionRoundTransactionDTO),
+ };
 };
 
 export const GetTodayAttractionRoundsService = async (

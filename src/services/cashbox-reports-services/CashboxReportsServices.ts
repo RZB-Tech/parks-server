@@ -491,6 +491,23 @@ export const StatusCashboxReportService = async (
       );
     }
 
+    /*
+     * X yoki Z report STOPPED bo‘lsa attraction STOPPED bo‘ladi.
+     */
+    if (body.status === CashboxReportStatusTypes.STOPPED) {
+      await CashboxModel.update(
+        {
+          status: CashboxStatusTypes.ACTIVE,
+        },
+        {
+          where: {
+            id: cashboxID,
+          },
+          transaction: dbTransaction,
+        },
+      );
+    }
+
     return true;
   });
 };

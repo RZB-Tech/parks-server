@@ -205,6 +205,7 @@ export const updateAttractionReportStatusSchema = {
           AttractionReportStatusTypes.CLOSED,
         ],
       },
+      description: { type: "string" },
     },
   }),
 

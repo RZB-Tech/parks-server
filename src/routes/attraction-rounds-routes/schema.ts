@@ -1,4 +1,6 @@
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
+import { CardTransactionType } from "../../models/postgresql/card-transactions-model/enums";
+import { CardStatusTypes, CardType } from "../../models/postgresql/cards-model/enums";
 import { successAnswerTemplate } from "../schemas";
 
 const nullableNumber = {
@@ -185,6 +187,90 @@ export const attractionRoundProperties = {
   },
 };
 
+export const attractionRoundTransactionCardProperties = {
+  id: {
+    type: "number",
+  },
+
+  card: {
+    type: "string",
+  },
+
+  nfc: {
+    type: "string",
+  },
+
+  type: {
+    type: "string",
+    enum: Object.values(CardType),
+  },
+
+  status: {
+    type: "string",
+    enum: Object.values(CardStatusTypes),
+  },
+
+  balance: {
+    type: "number",
+  },
+};
+
+export const attractionRoundTransactionProperties = {
+  id: {
+    type: "number",
+  },
+
+  transaction_type: {
+    type: "string",
+    enum: Object.values(CardTransactionType),
+  },
+
+  amount: {
+    type: "number",
+  },
+
+  balance_before: {
+    type: "number",
+  },
+
+  balance_after: {
+    type: "number",
+  },
+
+  card: {
+    oneOf: [
+      {
+        type: "object",
+        required: ["id", "card", "nfc", "type", "status", "balance"],
+        additionalProperties: false,
+        properties: attractionRoundTransactionCardProperties,
+      },
+      {
+        type: "object",
+        required: ["id"],
+        additionalProperties: false,
+        properties: {
+          id: {
+            type: "number",
+          },
+        },
+      },
+    ],
+  },
+
+  created_at: {
+    oneOf: [
+      {
+        type: "string",
+        format: "date-time",
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+};
+
 export const getCurrentAttractionRoundSchema = {
   summary: "Get current attraction round",
   description: "Get current open round for current operator attraction",
@@ -220,7 +306,18 @@ export const getCurrentAttractionRoundSchema = {
         oneOf: [
           {
             type: "object",
-            properties: attractionRoundProperties,
+            properties: {
+              ...attractionRoundProperties,
+
+              transactions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: attractionRoundTransactionProperties,
+                },
+              },
+            },
           },
           {
             type: "null",

@@ -13,7 +13,7 @@ declare interface UpdateAttractionReportStatusData {
     | AttractionReportStatusTypes.STOPPED
     | AttractionReportStatusTypes.CLOSED;
 
-  description: string;
+  description?: string;
 }
 
 declare interface GetAttractionZReportsQuery {

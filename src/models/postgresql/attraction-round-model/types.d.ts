@@ -4,6 +4,7 @@ declare interface AttractionRoundModelI {
   attraction: number;
   operator: number;
   round_number: number;
+  transactions: Array<number>;
   status: import("./enums").AttractionRoundStatusTypes;
   people_count: number;
   offline_count: number;

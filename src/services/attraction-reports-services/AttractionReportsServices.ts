@@ -448,7 +448,7 @@ export const UpdateAttractionReportStatusService = async (
         AttractionReportStatusTypes.CLOSED,
       ],
 
-      [AttractionReportStatusTypes.CLOSED]: [],
+      [AttractionReportStatusTypes.CLOSED]: [AttractionReportStatusTypes.OPEN],
       [AttractionReportStatusTypes.CONFIRMED]: [],
     };
 
@@ -636,6 +636,20 @@ export const UpdateAttractionReportStatusService = async (
       await attraction.update(
         {
           status: AttractionStatusTypes.ACTIVE,
+        },
+        {
+          transaction,
+        },
+      );
+    }
+
+    /*
+     * X yoki Z report STOPPED bo‘lsa attraction STOPPED bo‘ladi.
+     */
+    if (body.status === AttractionReportStatusTypes.STOPPED) {
+      await attraction.update(
+        {
+          status: AttractionStatusTypes.STOPPED,
         },
         {
           transaction,

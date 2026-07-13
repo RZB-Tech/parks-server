@@ -51,7 +51,7 @@ export class AttractionModel
           allowNull: false,
         },
         status: {
-          type: DataTypes.ENUM("active", "inactive", "maintenance", "closed"),
+          type: DataTypes.ENUM("active", "inactive", "stopped", "maintenance", "closed"),
           defaultValue: "active",
           allowNull: false,
         },

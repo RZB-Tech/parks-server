@@ -62,16 +62,22 @@ export class CardTransactionModel
         cashbox: {
           type: DataTypes.BIGINT,
           allowNull: true,
+          onUpdate: "CASCADE",
+          onDelete: "SET NULL",
         },
 
         attraction: {
-           type: DataTypes.BIGINT,
+          type: DataTypes.BIGINT,
           allowNull: true,
+          onUpdate: "CASCADE",
+          onDelete: "SET NULL",
         },
 
         xreport: {
           type: DataTypes.BIGINT,
           allowNull: true,
+          onUpdate: "CASCADE",
+          onDelete: "SET NULL",
         },
 
         type: {
@@ -139,11 +145,6 @@ export class CardTransactionModel
     CardTransactionModel.belongsTo(models.CashboxModel, {
       foreignKey: "cashbox",
       as: "cashboxes",
-    });
-
-    CardTransactionModel.belongsTo(models.CashboxReportModel, {
-      foreignKey: "xreport",
-      as: "xreports",
     });
   }
 }

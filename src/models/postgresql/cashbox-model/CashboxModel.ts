@@ -47,7 +47,7 @@ export class CashboxModel
           allowNull: true,
         },
         status: {
-          type: DataTypes.ENUM("active", "inactive", "maintenance", "closed"),
+          type: DataTypes.ENUM("active", "inactive", "stopped", "maintenance", "closed"),
           allowNull: false,
         },
         main_file: {
