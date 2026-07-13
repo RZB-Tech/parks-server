@@ -672,9 +672,7 @@ export const getNotConfirmedAttractionZReportDatesSchema = {
   tags: ["Attraction reports route"],
   summary: "Get not confirmed attraction zreport dates",
   response: {
-    200: {
-      type: "object",
-      properties: {
+    200: successAnswerTemplate({
         dates: {
           type: "array",
           items: {
@@ -682,7 +680,6 @@ export const getNotConfirmedAttractionZReportDatesSchema = {
             format: "date",
           },
         },
-      },
-    },
+    }),
   },
 };
