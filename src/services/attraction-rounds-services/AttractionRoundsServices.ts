@@ -317,9 +317,9 @@ export const CloseCurrentAttractionRoundService = async (
         total_amount: Number(round.total_amount || 0),
       };
 
-      await xReport.increment(reportIncrementData, {
-        transaction,
-      });
+      // await xReport.increment(reportIncrementData, {
+      //   transaction,
+      // });
 
       await zReport.increment(reportIncrementData, {
         transaction,
