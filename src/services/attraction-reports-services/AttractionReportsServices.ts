@@ -1,4 +1,4 @@
-import { Op, Transaction } from "sequelize";
+import { literal, Op, QueryTypes, Transaction } from "sequelize";
 import { BadRequest, Conflict, Forbidden, NotFound } from "../../exceptions";
 import { AttractionModel } from "../../models/postgresql/attraction-model/AttractionModel";
 import {
@@ -27,6 +27,7 @@ import {
 } from "../../utils/date";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
+import { sequelize } from "../../plugins/db/postgresql/db";
 
 export const OpenAttractionReportService = async (
   operatorID: number,
@@ -962,19 +963,26 @@ export const GetAccountingAttractionReportsService = async (
 };
 
 export const GetNotConfirmedAttractionZReportDatesService = async () => {
-  const reports = await AttractionReportModel.findAll({
-    where: {
-      report_type: AttractionReportTypes.ZREPORT,
-      status: {
-        [Op.ne]: AttractionReportStatusTypes.CONFIRMED,
+  const reports = await sequelize.query<{ report_date: string }>(
+    `
+      SELECT DISTINCT
+        DATE(opened_at AT TIME ZONE 'Asia/Tashkent') AS report_date
+      FROM attraction_reports
+      WHERE deleted_at IS NULL
+        AND report_type = :reportType
+        AND status != :confirmedStatus
+      ORDER BY report_date DESC
+    `,
+    {
+      replacements: {
+        reportType: AttractionReportTypes.ZREPORT,
+        confirmedStatus: AttractionReportStatusTypes.CONFIRMED,
       },
+      type: QueryTypes.SELECT,
     },
-    attributes: ["report_date"],
-    group: ["report_date"],
-    order: [["report_date", "DESC"]],
-  });
+  );
 
-  return reports.map((report) => report.get("report_date"));
+  return reports.map((report) => report.report_date);
 };
 
 export const AutoCloseUnclosedAttractionReportsService = async () => {
