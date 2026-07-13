@@ -17,6 +17,7 @@ declare interface UploadFilesResponseDTO {
   dashboard_file?: number | null;
   main_file?: number | null;
   files: number[];
+  files: number[];
 }
 
 declare interface UploadFileData {

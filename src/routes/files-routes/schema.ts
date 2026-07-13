@@ -23,6 +23,10 @@ export const uploadFilesSchema = {
             type: "array",
             items: { type: "number" },
           },
+          sub_attraction_files: {
+            type: "array",
+            items: { type: "number" },
+          },
         },
       },
     }),

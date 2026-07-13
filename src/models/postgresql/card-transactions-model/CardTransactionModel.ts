@@ -62,22 +62,16 @@ export class CardTransactionModel
         cashbox: {
           type: DataTypes.BIGINT,
           allowNull: true,
-          onUpdate: "CASCADE",
-          onDelete: "SET NULL",
         },
 
         attraction: {
           type: DataTypes.BIGINT,
           allowNull: true,
-          onUpdate: "CASCADE",
-          onDelete: "SET NULL",
         },
 
         xreport: {
           type: DataTypes.BIGINT,
           allowNull: true,
-          onUpdate: "CASCADE",
-          onDelete: "SET NULL",
         },
 
         type: {

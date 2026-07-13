@@ -208,17 +208,25 @@ export const CreateAttractionsService = async (body: CreateAttractionData) => {
     body.dashboard_file,
     body.main_file,
     ...(body.files ?? []),
-  ].filter((id): id is number => typeof id === "number");
+    ...(body.sub_attraction_files ?? []),
+  ]
+    .filter((id) => id !== null && id !== undefined)
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
 
-  if (fileIds.length > 0) {
+  const uniqueFileIds = [...new Set(fileIds)];
+
+  if (uniqueFileIds.length > 0) {
     const filesCount = await FileModel.count({
       where: {
-        id: fileIds,
+        id: {
+          [Op.in]: uniqueFileIds,
+        },
       },
     });
 
-    if (filesCount !== new Set(fileIds).size) {
-      throw NotFound("One or more files not found");
+    if (filesCount !== uniqueFileIds.length) {
+      throw NotFound("One or more files not found!");
     }
   }
 
@@ -229,6 +237,7 @@ export const CreateAttractionsService = async (body: CreateAttractionData) => {
     dashboard_file: body.dashboard_file ?? null,
     main_file: body.main_file ?? null,
     files: body.files ?? null,
+    sub_attraction_files: body.sub_attraction_files ?? null,
     price: body.price,
     duration: body.duration,
     seats: body.seats,
@@ -294,10 +303,11 @@ export const UpdateAttractionsService = async (
       body.dashboard_file,
       body.main_file,
       ...(body.files ?? []),
-    ].filter(
-      (fileID): fileID is number =>
-        typeof fileID === "number" && Number.isFinite(fileID),
-    );
+      ...(body.sub_attraction_files ?? []),
+    ]
+      .filter((id) => id !== null && id !== undefined)
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0);
 
     const uniqueFileIds = [...new Set(fileIds)];
 
@@ -308,7 +318,6 @@ export const UpdateAttractionsService = async (
             [Op.in]: uniqueFileIds,
           },
         },
-        transaction,
       });
 
       if (filesCount !== uniqueFileIds.length) {
@@ -396,6 +405,10 @@ export const UpdateAttractionsService = async (
 
         ...(body.files !== undefined && {
           files: body.files,
+        }),
+
+        ...(body.sub_attraction_files !== undefined && {
+          sub_attraction_files: body.sub_attraction_files,
         }),
 
         ...(body.price !== undefined && {

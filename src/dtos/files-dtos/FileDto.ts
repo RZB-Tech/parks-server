@@ -19,4 +19,5 @@ export const UploadFilesDTO = (
   dashboard_file: data.dashboard_file,
   main_file: data.main_file,
   files: data.files,
+  sub_attraction_files: data.sub_attraction_files
 });

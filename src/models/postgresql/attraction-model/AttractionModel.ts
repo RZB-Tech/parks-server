@@ -13,6 +13,7 @@ export class AttractionModel
   public dashboard_file!: number;
   public main_file!: number;
   public files!: Array<number>;
+  public sub_attraction_files!: Array<number>;
   public price!: number;
   public duration!: number;
   public seats!: number;
@@ -67,6 +68,12 @@ export class AttractionModel
           type: DataTypes.ARRAY(DataTypes.INTEGER),
           allowNull: false,
         },
+
+        sub_attraction_files: {
+          type: DataTypes.ARRAY(DataTypes.INTEGER),
+          allowNull: true,
+        },
+
         price: {
           type: DataTypes.INTEGER,
           allowNull: false,

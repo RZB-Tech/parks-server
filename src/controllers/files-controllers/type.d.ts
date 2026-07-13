@@ -3,7 +3,7 @@ declare interface UploadFileData {
   filename: string;
   type: string;
   size: number;
-  fieldname: "dashboard_file" | "main_file" | "files";
+  fieldname: "dashboard_file" | "main_file" | "files" | "sub_attraction_files";
 }
 
 declare interface DeleteFilesData {

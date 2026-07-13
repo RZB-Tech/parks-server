@@ -43,6 +43,12 @@ export const attractionProperties = {
     items: { type: "number" },
     examples: [[14, 15, 16]],
   },
+  sub_attraction_files: {
+    type: "array",
+    description: "Optional sub attraction file IDs",
+    items: { type: "number" },
+    examples: [[14, 15, 16]],
+  },
   price: {
     type: "number",
     description: "Attraction price",
@@ -296,6 +302,7 @@ export const createAttractionSchema = {
       dashboard_file: attractionProperties.dashboard_file,
       main_file: attractionProperties.main_file,
       files: attractionProperties.files,
+      sub_attraction_files: attractionProperties.sub_attraction_files,
       price: attractionProperties.price,
       duration: attractionProperties.duration,
       seats: attractionProperties.seats,
@@ -350,6 +357,7 @@ export const updateAttractionSchema = {
       dashboard_file: attractionProperties.dashboard_file,
       main_file: attractionProperties.main_file,
       files: attractionProperties.files,
+      sub_attraction_files: attractionProperties.sub_attraction_files,
       price: attractionProperties.price,
       duration: attractionProperties.duration,
       seats: attractionProperties.seats,

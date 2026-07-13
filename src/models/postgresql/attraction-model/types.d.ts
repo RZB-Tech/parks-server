@@ -7,6 +7,7 @@ declare interface AttractionModelI {
   dashboard_file: number;
   main_file: number;
   files: Array<number>;
+  sub_attraction_files: Array<number>;
   price: number;
   duration: number;
   seats: number;

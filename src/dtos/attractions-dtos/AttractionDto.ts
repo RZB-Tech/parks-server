@@ -9,6 +9,7 @@ export const AttractionWithOperatorsDTO = (data: any) => {
     dashboard_file: Number(data.dashboard_file) ?? null,
     main_file: Number(data.main_file) ?? null,
     files: data.files ?? [],
+    sub_attraction_files: data.sub_attraction_files ?? [],
 
     price: data.price,
     duration: data.duration,
@@ -42,6 +43,7 @@ export const AttractionDTO = (data: AttractionModelI) => {
     dashboard_file: data.dashboard_file ?? null,
     main_file: data.main_file ?? null,
     files: data.files ?? [],
+    sub_attraction_files: data.sub_attraction_files ?? [],
 
     price: data.price,
     duration: data.duration,

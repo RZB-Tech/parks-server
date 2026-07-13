@@ -21,6 +21,7 @@ export const UploadFileService = async (data: UploadFileData[]) => {
   let dashboardFileId: number | null = null;
   let mainFileId: number | null = null;
   const galleryFileIds: number[] = [];
+  const subAttarctionFileIds: number[] = [];
 
   for (const fileData of data) {
     const ext = extname(fileData.filename);
@@ -56,12 +57,17 @@ export const UploadFileService = async (data: UploadFileData[]) => {
     if (fileData.fieldname === "files") {
       galleryFileIds.push(Number(file.id));
     }
+
+    if (fileData.fieldname === "sub_attraction_files") {
+      subAttarctionFileIds.push(Number(file.id));
+    }
   }
 
   return UploadFilesDTO({
     dashboard_file: dashboardFileId!,
     main_file: mainFileId!,
     files: galleryFileIds,
+    sub_attraction_files: subAttarctionFileIds,
   });
 };
 

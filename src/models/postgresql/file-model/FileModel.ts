@@ -31,7 +31,7 @@ export class FileModel
           primaryKey: true,
         },
         name: {
-          type: DataTypes.STRING(120),
+          type: DataTypes.STRING,
           allowNull: false,
         },
         size: {
@@ -40,7 +40,7 @@ export class FileModel
           allowNull: false,
         },
         type: {
-          type: DataTypes.STRING(100),
+          type: DataTypes.STRING,
           allowNull: false,
         },
         bucket: {
