@@ -7,7 +7,7 @@ import "dotenv/config";
 //plugins
 import { corsConfigs } from "./plugins/cors";
 import { swaggerConfig } from "./plugins/swagger";
-import { swaggerUIConfig } from "./plugins/swagger/ui";
+import { swaggerUiConfig } from "./plugins/swagger/ui";
 import { fastifyConfig } from "./configs";
 
 // db's
@@ -30,6 +30,8 @@ import CashboxReportsRouter from "./routes/cashbox-reports-routes/CashboxReports
 import AttractionReportsRouter from "./routes/attraction-reports-routes/AttractionReportsRoutes";
 import AttractionRoundsRouter from "./routes/attraction-rounds-routes/AttractionRoundsRoutes";
 import SosRouter from "./routes/sos-routes/SosRoutes";
+import UserRouter from "./routes/client/user-routes/UserRoutes";
+import ClientAuthRouter from "./routes/client/auth-route/AuthRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -38,7 +40,7 @@ export const build = async () => {
   // connecting plugins
   app.register(require("@fastify/cors"), corsConfigs);
   app.register(require("@fastify/swagger"), swaggerConfig);
-  app.register(require("@fastify/swagger-ui"), swaggerUIConfig);
+  app.register(require("@fastify/swagger-ui"), swaggerUiConfig);
   app.register(require("@fastify/multipart"), multipartConfigs);
   app.register(require("@fastify/jwt"), { secret: process.env.JWT_SECRET });
   app.register(require("@fastify/cookie"), {
@@ -71,6 +73,10 @@ export const build = async () => {
   app.register(CardsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CardTransactionsRouter, { prefix: SERVER.API_PREFIX });
   app.register(SosRouter, { prefix: SERVER.API_PREFIX });
+
+  // Client routes (Telegram Mini App)
+  app.register(ClientAuthRouter, { prefix: SERVER.CLIENT_PREFIX });
+  app.register(UserRouter, { prefix: SERVER.CLIENT_PREFIX });
 
   app.after();
   return app;

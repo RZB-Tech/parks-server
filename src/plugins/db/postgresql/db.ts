@@ -13,6 +13,9 @@ import { CardTransactionModel } from "../../../models/postgresql/card-transactio
 import { AttractionReportModel } from "../../../models/postgresql/attraction-report-model/AttractionReportModel";
 import { AttractionRoundModel } from "../../../models/postgresql/attraction-round-model/AttractionRoundModel";
 import { SosModel } from "../../../models/postgresql/sos-model/SosModel";
+import { SmsLogModel } from "../../../models/postgresql/client/smslog-model/SmsLogModel";
+import { OtpModel } from "../../../models/postgresql/client/otp-model/OtpModel";
+import { UserModel } from "../../../models/postgresql/client/user-model/UserModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -42,6 +45,9 @@ const models = {
   AttractionReportModel,
   AttractionRoundModel,
   SosModel,
+  UserModel,
+  SmsLogModel,
+  OtpModel,
 };
 
 export type ModelsType = typeof models;
@@ -73,4 +79,7 @@ export {
   AttractionReportModel,
   AttractionRoundModel,
   SosModel,
+  UserModel,
+  SmsLogModel,
+  OtpModel,
 };
