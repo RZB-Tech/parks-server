@@ -8,7 +8,7 @@ import {
   clientAttractionPaymentSchema,
   getClientTransactionsSchema,
 } from "./schema";
-import { ClientAttractionPaymentController } from "../../../controllers/client/card-transactions-controllers/CardTransactionController";
+import { ClientAttractionPaymentController, GetClientTransactionsController } from "../../../controllers/client/card-transactions-controllers/CardTransactionController";
 
 const ClientCardTransactionsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
