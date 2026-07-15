@@ -5,13 +5,10 @@ import {
 } from "fastify";
 import { TelegramAuthMiddleware } from "../../../middlewares/telegram-auth-middlewar/TelegramAuthMiddleware";
 import {
-  ClientAttractionPaymentController,
-  GetClientTransactionsController,
-} from "../../../controllers/client/card-transactions-controllers/cardTransactionController";
-import {
   clientAttractionPaymentSchema,
   getClientTransactionsSchema,
 } from "./schema";
+import { ClientAttractionPaymentController } from "../../../controllers/client/card-transactions-controllers/CardTransactionController";
 
 const ClientCardTransactionsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
