@@ -15,6 +15,8 @@ declare interface AttractionReportModelI {
   total_people: number;
   total_offline: number;
   total_online: number;
+  total_virtual: number;
+  total_classic: number;
   total_vip: number;
   total_organization: number;
   paid_amount: number;

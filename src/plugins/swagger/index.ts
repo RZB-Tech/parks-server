@@ -105,31 +105,10 @@ export const swaggerConfig = {
         name: "Clients|Cashboxes",
         description: "Cashbox routes",
       },
-      // {
-      //   name: "Clients - Auth",
-      //   description: "Telegram Mini App registration and OTP routes",
-      // },
-      // {
-      //   name: "Clients - Cards",
-      //   description: "Telegram Mini App card routes",
-      // },
-
-      // {
-      //   name: "Dashboard - Auth",
-      //   description: "Dashboard authentication routes",
-      // },
-      // {
-      //   name: "Dashboard - Attractions",
-      //   description: "Dashboard attraction routes",
-      // },
-      // {
-      //   name: "Dashboard - Cashboxes",
-      //   description: "Dashboard cashbox routes",
-      // },
-      // {
-      //   name: "Dashboard - Reports",
-      //   description: "Dashboard report routes",
-      // },
+      {
+        name: "Clients|Transactions",
+        description: "Transactions routes",
+      },
     ],
   },
 

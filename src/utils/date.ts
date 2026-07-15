@@ -151,3 +151,33 @@ export const getAccountingDateRange = (
     end: endDate,
   };
 };
+
+export const getTashkentMonthRangeUTC = (value: string) => {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value);
+
+  if (!match) {
+    throw BadRequest("INVALID_MONTH_FORMAT");
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+
+  if (!Number.isInteger(year) || year < 2020 || year > 2100) {
+    throw BadRequest("INVALID_YEAR");
+  }
+
+  const tashkentOffsetMs = 5 * 60 * 60 * 1000;
+
+  const startUTC = new Date(
+    Date.UTC(year, month - 1, 1, 0, 0, 0, 0) - tashkentOffsetMs,
+  );
+
+  const endUTC = new Date(
+    Date.UTC(year, month, 1, 0, 0, 0, 0) - tashkentOffsetMs,
+  );
+
+  return {
+    startUTC,
+    endUTC,
+  };
+};

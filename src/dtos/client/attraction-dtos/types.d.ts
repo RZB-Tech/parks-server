@@ -23,10 +23,6 @@ declare interface ClientAttractionResponseDTO {
   description: string | null;
 }
 
-declare interface GetAttractionRoundParams {
-  attractionID: number;
-}
-
 declare interface AttractionLastRoundResponseDTO {
   id: number;
   name: string;

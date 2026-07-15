@@ -20,6 +20,8 @@ export class AttractionRoundModel
 
   public offline_count!: number;
   public online_count!: number;
+  public virtual_count!: number;
+  public classic_count!: number;
   public vip_count!: number;
   public organization_count!: number;
 
@@ -67,7 +69,7 @@ export class AttractionRoundModel
 
         transactions: {
           type: DataTypes.ARRAY(DataTypes.INTEGER),
-          allowNull: true
+          allowNull: true,
         },
 
         status: {
@@ -93,6 +95,18 @@ export class AttractionRoundModel
         },
 
         online_count: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        virtual_count: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        classic_count: {
           type: DataTypes.INTEGER,
           allowNull: false,
           defaultValue: 0,

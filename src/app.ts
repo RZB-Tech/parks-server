@@ -35,6 +35,7 @@ import ClientAuthRouter from "./routes/client/auth-route/AuthRoutes";
 import ClientCardsRouter from "./routes/client/card-routes/CardRoutes";
 import ClientAttractionsRouter from "./routes/client/attraction-routes/AttractionRoutes";
 import ClientCashboxesRouter from "./routes/client/cashbox-routes/CashboxRoutes";
+import ClientCardTransactionsRouter from "./routes/client/card-transaction-routes/CardTransactionRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -83,6 +84,7 @@ export const build = async () => {
   app.register(ClientCardsRouter, { prefix: SERVER.CLIENT_PREFIX });
   app.register(ClientAttractionsRouter, { prefix: SERVER.CLIENT_PREFIX });
   app.register(ClientCashboxesRouter, { prefix: SERVER.CLIENT_PREFIX });
+  app.register(ClientCardTransactionsRouter, { prefix: SERVER.CLIENT_PREFIX });
 
   app.after();
   return app;

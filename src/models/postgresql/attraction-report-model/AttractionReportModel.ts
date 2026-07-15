@@ -27,6 +27,8 @@ export class AttractionReportModel
 
   public total_offline!: number;
   public total_online!: number;
+  public total_virtual!: number;
+  public total_classic!: number;
   public total_vip!: number;
   public total_organization!: number;
 
@@ -126,6 +128,16 @@ export class AttractionReportModel
         },
 
         total_online: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        total_virtual: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        total_classic: {
           type: DataTypes.INTEGER,
           allowNull: false,
           defaultValue: 0,

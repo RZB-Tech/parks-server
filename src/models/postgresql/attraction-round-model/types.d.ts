@@ -9,6 +9,8 @@ declare interface AttractionRoundModelI {
   people_count: number;
   offline_count: number;
   online_count: number;
+  virtual_count: number;
+  classic_count: number;
   vip_count: number;
   organization_count: number;
   paid_amount: number;
