@@ -8,6 +8,8 @@ declare interface AttractionModelI {
   main_file: number;
   files: Array<number>;
   sub_attraction_files: Array<number>;
+  latitude: string | null;
+  longitude: string | null;
   price: number;
   duration: number;
   seats: number;

@@ -16,7 +16,7 @@ export class CardBatchModel
   public blocked_cards!: number;
   public lost_cards!: number;
   public tethered_cards!: number;
-  public imported_by!: number;
+  public imported_by!: number | null;
   public imported_at!: Date;
 
   // timestamps
@@ -80,7 +80,7 @@ export class CardBatchModel
         },
         imported_by: {
           type: DataTypes.BIGINT,
-          allowNull: false,
+          allowNull: true,
         },
         imported_at: {
           type: DataTypes.DATE,

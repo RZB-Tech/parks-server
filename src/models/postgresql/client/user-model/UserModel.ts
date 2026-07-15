@@ -129,5 +129,10 @@ export class UserModel
     );
   }
 
-  public static associate(_models: ModelsType) {}
+  public static associate(models: ModelsType) {
+    UserModel.hasMany(models.CardModel, {
+      foreignKey: "user",
+      as: "cards",
+    });
+  }
 }

@@ -1,5 +1,6 @@
 declare interface CardsModelI {
   id: number;
+  user: number | null;
   batch: number;
   card: string;
   nfc: string;

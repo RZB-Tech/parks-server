@@ -87,16 +87,24 @@ export const swaggerConfig = {
     tags: [
       {
         name: "Clients|Auth",
-        description: "Client profile routes",
+        description: "Client registration routes",
       },
       {
         name: "Clients|User",
         description: "Client profile routes",
       },
-      // {
-      //   name: "User",
-      //   description: "Telegram Mini App user routes",
-      // },
+      {
+        name: "Clients|Cards",
+        description: "Client's cards routes",
+      },
+      {
+        name: "Clients|Attractions",
+        description: "Attraction routes",
+      },
+      {
+        name: "Clients|Cashboxes",
+        description: "Cashbox routes",
+      },
       // {
       //   name: "Clients - Auth",
       //   description: "Telegram Mini App registration and OTP routes",

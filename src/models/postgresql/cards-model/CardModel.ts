@@ -6,6 +6,7 @@ export class CardModel
   implements CardsModelI
 {
   public id!: number;
+  public user!: number | null;
   public batch!: number;
   public card!: string;
   public nfc!: string;
@@ -30,6 +31,10 @@ export class CardModel
           allowNull: false,
           primaryKey: true,
         },
+        user: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+        },
         batch: {
           type: DataTypes.BIGINT,
           allowNull: false,
@@ -45,11 +50,17 @@ export class CardModel
           unique: true,
         },
         status: {
-          type: DataTypes.ENUM("active", "inactive", "blocked", "lost", "frozen"),
+          type: DataTypes.ENUM(
+            "active",
+            "inactive",
+            "blocked",
+            "lost",
+            "frozen",
+          ),
           allowNull: false,
         },
         type: {
-          type: DataTypes.ENUM("classic", "vip", "organization"),
+          type: DataTypes.ENUM("classic", "vip", "organization", "virtual"),
           allowNull: false,
         },
         balance: {
@@ -77,6 +88,12 @@ export class CardModel
   }
 
   public static associate(models: ModelsType) {
+    CardModel.belongsTo(models.UserModel, {
+      foreignKey: "user",
+      as: "users",
+      onUpdate: "CASCADE",
+    });
+
     CardModel.belongsTo(models.CardBatchModel, {
       foreignKey: "batch",
       as: "batches",

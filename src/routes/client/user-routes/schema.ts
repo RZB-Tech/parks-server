@@ -29,18 +29,11 @@ export const getMeSchema = {
   summary: "Get current user",
   description:
     "Validates Telegram Mini App initData and returns the current active and verified user.",
-  headers: {
-    type: "object",
-    required: ["x-telegram-init-data"],
-    additionalProperties: true,
-    properties: {
-      "x-telegram-init-data": {
-        type: "string",
-        minLength: 1,
-        description: "Raw Telegram.WebApp.initData value",
-      },
+  security: [
+    {
+      InitDataHeader: [],
     },
-  },
+  ],
 
   response: {
     200: successAnswerTemplate({

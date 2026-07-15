@@ -12,7 +12,9 @@ export class CashboxModel
   public description!: string;
   public status!: import("./enums").CashboxStatusTypes;
   public main_file!: number;
-  public dashboard_file!: number
+  public dashboard_file!: number;
+  public latitude!: string | null;
+  public longitude!: string | null;
 
   // timestamps
   public readonly created_at!: Date;
@@ -47,7 +49,13 @@ export class CashboxModel
           allowNull: true,
         },
         status: {
-          type: DataTypes.ENUM("active", "inactive", "stopped", "maintenance", "closed"),
+          type: DataTypes.ENUM(
+            "active",
+            "inactive",
+            "stopped",
+            "maintenance",
+            "closed",
+          ),
           allowNull: false,
         },
         main_file: {
@@ -56,6 +64,14 @@ export class CashboxModel
         },
         dashboard_file: {
           type: DataTypes.BIGINT,
+          allowNull: true,
+        },
+        latitude: {
+          type: DataTypes.STRING,
+          allowNull: true,
+        },
+        longitude: {
+          type: DataTypes.STRING,
           allowNull: true,
         },
       },

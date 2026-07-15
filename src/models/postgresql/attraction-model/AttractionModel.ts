@@ -14,6 +14,8 @@ export class AttractionModel
   public main_file!: number;
   public files!: Array<number>;
   public sub_attraction_files!: Array<number>;
+  public latitude!: string | null;
+  public longitude!: string | null;
   public price!: number;
   public duration!: number;
   public seats!: number;
@@ -52,7 +54,13 @@ export class AttractionModel
           allowNull: false,
         },
         status: {
-          type: DataTypes.ENUM("active", "inactive", "stopped", "maintenance", "closed"),
+          type: DataTypes.ENUM(
+            "active",
+            "inactive",
+            "stopped",
+            "maintenance",
+            "closed",
+          ),
           defaultValue: "active",
           allowNull: false,
         },
@@ -68,12 +76,18 @@ export class AttractionModel
           type: DataTypes.ARRAY(DataTypes.INTEGER),
           allowNull: false,
         },
-
         sub_attraction_files: {
           type: DataTypes.ARRAY(DataTypes.INTEGER),
           allowNull: true,
         },
-
+        latitude: {
+          type: DataTypes.STRING,
+          allowNull: true,
+        },
+        longitude: {
+          type: DataTypes.STRING,
+          allowNull: true,
+        },
         price: {
           type: DataTypes.INTEGER,
           allowNull: false,

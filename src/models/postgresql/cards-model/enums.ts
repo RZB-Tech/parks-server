@@ -10,4 +10,5 @@ export enum CardType {
   CLASSIC = "classic",
   VIP = "vip",
   ORGANIZATION = "organization",
+  VIRTUAL = "virtual",
 }
