@@ -79,26 +79,6 @@ export const CheckNfcCardService = async (
     throw NotFound("Card not found!");
   }
 
-  if (
-    [
-      CardStatusTypes.BLOCKED,
-      CardStatusTypes.LOST,
-      CardStatusTypes.FROZEN,
-    ].includes(card.status)
-  ) {
-    throw BadRequest("Card is not available!");
-  }
-
-  if (card.type === CardType.VIP) {
-    throw BadRequest("VIP cards cannot be topped up!");
-  }
-
-  if (card.type === CardType.ORGANIZATION && Number(card.balance) > 12000) {
-    throw BadRequest(
-      `Organization card balance must be less than 12,000 to allow top-up. Card balance ${Number(card.balance)} `,
-    );
-  }
-
   const lastTransaction = await CardTransactionModel.findOne({
     where: {
       card: card.id,

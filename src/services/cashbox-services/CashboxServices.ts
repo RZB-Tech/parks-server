@@ -150,6 +150,7 @@ export const GetCashboxStatsService = async () => {
     cashboxes: 0,
     active: 0,
     inactive: 0,
+    stopped: 0,
     maintenance: 0,
     closed: 0,
   };
@@ -251,6 +252,8 @@ export const CreateCashboxesService = async (
     place: body.place,
     status: CashboxOperatorStatusTypes.INACTIVE,
     description: body.description,
+    latitude: body.latitude,
+    longitude: body.longitude,
   });
 
   return CashboxDTO(cashbox);
@@ -350,6 +353,12 @@ export const UpdateCashboxesService = async (
         ...(body.place !== undefined && { place: body.place }),
         ...(body.description !== undefined && {
           description: body.description,
+        }),
+        ...(body.latitude !== undefined && {
+          latitude: body.latitude,
+        }),
+        ...(body.longitude !== undefined && {
+          longitude: body.longitude,
         }),
       },
       {

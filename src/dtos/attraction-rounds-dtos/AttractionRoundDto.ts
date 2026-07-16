@@ -115,6 +115,8 @@ export const AttractionRoundDTO = (data: AttractionRoundWithRelationsPlain) => {
     people_count: Number(data.people_count || 0),
     offline_count: Number(data.offline_count || 0),
     online_count: Number(data.online_count || 0),
+    virtual_count: Number(data.online_count || 0),
+    classic_count: Number(data.online_count || 0),
     vip_count: Number(data.vip_count || 0),
     organization_count: Number(data.organization_count || 0),
 

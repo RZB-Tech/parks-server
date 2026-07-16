@@ -31,6 +31,8 @@ export const cashboxProperties = {
     description: "Cashbox description",
     examples: ["Cashbox #7 new"],
   },
+  latitude: { type: "string" },
+  longitude: { type: "string" },
 };
 
 export const cashboxOperatorEmployeeSchema = {
@@ -61,7 +63,8 @@ export const cashboxStatsProperties = {
 
 export const getCashboxSchema = {
   summary: "Get cashbox",
-  description: "Get cashbox by id or device id superadmin, admin, owner, director, head_marketing, head_cashier",
+  description:
+    "Get cashbox by id or device id superadmin, admin, owner, director, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
   headers: {
     type: "object",
@@ -116,7 +119,8 @@ export const getCashboxSchema = {
 
 export const getCashboxStatsSchema = {
   summary: "Get cashbox status statistics",
-  description: "Get cashbox stats superadmin, admin, owner, director, head_marketing, head_cashier",
+  description:
+    "Get cashbox stats superadmin, admin, owner, director, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
   headers: {
     type: "object",
@@ -141,7 +145,8 @@ export const getCashboxStatsSchema = {
 
 export const getCashboxesSchema = {
   summary: "Get cashboxes",
-  description: "Get cashboxes superadmin, admin, owner, director, head_marketing, head_cashier",
+  description:
+    "Get cashboxes superadmin, admin, owner, director, head_marketing, head_cashier",
   tags: ["Cashboxes route"],
   headers: {
     type: "object",
@@ -239,6 +244,8 @@ export const createCashboxSchema = {
       name: { type: "string" },
       place: { type: "string" },
       description: { type: "string" },
+      latitude: { type: "string" },
+      longitude: { type: "string" },
     },
   }),
   response: {
@@ -283,6 +290,8 @@ export const updateCashboxSchema = {
       name: { type: "string" },
       place: { type: "string" },
       description: { type: "string" },
+      latitude: { type: "string" },
+      longitude: { type: "string" },
     },
   }),
   response: {

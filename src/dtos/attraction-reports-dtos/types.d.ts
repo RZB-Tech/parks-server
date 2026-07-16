@@ -76,6 +76,8 @@ declare interface AttractionZReportTotalsDTO {
 
   total_offline: number;
   total_online: number;
+  total_virtual: number;
+  total_classic: number;
   total_vip: number;
   total_organization: number;
 

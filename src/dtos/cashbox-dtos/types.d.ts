@@ -28,6 +28,7 @@ declare interface CashboxesStatusDto {
   cashboxes: number;
   active: number;
   inactive: number;
+  stopped: number;
   maintenance: number;
   closed: number;
 }

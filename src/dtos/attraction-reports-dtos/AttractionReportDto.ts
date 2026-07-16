@@ -49,6 +49,8 @@ export const AttractionReportDTO = (
 
     total_offline: Number(data.total_offline || 0),
     total_online: Number(data.total_online || 0),
+    total_virtual: Number(data.total_online || 0),
+    total_classic: Number(data.total_online || 0),
     total_vip: Number(data.total_vip || 0),
     total_organization: Number(data.total_organization || 0),
 
@@ -76,6 +78,8 @@ export const emptyAttractionZReportsTotals = (): AttractionZReportTotalsDTO => {
 
     total_offline: 0,
     total_online: 0,
+    total_virtual: 0,
+    total_classic: 0,
     total_vip: 0,
     total_organization: 0,
 
@@ -93,6 +97,8 @@ export const addAttractionZReportsTotals = (
 
   target.total_offline += Number(report.total_offline || 0);
   target.total_online += Number(report.total_online || 0);
+  target.total_virtual += Number(report.total_online || 0);
+  target.total_classic += Number(report.total_online || 0);
   target.total_vip += Number(report.total_vip || 0);
   target.total_organization += Number(report.total_organization || 0);
 

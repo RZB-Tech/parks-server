@@ -91,6 +91,12 @@ export const attractionReportProperties = {
   total_online: {
     type: "number",
   },
+  total_virtual: {
+    type: "number",
+  },
+  total_classic: {
+    type: "number",
+  },
 
   total_vip: {
     type: "number",
@@ -393,8 +399,6 @@ export const attractionWithZReportsProperties = {
     type: "number",
   },
 
-  description: nullableString,
-
   zreports: {
     type: "array",
     items: {
@@ -568,6 +572,12 @@ export const accountingAttractionZReportProperties = {
   total_online: {
     type: "number",
   },
+  total_virtual: {
+    type: "number",
+  },
+  total_classic: {
+    type: "number",
+  },
 
   total_vip: {
     type: "number",
@@ -673,13 +683,13 @@ export const getNotConfirmedAttractionZReportDatesSchema = {
   summary: "Get not confirmed attraction zreport dates",
   response: {
     200: successAnswerTemplate({
-        dates: {
-          type: "array",
-          items: {
-            type: "string",
-            format: "date",
-          },
+      dates: {
+        type: "array",
+        items: {
+          type: "string",
+          format: "date",
         },
+      },
     }),
   },
 };

@@ -19,6 +19,9 @@ export const AttractionWithOperatorsDTO = (data: any) => {
     max_weight: data.max_weight,
     description: data.description,
 
+    latitude: data.latitude,
+    longitude: data.longitude,
+
     operators: data.attraction_operator
       ? data.attraction_operator.map((item: any) => {
           return {
@@ -52,5 +55,8 @@ export const AttractionDTO = (data: AttractionModelI) => {
     min_height: data.min_height,
     max_weight: data.max_weight,
     description: data.description,
+
+    latitude: data.latitude,
+    longitude: data.longitude,
   };
 };

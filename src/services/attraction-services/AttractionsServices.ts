@@ -245,6 +245,8 @@ export const CreateAttractionsService = async (body: CreateAttractionData) => {
     min_height: body.min_height,
     max_weight: body.max_weight,
     description: body.description,
+    latitude: body.latitude,
+    longitude: body.longitude,
   });
 
   return AttractionDTO(attraction);
@@ -437,6 +439,12 @@ export const UpdateAttractionsService = async (
 
         ...(body.description !== undefined && {
           description: body.description,
+        }),
+        ...(body.latitude !== undefined && {
+          latitude: body.latitude,
+        }),
+        ...(body.longitude !== undefined && {
+          longitude: body.longitude,
         }),
       },
       {

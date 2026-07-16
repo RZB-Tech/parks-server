@@ -1,6 +1,9 @@
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
 import { CardTransactionType } from "../../models/postgresql/card-transactions-model/enums";
-import { CardStatusTypes, CardType } from "../../models/postgresql/cards-model/enums";
+import {
+  CardStatusTypes,
+  CardType,
+} from "../../models/postgresql/cards-model/enums";
 import { successAnswerTemplate } from "../schemas";
 
 const nullableNumber = {
@@ -160,6 +163,12 @@ export const attractionRoundProperties = {
     type: "number",
   },
 
+  virtual_count: {
+    type: "number",
+  },
+  classic_count: {
+    type: "number",
+  },
   vip_count: {
     type: "number",
   },

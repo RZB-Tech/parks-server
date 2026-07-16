@@ -84,6 +84,8 @@ export const attractionProperties = {
     description: "Attraction description",
     examples: ["High-speed roller coaster with sharp turns."],
   },
+  latitude: { type: "string" },
+  longitude: { type: "string" },
 };
 
 export const attractionOperatorEmployeeSchema = {
@@ -295,6 +297,8 @@ export const createAttractionSchema = {
       "min_height",
       "max_weight",
       "description",
+      "latitude",
+      "longitude",
     ],
     properties: {
       name: attractionProperties.name,
@@ -310,6 +314,8 @@ export const createAttractionSchema = {
       min_height: attractionProperties.min_height,
       max_weight: attractionProperties.max_weight,
       description: attractionProperties.description,
+      latitude: attractionProperties.latitude,
+      longitude: attractionProperties.longitude,
     },
   }),
   response: {
@@ -365,6 +371,8 @@ export const updateAttractionSchema = {
       min_height: attractionProperties.min_height,
       max_weight: attractionProperties.max_weight,
       description: attractionProperties.description,
+      latitude: attractionProperties.latitude,
+      longitude: attractionProperties.longitude,
     },
   }),
   response: {
