@@ -324,6 +324,12 @@ export const attractionZReportsTotalsProperties = {
   total_online: {
     type: "number",
   },
+  total_virtual: {
+    type: "number",
+  },
+  total_card: {
+    type: "number",
+  },
 
   total_vip: {
     type: "number",
