@@ -323,7 +323,7 @@ export const checkNfcCardSchema = {
     properties: {
       type: {
         type: "string",
-        enum: Object.values(CardCheckType),
+        enum: ["nfc", "card"],
         description: "Card search type",
         examples: ["nfc", "card"],
       },
@@ -372,7 +372,7 @@ export const cardTopUpTransactionSchema = {
     properties: {
       type: {
         type: "string",
-        enum: Object.values(CardCheckType),
+        enum: ["nfc", "card"],
         description: "Card search type",
         examples: ["nfc", "card"],
       },
@@ -380,7 +380,8 @@ export const cardTopUpTransactionSchema = {
       id: {
         type: "string",
         minLength: 1,
-        description: "NFC ID when type is nfc, or card number when type is card",
+        description:
+          "NFC ID when type is nfc, or card number when type is card",
         examples: ["04AABBCCDD"],
       },
 
