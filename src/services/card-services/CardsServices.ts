@@ -369,6 +369,8 @@ export const UpdateCardsService = async (
         await card.update(
           {
             user: Number(user.id),
+            status: body.status,
+            activated_at: new Date(),
           },
           {
             transaction,
