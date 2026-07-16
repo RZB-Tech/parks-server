@@ -416,6 +416,11 @@ export const UpdateCardsService = async (
       await card.update(
         {
           status: newStatus,
+          ...(newStatus === CardStatusTypes.ACTIVE
+            ? {
+                activated_at: new Date(),
+              }
+            : {}),
         },
         {
           transaction,
