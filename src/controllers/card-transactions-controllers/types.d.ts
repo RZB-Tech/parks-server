@@ -1,9 +1,16 @@
+declare enum CardCheckType {
+  NFC = "nfc",
+  CARD = "card",
+}
+
 declare interface CheckNFCCardData {
-  nfc: string;
+  type: CardCheckType;
+  id: string;
 }
 
 declare interface CardTopUpTransactionData {
-  nfc: string;
+  type: CardCheckType;
+  id: string;
   amount: number;
   payment_type: PaymentType;
   payment_card_type?: PaymentCardType | null;

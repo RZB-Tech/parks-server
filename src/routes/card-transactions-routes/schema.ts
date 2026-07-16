@@ -7,6 +7,7 @@ import {
   PaymentServiceType,
   PaymentType,
 } from "../../models/postgresql/card-transactions-model/enums";
+import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
 
 const nullableEnum = (values: string[]) => ({
   oneOf: [
@@ -78,7 +79,7 @@ export const checkNfcCardProperties = {
   type: {
     type: "string",
   },
-  
+
   card: {
     type: "string",
   },
@@ -100,6 +101,38 @@ export const checkNfcCardProperties = {
 
   balance: {
     type: "number",
+  },
+
+  user: {
+    description: "User attached to the card",
+    oneOf: [
+      {
+        type: "object",
+        properties: {
+          id: {
+            type: "number",
+            description: "User ID",
+          },
+          fullname: {
+            type: "string",
+            description: "User fullname",
+          },
+          phone_number: {
+            type: "string",
+            description: "User phone number",
+            example: "998903152006",
+          },
+          status: {
+            type: "string",
+            enum: Object.values(UserStatusTypes),
+            description: "User status",
+          },
+        },
+      },
+      {
+        type: "null",
+      },
+    ],
   },
 
   last_transaction: {

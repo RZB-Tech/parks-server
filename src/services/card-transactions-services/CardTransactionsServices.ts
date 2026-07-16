@@ -40,13 +40,26 @@ import { AttractionReportModel } from "../../models/postgresql/attraction-report
 import { AttractionReportTypes } from "../../models/postgresql/attraction-model/enums";
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
+import { UserModel } from "../../plugins/db/postgresql/db";
 
 export const CheckNfcCardService = async (
   operatorID: number,
   body: CheckNFCCardData,
 ) => {
-  if (!body.nfc?.trim()) {
-    throw BadRequest("NFC is required!");
+  if (!body.type) {
+    throw BadRequest("Card check type is required!");
+  }
+
+  if (!Object.values(CardCheckType).includes(body.type)) {
+    throw BadRequest("Card check type must be nfc or card!");
+  }
+
+  const identifier = body.id?.trim();
+
+  if (!identifier) {
+    throw BadRequest(
+      body.type === "nfc" ? "NFC ID is required!" : "Card number is required!",
+    );
   }
 
   const openXReport = await CashboxReportModel.findOne({
@@ -61,10 +74,13 @@ export const CheckNfcCardService = async (
     throw BadRequest("Open X report required!");
   }
 
+  const cardWhere =
+    body.type === CardCheckType.NFC
+      ? { nfc: identifier }
+      : { card: identifier };
+
   const card = await CardModel.findOne({
-    where: {
-      nfc: body.nfc.trim(),
-    },
+    where: cardWhere,
     include: [
       {
         model: CardBatchModel,
@@ -72,11 +88,21 @@ export const CheckNfcCardService = async (
         required: false,
         attributes: ["id", "name"],
       },
+      {
+        model: UserModel,
+        as: "users",
+        required: false,
+        attributes: ["id", "fullname", "phone_number", "status"],
+      },
     ],
   });
 
   if (!card) {
-    throw NotFound("Card not found!");
+    throw NotFound(
+      body.type === "nfc"
+        ? "Card not found by NFC!"
+        : "Card not found by card number!",
+    );
   }
 
   const lastTransaction = await CardTransactionModel.findOne({
@@ -105,12 +131,22 @@ export const CardTopUpTransactionService = async (
   operatorID: number,
   body: CardTopUpTransactionData,
 ): Promise<CardTransactionResponseDTO> => {
-  if (!operatorID) {
+  if (!operatorID || Number.isNaN(Number(operatorID))) {
     throw BadRequest("Operator is required!");
   }
 
-  if (!body.nfc?.trim()) {
-    throw BadRequest("NFC is required!");
+  if (!Object.values(CardCheckType).includes(body.type)) {
+    throw BadRequest("Card check type must be nfc or card!");
+  }
+
+  const identifier = body.id?.trim();
+
+  if (!identifier) {
+    throw BadRequest(
+      body.type === CardCheckType.NFC
+        ? "NFC ID is required!"
+        : "Card number is required!",
+    );
   }
 
   const amount = Number(body.amount);
@@ -146,16 +182,23 @@ export const CardTopUpTransactionService = async (
       throw BadRequest("Z report is required!");
     }
 
+    const cardWhere =
+      body.type === CardCheckType.NFC
+        ? { nfc: identifier }
+        : { card: identifier };
+
     const card = await CardModel.findOne({
-      where: {
-        nfc: body.nfc.trim(),
-      },
+      where: cardWhere,
       transaction: dbTransaction,
       lock: dbTransaction.LOCK.UPDATE,
     });
 
     if (!card) {
-      throw NotFound("Card not found!");
+      throw NotFound(
+        body.type === CardCheckType.NFC
+          ? "Card not found by NFC!"
+          : "Card not found by card number!",
+      );
     }
 
     if (
@@ -178,12 +221,12 @@ export const CardTopUpTransactionService = async (
     const balanceBefore = Number(card.balance || 0);
 
     /*
-     * Organization kartani faqat joriy balansi
-     * 12 000 dan kam bo‘lsa to‘ldirish mumkin.
+     * Organization karta balansi 12 000 dan kam
+     * bo‘lgandagina top-up qilish mumkin.
      */
-    if (card.type === CardType.ORGANIZATION && balanceBefore > 12000) {
+    if (card.type === CardType.ORGANIZATION && balanceBefore >= 12000) {
       throw BadRequest(
-        "Organization card balance must be less than 12,000 to allow top-up!",
+        `Organization card balance must be less than 12,000 to allow top-up. Current balance: ${balanceBefore}`,
       );
     }
 
@@ -211,6 +254,7 @@ export const CardTopUpTransactionService = async (
         balance_before: balanceBefore,
         balance_after: balanceAfter,
         status: CardTransactionStatusTypes.SUCCESS,
+        description: body.description?.trim() || null,
       },
       {
         transaction: dbTransaction,
@@ -218,12 +262,8 @@ export const CardTopUpTransactionService = async (
     );
 
     /*
-     * Card modeldagi balance yangilanadi.
-     *
-     * Organization karta to‘ldirilsa:
-     * organization -> classic bo‘ladi.
-     *
-     * Inactive karta birinchi top-upda active bo‘ladi.
+     * Organization karta top-updan keyin Classic bo‘ladi.
+     * Inactive karta birinchi top-upda Active bo‘ladi.
      */
     await card.update(
       {
