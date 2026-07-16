@@ -157,7 +157,7 @@ export const CreateVirtualCardService = async (
         nfc: nfcNumber,
         status: CardStatusTypes.ACTIVE,
         type: CardType.VIRTUAL,
-        balance: 0,
+        balance: 30000,
         imported_at: now,
         activated_at: now,
       },
