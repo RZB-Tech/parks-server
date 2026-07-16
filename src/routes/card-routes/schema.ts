@@ -60,7 +60,7 @@ export const getCardStatsSchema = {
     properties: {
       type: {
         type: "string",
-        enum: ["classic", "vip", "organization"],
+        enum: ["classic", "vip", "organization", "virtual"],
         description:
           "Filter card statistics by card type. If omitted, statistics for all card types are returned.",
       },
@@ -174,7 +174,7 @@ export const getCardsSchema = {
     properties: {
       type: {
         type: "string",
-        enum: ["classic", "vip", "organization"],
+        enum: ["classic", "vip", "organization", "virtual"],
         description:
           "Filter card statistics by card type. If omitted, statistics for all card types are returned.",
       },
