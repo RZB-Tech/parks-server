@@ -15,7 +15,7 @@ export class CardTransactionModel
   public id!: number;
 
   public card!: number;
-  public operator!: number;
+  public operator!: number | null;
   public cashbox!: number;
   public attraction!: number;
   public xreport!: number;
@@ -56,7 +56,7 @@ export class CardTransactionModel
 
         operator: {
           type: DataTypes.BIGINT,
-          allowNull: false,
+          allowNull: true,
         },
 
         cashbox: {

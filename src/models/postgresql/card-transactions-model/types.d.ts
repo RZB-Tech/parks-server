@@ -1,7 +1,7 @@
 declare interface CardTransactionModelI {
   id: number;
   card: number;
-  operator: number;
+  operator: number | null;
   cashbox: number;
   attraction: number;
   xreport: number;
