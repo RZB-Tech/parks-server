@@ -8,17 +8,17 @@ export class UserModel
 {
   public id!: number;
 
-  public telegram_id!: number;
+  public telegram_id!: number | null;
   public telegram_chat_id!: string | null;
   public telegram_username!: string | null;
   public telegram_avatar!: string | null;
-  public telegram_first_name!: string;
+  public telegram_first_name!: string | null;
   public telegram_last_name!: string | null;
 
   public fullname!: string;
 
   public phone_number!: string;
-  public date_of_birth!: string;
+  public date_of_birth!: string | null;
 
   public status!: import("./enums").UserStatusTypes;
 
@@ -44,7 +44,7 @@ export class UserModel
 
         telegram_id: {
           type: DataTypes.BIGINT,
-          allowNull: false,
+          allowNull: true,
           unique: true,
         },
 
@@ -65,7 +65,7 @@ export class UserModel
 
         telegram_first_name: {
           type: DataTypes.STRING,
-          allowNull: false,
+          allowNull: true,
         },
 
         telegram_last_name: {
@@ -86,7 +86,7 @@ export class UserModel
 
         date_of_birth: {
           type: DataTypes.DATEONLY,
-          allowNull: false,
+          allowNull: true,
         },
 
         status: {

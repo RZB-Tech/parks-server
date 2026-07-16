@@ -2,6 +2,7 @@ import { CardLastTransactionDTO } from "../card-transaction-dtos/CardTransaction
 
 export const CardDTO = (data: CardWithTransactionDto): CardResponseDTO => {
   const lastTransaction = data.transaction ?? null;
+  const user = data.users ?? null;
 
   return {
     id: Number(data.id),
@@ -14,6 +15,15 @@ export const CardDTO = (data: CardWithTransactionDto): CardResponseDTO => {
     imported_at: data.imported_at,
     activated_at: data.activated_at,
 
+    user: user
+      ? {
+          id: Number(user.id),
+          fullname: user.fullname,
+          phone_number: user.phone_number,
+          status: user.status,
+        }
+      : null,
+
     ...(lastTransaction
       ? {
           last_transaction: CardLastTransactionDTO(lastTransaction),
@@ -21,7 +31,6 @@ export const CardDTO = (data: CardWithTransactionDto): CardResponseDTO => {
       : {}),
   };
 };
-
 export const UpdateCardDTO = (data: CardsModelI): UpdateCardResnponseDTO => {
   return {
     id: Number(data.id),

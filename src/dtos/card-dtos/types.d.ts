@@ -5,10 +5,18 @@ declare interface CardResponseDTO {
   card: string;
   nfc: string;
   balance: number;
-  status: string;
+  status: CardStatusTypes;
   imported_at: Date;
   activated_at: Date | null;
-  last_transaction?: ReturnType<typeof CardLastTransactionDTO>;
+
+  user: {
+    id: number;
+    fullname: string;
+    phone_number: string;
+    status: UserStatusTypes;
+  } | null;
+
+  last_transaction?: CardLastTransactionResponseDTO;
 }
 
 declare interface UpdateCardResnponseDTO {
@@ -34,8 +42,16 @@ declare interface CardStatsDto {
   tethered: number;
 }
 
+declare interface CardUserDto {
+  id: number;
+  fullname: string;
+  phone_number: string;
+  status: UserStatusTypes;
+}
+
 declare interface CardWithTransactionDto extends CardsModelI {
   batches?: CardBatchShortDto | null;
+  users?: CardUserDto | null;
   transaction?: CardTransactionModelI | null;
 }
 

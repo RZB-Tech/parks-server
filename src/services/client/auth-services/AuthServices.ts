@@ -54,47 +54,44 @@ export const AuthUserService = async (
   }
 
   const telegramID = telegramUser.id;
-
   const fullname = body.fullname;
-
   const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
-
   const dateOfBirth = body.date_of_birth;
-
   const sequelize = UserModel.sequelize!;
 
   const prepared = await sequelize.transaction(
     async (transaction: Transaction): Promise<PreparedRegistrationResult> => {
       const now = new Date();
 
-      const [userByTelegram, userByPhone] = await Promise.all([
-        UserModel.findOne({
-          where: { telegram_id: telegramID },
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        }),
-        UserModel.findOne({
-          where: { phone_number: phoneNumber },
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        }),
-      ]);
+      const matchedUsers = await UserModel.findAll({
+        where: {
+          [Op.or]: [
+            {
+              telegram_id: telegramID,
+            },
+            {
+              phone_number: phoneNumber,
+            },
+          ],
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
 
-      /*
-       * Bu telefon boshqa Telegram akkauntga
-       * biriktirilgan.
-       */
-      if (userByPhone && Number(userByPhone.telegram_id) !== telegramID) {
-        throw BadRequest("PHONE_NUMBER_ALREADY_REGISTERED");
-      }
+      const userByTelegram =
+        matchedUsers.find((item) => Number(item.telegram_id) === telegramID) ??
+        null;
 
-      if (userByTelegram?.status === UserStatusTypes.BLOCKED) {
+      const userByPhone =
+        matchedUsers.find((item) => item.phone_number === phoneNumber) ?? null;
+
+      if (
+        userByTelegram?.status === UserStatusTypes.BLOCKED ||
+        userByPhone?.status === UserStatusTypes.BLOCKED
+      ) {
         throw BadRequest("USER_BLOCKED");
       }
 
-      /*
-       * Registration allaqachon yakunlangan.
-       */
       if (
         userByTelegram?.status === UserStatusTypes.ACTIVE &&
         userByTelegram.phone_verified_at
@@ -102,18 +99,64 @@ export const AuthUserService = async (
         throw BadRequest("USER_ALREADY_REGISTERED");
       }
 
+      if (
+        userByPhone?.status === UserStatusTypes.ACTIVE &&
+        userByPhone.phone_verified_at &&
+        Number(userByPhone.telegram_id) !== telegramID
+      ) {
+        throw BadRequest("PHONE_NUMBER_ALREADY_REGISTERED");
+      }
+
       let user: UserModel;
 
-      if (userByTelegram) {
+      if (userByPhone) {
+        if (
+          userByTelegram &&
+          Number(userByTelegram.id) !== Number(userByPhone.id)
+        ) {
+          await userByTelegram.update(
+            {
+              telegram_id: null,
+            },
+            {
+              transaction,
+            },
+          );
+        }
+
+        user = await userByPhone.update(
+          {
+            telegram_id: telegramID,
+            telegram_chat_id: null,
+            telegram_username: telegramUser.username ?? null,
+            telegram_avatar: telegramUser.photo_url ?? null,
+            telegram_first_name: telegramUser.first_name.trim(),
+            telegram_last_name: telegramUser.last_name?.trim() || null,
+
+            fullname,
+            phone_number: phoneNumber,
+            date_of_birth: dateOfBirth,
+
+            status: UserStatusTypes.PENDING,
+            phone_verified_at: null,
+            registered_at: null,
+          },
+          {
+            transaction,
+          },
+        );
+      } else if (userByTelegram) {
         user = await userByTelegram.update(
           {
             telegram_username: telegramUser.username ?? null,
             telegram_avatar: telegramUser.photo_url ?? null,
             telegram_first_name: telegramUser.first_name.trim(),
             telegram_last_name: telegramUser.last_name?.trim() || null,
+
             fullname,
             phone_number: phoneNumber,
             date_of_birth: dateOfBirth,
+
             status: UserStatusTypes.PENDING,
             phone_verified_at: null,
             registered_at: null,
@@ -131,10 +174,11 @@ export const AuthUserService = async (
             telegram_avatar: telegramUser.photo_url ?? null,
             telegram_first_name: telegramUser.first_name.trim(),
             telegram_last_name: telegramUser.last_name?.trim() || null,
+
             fullname,
-            telegram_bot_active: true,
             phone_number: phoneNumber,
             date_of_birth: dateOfBirth,
+
             status: UserStatusTypes.PENDING,
             phone_verified_at: null,
             registered_at: null,
@@ -145,10 +189,6 @@ export const AuthUserService = async (
         );
       }
 
-      /*
-       * Bitta telegram user uchun bitta
-       * registration OTP holati.
-       */
       const [otp] = await OtpModel.findOrCreate({
         where: {
           phone_number: phoneNumber,
@@ -157,27 +197,17 @@ export const AuthUserService = async (
         defaults: {
           phone_number: phoneNumber,
           purpose: OtpTypes.REGISTRATION,
-
-          /*
-           * Birinchi create uchun vaqtinchalik hash.
-           * Pastda real OTP bilan almashtiriladi.
-           */
           code_hash: HashOtpCode(phoneNumber, OtpTypes.REGISTRATION, "000000"),
-
           send_attempts: 0,
           send_window_started_at: now,
           send_blocked_until: null,
-
           verify_attempts: 0,
           verify_blocked_until: null,
-
           expires_at: new Date(0),
           resend_at: new Date(0),
-
           verified_at: null,
           last_sms_log: null,
         },
-
         transaction,
       });
 
@@ -186,10 +216,6 @@ export const AuthUserService = async (
         lock: transaction.LOCK.UPDATE,
       });
 
-      /*
-       * OTP verify urinishlari sababli
-       * blok hali tugamagan.
-       */
       if (
         otp.verify_blocked_until &&
         otp.verify_blocked_until.getTime() > now.getTime()
@@ -197,9 +223,6 @@ export const AuthUserService = async (
         throw BadRequest("OTP_VERIFY_BLOCKED");
       }
 
-      /*
-       * SMS yuborish blok muddati.
-       */
       if (
         otp.send_blocked_until &&
         otp.send_blocked_until.getTime() > now.getTime()
@@ -207,9 +230,6 @@ export const AuthUserService = async (
         throw BadRequest("OTP_SEND_BLOCKED");
       }
 
-      /*
-       * Resend vaqti hali kelmagan.
-       */
       if (otp.resend_at.getTime() > now.getTime()) {
         throw BadRequest("OTP_RESEND_NOT_AVAILABLE");
       }
@@ -220,19 +240,10 @@ export const AuthUserService = async (
           OtpConfig.sendWindowSeconds * 1000;
 
       const currentSendAttempts = sendWindowExpired ? 0 : otp.send_attempts;
-
       const sendWindowStartedAt = sendWindowExpired
         ? now
         : otp.send_window_started_at || now;
 
-      /*
-       * 5 marta yuborilgan bo‘lsa,
-       * navbatdagi requestda 3 soat blok.
-       *
-       * Update’dan keyin transaction ichida
-       * throw qilmaymiz, aks holda update rollback
-       * bo‘lib ketadi.
-       */
       if (currentSendAttempts >= OtpConfig.sendMaxAttempts) {
         const blockedUntil = AddSeconds(now, OtpConfig.sendBlockSeconds);
 
@@ -261,45 +272,28 @@ export const AuthUserService = async (
 
       const expiresAt = AddSeconds(now, OtpConfig.expiresSeconds);
       const resendAt = AddSeconds(now, OtpConfig.resendSeconds);
+
       const nextSendAttempts = currentSendAttempts + 1;
       const sender = process.env.ESKIZ_FROM || "4546";
 
-      /*
-       * SMS yuborishdan oldin pending log.
-       */
       const smsLog = await SmsLogModel.create(
         {
           phone_number: phoneNumber,
-
           type: SmsTypes.REGISTRATION_OTP,
-
           provider: SmsProviderTypes.ESKIZ,
-
           status: SmsStatusTypes.PENDING,
-
           sender,
-
           template: "user_registration_otp",
-
-          /*
-           * OTP ochiq holatda saqlanmaydi.
-           */
           message: "Central Park ro'yxatdan o'tish kodi: ******",
-
           provider_message_id: null,
-
           attempts: 1,
-
           error_code: null,
           error_message: null,
-
           sent_at: null,
           delivered_at: null,
           failed_at: null,
-
           metadata: {
             telegram_id: telegramID,
-
             otp_expires_seconds: OtpConfig.expiresSeconds,
           },
         },
@@ -312,25 +306,14 @@ export const AuthUserService = async (
         {
           phone_number: phoneNumber,
           code_hash: otpCodeHash,
-
           send_attempts: nextSendAttempts,
-
           send_window_started_at: sendWindowStartedAt,
-
           send_blocked_until: null,
-
-          /*
-           * Yangi OTP yuborilganda verify
-           * attemptlar qaytadan boshlanadi.
-           */
           verify_attempts: 0,
           verify_blocked_until: null,
-
           expires_at: expiresAt,
           resend_at: resendAt,
-
           verified_at: null,
-
           last_sms_log: Number(smsLog.id),
         },
         {
@@ -338,21 +321,18 @@ export const AuthUserService = async (
         },
       );
 
+      /*
+       * Callback oxirida bu return majburiy.
+       */
       return {
         blocked: false,
-
-        user,
-
+        user: user.get({ plain: true }) as UserModelI,
         otp_id: Number(otp.id),
         sms_log_id: Number(smsLog.id),
-
         phone_number: phoneNumber,
         otp_code: otpCode,
-
         expires_in: OtpConfig.expiresSeconds,
-
         resend_in: OtpConfig.resendSeconds,
-
         remaining_send_attempts: Math.max(
           0,
           OtpConfig.sendMaxAttempts - nextSendAttempts,
@@ -368,8 +348,7 @@ export const AuthUserService = async (
     throw BadRequest("OTP_SEND_BLOCKED");
   }
 
-  const smsMessage =
-    `Это тест от Eskiz`;
+  const smsMessage = `Это тест от Eskiz`;
 
   try {
     const providerResponse: any = await SendEskizSmsService(
@@ -440,7 +419,6 @@ export const AuthUserService = async (
       ),
     ]);
 
-    console.log(error)
     throw BadRequest("OTP_SMS_SEND_FAILED");
   }
 

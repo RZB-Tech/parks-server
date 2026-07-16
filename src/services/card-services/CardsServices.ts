@@ -93,31 +93,40 @@ export const GetCardStatsService = async (query: GetCardsQuery) => {
 export const GetCardsService = async (query: GetCardsQuery) => {
   const where: any = {};
 
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
+  const page = Math.max(Number(query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100);
   const offset = (page - 1) * limit;
 
   if (query.batch) {
     where.batch = Number(query.batch);
   }
+
   if (query.type) {
     where.type = query.type;
   }
 
-  if (query.search) {
+  if (query.search?.trim()) {
+    const search = query.search.trim();
+
     where[Op.or] = [
       {
-        card: { [Op.iLike]: `%${query.search}%` },
+        card: {
+          [Op.iLike]: `%${search}%`,
+        },
       },
       {
-        nfc: { [Op.iLike]: `%${query.search}%` },
+        nfc: {
+          [Op.iLike]: `%${search}%`,
+        },
       },
     ];
   }
 
   if (query.statuses) {
     where.status = Array.isArray(query.statuses)
-      ? { [Op.in]: query.statuses }
+      ? {
+          [Op.in]: query.statuses,
+        }
       : query.statuses;
   }
 
@@ -127,8 +136,10 @@ export const GetCardsService = async (query: GetCardsQuery) => {
       {
         model: CardBatchModel,
         as: "batches",
-        required: false,
-        attributes: ["id", "name"],
+      },
+      {
+        model: UserModel,
+        as: "users",
       },
     ],
     limit,
@@ -136,7 +147,11 @@ export const GetCardsService = async (query: GetCardsQuery) => {
     order: [["id", "ASC"]],
   });
 
-  const cards = rows.map((r) => r.get({ plain: true }));
+  const cards = rows.map((card) =>
+    card.get({
+      plain: true,
+    }),
+  );
 
   return {
     cards: cards.map(CardDTO),
