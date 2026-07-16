@@ -318,11 +318,22 @@ export const checkNfcCardSchema = {
 
   body: reqBodyWrapper({
     type: "object",
-    required: ["nfc"],
     additionalProperties: false,
+    required: ["type", "id"],
     properties: {
-      nfc: {
+      type: {
         type: "string",
+        enum: Object.values(CardCheckType),
+        description: "Card search type",
+        examples: ["nfc", "card"],
+      },
+
+      id: {
+        type: "string",
+        minLength: 1,
+        description:
+          "NFC ID when type is nfc, or card number when type is card",
+        examples: ["04AABBCCDD"],
       },
     },
   }),
@@ -356,11 +367,21 @@ export const cardTopUpTransactionSchema = {
 
   body: reqBodyWrapper({
     type: "object",
-    required: ["nfc", "amount", "payment_type"],
+    required: ["type", "id", "amount", "payment_type"],
     additionalProperties: false,
     properties: {
-      nfc: {
+      type: {
         type: "string",
+        enum: Object.values(CardCheckType),
+        description: "Card search type",
+        examples: ["nfc", "card"],
+      },
+
+      id: {
+        type: "string",
+        minLength: 1,
+        description: "NFC ID when type is nfc, or card number when type is card",
+        examples: ["04AABBCCDD"],
       },
 
       amount: {
