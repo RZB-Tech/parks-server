@@ -18,6 +18,8 @@ declare interface CreateCardsData {
 
 interface UpdateCardsData {
   status: CardStatusTypes;
+  fullname: string;
+  phone_number: string;
 }
 
 declare interface DeleteCardsData {

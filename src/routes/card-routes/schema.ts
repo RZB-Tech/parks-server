@@ -274,13 +274,14 @@ export const updateCardSchema = {
   },
   body: reqBodyWrapper({
     type: "object",
-    required: ["status"],
     properties: {
       status: {
         type: "string",
         enum: ["active", "inactive", "blocked", "lost", "frozen"],
         description: "New card status",
       },
+      fullname: {type: "string", description: "Orziyev Farrux"},
+      phone_number:{type: "string", description: "+998903152006 | 998903152006 | 903152006"}
     },
   }),
   response: {

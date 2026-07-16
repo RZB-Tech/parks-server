@@ -4,6 +4,7 @@ import {
   CardBatchModel,
   CardModel,
   sequelize,
+  UserModel,
 } from "../../plugins/db/postgresql/db";
 import { ParseCardExcel, ValidateCardExcel } from "../../utils/excelHelpers";
 import {
@@ -11,6 +12,8 @@ import {
   UpdateCardDTO,
 } from "../../dtos/card-dtos/CardDto";
 import { col, fn, Op } from "sequelize";
+import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
+import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
 
 export const GetCardStatsService = async (query: GetCardsQuery) => {
   const batchWhere: Record<string, unknown> = {};
@@ -266,42 +269,160 @@ export const UpdateCardsService = async (
   params: CardsParams,
   body: UpdateCardsData,
 ) => {
-  return sequelize.transaction(async (transaction) => {
-    const card = await CardModel.findByPk(params.cardID);
+  const cardID = Number(params.cardID);
 
-    if (card == null) throw NotFound("Card not found");
+  if (!cardID || Number.isNaN(cardID)) {
+    throw BadRequest("Card ID is invalid");
+  }
 
-    if (card.status === body.status) {
-      return UpdateCardDTO(card.get());
+  return await sequelize.transaction(async (transaction) => {
+    const card = await CardModel.findByPk(cardID, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!card) {
+      throw NotFound("Card not found");
     }
 
-    const batch = await CardBatchModel.findByPk(card.batch, {
+    const hasFullname = Boolean(body.fullname?.trim());
+    const hasPhoneNumber = Boolean(body.phone_number?.trim());
+    const hasUserData = hasFullname || hasPhoneNumber;
+
+    /*
+     * fullname yoki phone_number'dan bittasi kelsa,
+     * ikkinchisi ham majburiy.
+     */
+    if (hasUserData && (!hasFullname || !hasPhoneNumber)) {
+      throw BadRequest(
+        "Fullname and phone number are both required to attach a user",
+      );
+    }
+
+    /*
+     * User faqat VIP kartaga biriktiriladi.
+     */
+    if (hasUserData && card.type !== CardType.VIP) {
+      throw BadRequest("User can only be attached to a VIP card");
+    }
+
+    let relatedUser: UserModel | null = null;
+
+    if (hasUserData) {
+      const fullname = body.fullname!.trim();
+      const phoneNumber = NormalizeUzPhoneNumber(body.phone_number!);
+
+      /*
+       * phone_number ustunida UNIQUE constraint bo‘lishi kerak.
+       *
+       * Bir vaqtda ikkita request kelganda duplicate user
+       * yaratilmasligi uchun findOrCreate ishlatilmoqda.
+       */
+      const [user] = await UserModel.findOrCreate({
+        where: {
+          phone_number: phoneNumber,
+        },
+        defaults: {
+          fullname,
+          phone_number: phoneNumber,
+          status: UserStatusTypes.PENDING,
+        },
+        transaction,
+      });
+
+      relatedUser = user;
+
+      /*
+       * User oldindan mavjud bo‘lsa, uning fullname'i bo‘sh
+       * bo‘lgan holatda kelgan fullname bilan yangilanadi.
+       */
+      if (!user.fullname?.trim()) {
+        await user.update(
+          {
+            fullname,
+          },
+          {
+            transaction,
+          },
+        );
+      }
+
+      /*
+       * VIP kartani user'ga bog‘lash.
+       */
+      if (Number(card.user) !== Number(user.id)) {
+        await card.update(
+          {
+            user: Number(user.id),
+          },
+          {
+            transaction,
+          },
+        );
+      }
+    }
+
+    /*
+     * Status o‘zgarmagan bo‘lsa counter'larni o‘zgartirmaymiz.
+     *
+     * Lekin yuqorida user'ni kartaga bog‘lash ishlashi uchun
+     * eski early return olib tashlandi.
+     */
+    if (card.status !== body.status) {
+      const batch = await CardBatchModel.findByPk(card.batch, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (!batch) {
+        throw NotFound("Card batch not found");
+      }
+
+      const oldStatus = card.status as CardStatusTypes;
+      const newStatus = body.status as CardStatusTypes;
+
+      const oldField = CARD_BATCH_COUNTER[oldStatus];
+      const newField = CARD_BATCH_COUNTER[newStatus];
+
+      if (!oldField || !newField) {
+        throw BadRequest("Card status counter is not configured");
+      }
+
+      await batch.decrement(oldField, {
+        by: 1,
+        transaction,
+      });
+
+      await batch.increment(newField, {
+        by: 1,
+        transaction,
+      });
+
+      await card.update(
+        {
+          status: newStatus,
+        },
+        {
+          transaction,
+        },
+      );
+    }
+
+    await card.reload({
       transaction,
     });
 
-    if (!batch) {
-      throw NotFound("Card batch not found");
-    }
-    const oldStatus = card.status as CardStatusTypes;
-    const newStatus = body.status as CardStatusTypes;
-
-    const oldField = CARD_BATCH_COUNTER[oldStatus];
-    const newField = CARD_BATCH_COUNTER[newStatus];
-
-    await batch.decrement(oldField, { by: 1, transaction });
-    await batch.increment(newField, { by: 1, transaction });
-
-    await card.update(
-      {
-        status: body.status,
-      },
-      {
-        transaction,
-      },
-    );
-
-    const cardData = card.get();
-    return UpdateCardDTO(cardData);
+    return {
+      ...UpdateCardDTO(card.get({ plain: true })),
+      user: relatedUser
+        ? {
+            id: Number(relatedUser.id),
+            fullname: relatedUser.fullname,
+            phone_number: relatedUser.phone_number,
+            status: relatedUser.status,
+          }
+        : null,
+    };
   });
 };
 
