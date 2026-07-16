@@ -1,4 +1,5 @@
 import { CardStatusTypes } from "../../models/postgresql/cards-model/enums";
+import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
 
 export const cardProperties = {
@@ -29,6 +30,38 @@ export const cardProperties = {
     type: "number",
     description: "Card balance",
   },
+  user: {
+    description: "User attached to the card",
+    oneOf: [
+      {
+        type: "object",
+        properties: {
+          id: {
+            type: "number",
+            description: "User ID",
+          },
+          fullname: {
+            type: "string",
+            description: "User fullname",
+          },
+          phone_number: {
+            type: "string",
+            description: "User phone number",
+            example: "998903152006",
+          },
+          status: {
+            type: "string",
+            enum: Object.values(UserStatusTypes),
+            description: "User status",
+          },
+        },
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+
   imported_at: {
     type: "string",
     description: "Import date",
@@ -280,8 +313,11 @@ export const updateCardSchema = {
         enum: ["active", "inactive", "blocked", "lost", "frozen"],
         description: "New card status",
       },
-      fullname: {type: "string", description: "Orziyev Farrux"},
-      phone_number:{type: "string", description: "+998903152006 | 998903152006 | 903152006"}
+      fullname: { type: "string", description: "Orziyev Farrux" },
+      phone_number: {
+        type: "string",
+        description: "+998903152006 | 998903152006 | 903152006",
+      },
     },
   }),
   response: {
