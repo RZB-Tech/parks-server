@@ -6,6 +6,7 @@ import {
 import {
   CardBatchModel,
   CardModel,
+  CardTransactionModel,
   sequelize,
   UserModel,
 } from "../../plugins/db/postgresql/db";
@@ -14,6 +15,290 @@ import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
 import { col, fn, Op } from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
+import {
+  PrepareOtpService,
+  SendPreparedOtpService,
+  VerifyOtpService,
+} from "../otp-services/OtpServices";
+import { SmsTypes } from "../../models/postgresql/client/smslog-model/enums";
+import { OtpTypes } from "../../models/postgresql/client/otp-model/enums";
+import { CardTransactionStatusTypes } from "../../models/postgresql/card-transactions-model/enums";
+
+export const SendCardRelationOtpService = async (
+  body: SendCardRelationOtpData,
+): Promise<SendOtpResponseDTO> => {
+  const nfc = body.nfc?.trim();
+
+  if (!nfc) {
+    throw BadRequest("NFC is required!");
+  }
+
+  if (!body.phone_number?.trim()) {
+    throw BadRequest("Phone number is required!");
+  }
+
+  const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
+
+  const sequelize = CardModel.sequelize!;
+
+  const prepared = await sequelize.transaction(async (transaction) => {
+    const card = await CardModel.findOne({
+      where: {
+        nfc,
+      },
+
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!card) {
+      throw NotFound("Card not found!");
+    }
+
+    /*
+     * Faqat classic va organization
+     * karta ulanadi.
+     */
+    if (![CardType.CLASSIC, CardType.ORGANIZATION].includes(card.type)) {
+      throw BadRequest(
+        "Only classic and organization cards can be attached to a user!",
+      );
+    }
+
+    if (
+      [
+        CardStatusTypes.BLOCKED,
+        CardStatusTypes.LOST,
+        CardStatusTypes.FROZEN,
+      ].includes(card.status)
+    ) {
+      throw BadRequest("Card is not available!");
+    }
+
+    const user = await UserModel.findOne({
+      where: {
+        phone_number: phoneNumber,
+
+        status: UserStatusTypes.ACTIVE,
+      },
+
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!user) {
+      throw NotFound("Active user with this phone number not found!");
+    }
+
+    if (card.user !== null && Number(card.user) !== Number(user.id)) {
+      throw BadRequest("Card is already attached to another user!");
+    }
+
+    if (card.user !== null && Number(card.user) === Number(user.id)) {
+      throw BadRequest("Card is already attached to this user!");
+    }
+
+    return await PrepareOtpService(
+      {
+        phone_number: phoneNumber,
+
+        purpose: OtpTypes.CARD_RELATION,
+
+        /*
+         * OTP aynan shu card bilan
+         * bog‘lanadi.
+         */
+        hash_key: `${phoneNumber}:${card.id}`,
+
+        sms_type: SmsTypes.CARD_RELATION_OTP,
+
+        template: "card_relation_otp",
+
+        masked_message: "Central Park kartani ulash kodi: ******",
+
+        metadata: {
+          card_id: Number(card.id),
+
+          card_nfc: card.nfc,
+
+          user_id: Number(user.id),
+        },
+      },
+      transaction,
+    );
+  });
+
+  if (prepared.blocked) {
+    throw BadRequest("OTP_SEND_BLOCKED");
+  }
+
+  const smsMessage =
+    process.env.ESKIZ_TEST_MODE === "true"
+      ? "Это тест от Eskiz"
+      : `Central Park kartani ulash kodi: ${prepared.otp_code}`;
+
+  return await SendPreparedOtpService(prepared, smsMessage);
+};
+
+export const VerifyCardRelationOtpService = async (
+  body: VerifyCardRelationOtpData,
+): Promise<CardResponseDTO> => {
+  const nfc = body.nfc?.trim();
+
+  if (!nfc) {
+    throw BadRequest("NFC is required!");
+  }
+
+  if (!body.phone_number?.trim()) {
+    throw BadRequest("Phone number is required!");
+  }
+
+  const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
+
+  const sequelize = CardModel.sequelize!;
+
+  const result = await sequelize.transaction(async (transaction) => {
+    const card = await CardModel.findOne({
+      where: {
+        nfc,
+      },
+
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!card) {
+      throw NotFound("Card not found!");
+    }
+
+    if (![CardType.CLASSIC, CardType.ORGANIZATION].includes(card.type)) {
+      throw BadRequest(
+        "Only classic and organization cards can be attached to a user!",
+      );
+    }
+
+    if (
+      [
+        CardStatusTypes.BLOCKED,
+        CardStatusTypes.LOST,
+        CardStatusTypes.FROZEN,
+      ].includes(card.status)
+    ) {
+      throw BadRequest("Card is not available!");
+    }
+
+    const user = await UserModel.findOne({
+      where: {
+        phone_number: phoneNumber,
+
+        status: UserStatusTypes.ACTIVE,
+      },
+
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!user) {
+      throw NotFound("Active user with this phone number not found!");
+    }
+
+    if (card.user !== null && Number(card.user) !== Number(user.id)) {
+      throw BadRequest("Card is already attached to another user!");
+    }
+
+    if (card.user !== null && Number(card.user) === Number(user.id)) {
+      throw BadRequest("Card is already attached to this user!");
+    }
+
+    const verifyResult = await VerifyOtpService(
+      {
+        phone_number: phoneNumber,
+
+        purpose: OtpTypes.CARD_RELATION,
+
+        hash_key: `${phoneNumber}:${card.id}`,
+
+        code: body.code,
+      },
+      transaction,
+    );
+
+    /*
+     * Noto‘g‘ri OTP attempt update rollback
+     * bo‘lmasligi uchun transaction ichida
+     * throw qilinmaydi.
+     */
+    if (!verifyResult.success) {
+      return {
+        success: false as const,
+        error: verifyResult.error,
+      };
+    }
+
+    await card.update(
+      {
+        user: Number(user.id),
+      },
+      {
+        transaction,
+      },
+    );
+
+    const [batch, lastTransaction] = await Promise.all([
+      CardBatchModel.findByPk(card.batch, {
+        attributes: ["id", "name"],
+        transaction,
+      }),
+
+      CardTransactionModel.findOne({
+        where: {
+          card: card.id,
+          status: CardTransactionStatusTypes.SUCCESS,
+        },
+
+        order: [["id", "DESC"]],
+
+        transaction,
+      }),
+    ]);
+
+    const cardData = card.get({
+      plain: true,
+    }) as CardWithTransactionDto;
+
+    const userData = user.get({
+      plain: true,
+    }) as CardUserDto;
+
+    return {
+      success: true as const,
+      card: CardDTO({
+        ...cardData,
+        batches: batch
+          ? {
+              id: Number(batch.id),
+
+              name: batch.name,
+            }
+          : null,
+
+        users: userData,
+
+        transaction: lastTransaction
+          ? lastTransaction.get({
+              plain: true,
+            })
+          : null,
+      }),
+    };
+  });
+
+  if (!result.success) {
+    throw BadRequest(result.error);
+  }
+
+  return result.card;
+};
 
 export const GetCardStatsService = async (query: GetCardsQuery) => {
   const batchWhere: Record<string, unknown> = {};
@@ -273,72 +558,6 @@ export const CreateCardsService = async (
   } catch (error) {
     throw BadRequest("Some cards or NFC IDs already exist.");
   }
-};
-
-export const RelateCardUserService = async (body: RelateCardUserData) => {
-  const nfc = body.nfc?.trim();
-
-  if (!nfc) {
-    throw BadRequest("NFC is required!");
-  }
-
-  if (!body.phone_number?.trim()) {
-    throw BadRequest("Phone number is required!");
-  }
-
-  const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
-
-  const sequelize = CardModel.sequelize!;
-  return await sequelize.transaction(async (transaction) => {
-    const card = await CardModel.findOne({
-      where: {
-        nfc,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!card) {
-      throw NotFound("Card not found!");
-    }
-
-    /*
-     * Bu route faqat CLASSIC va ORGANIZATION
-     * kartalarni userga ulaydi.
-     */
-    const allowedCardTypes = [CardType.CLASSIC, CardType.ORGANIZATION];
-
-    if (!allowedCardTypes.includes(card.type)) {
-      throw BadRequest(
-        "Only classic and organization cards can be attached to a user!",
-      );
-    }
-
-    const user = await UserModel.findOne({
-      where: {
-        phone_number: phoneNumber,
-        status: UserStatusTypes.ACTIVE,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!user) {
-      throw NotFound("Active user with this phone number not found!");
-    }
-
-    /*
-     * Karta boshqa userga ulangan bo‘lsa,
-     * boshqa userga qayta bog‘lamaymiz.
-     */
-    if (card.user && Number(card.user) !== Number(user.id)) {
-      throw BadRequest("Card is already attached to another user!");
-    }
-
-    await card.update({ user: Number(user.id) }, { transaction });
-
-    return CardDTO(card);
-  });
 };
 
 const CARD_BATCH_COUNTER = {

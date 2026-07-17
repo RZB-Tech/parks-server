@@ -42,7 +42,6 @@ export const CardStatsDTO = (data: CardBatchModelI): CardStatsDto => {
   return {
     batch: Number(data.id || 0),
     batchName: data.name,
-    type: data.type,
     total: Number(data.total_cards || 0),
     active: Number(data.active_cards || 0),
     inactive: Number(data.inactive_cards || 0),
@@ -50,5 +49,16 @@ export const CardStatsDTO = (data: CardBatchModelI): CardStatsDto => {
     lost: Number(data.lost_cards || 0),
     frozen: Number(data.frozen_cards || 0),
     tethered: Number(data.tethered_cards || 0),
+  };
+};
+
+export const SendCardRelationOtpDTO = (
+  data: SendCardRelationOtpResponseDTO,
+): SendCardRelationOtpResponseDTO => {
+  return {
+    phone_number: data.phone_number,
+    expires_in: Number(data.expires_in),
+    resend_in: Number(data.resend_in),
+    remaining_send_attempts: Number(data.remaining_send_attempts),
   };
 };

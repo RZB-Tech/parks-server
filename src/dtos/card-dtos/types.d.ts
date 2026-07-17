@@ -1,3 +1,10 @@
+declare interface CardUserDto {
+  id: number;
+  fullname: string;
+  phone_number: string;
+  status: UserStatusTypes;
+}
+
 declare interface CardResponseDTO {
   id: number;
   batch: string | null;
@@ -9,44 +16,9 @@ declare interface CardResponseDTO {
   imported_at: Date;
   activated_at: Date | null;
 
-  user: {
-    id: number;
-    fullname: string;
-    phone_number: string;
-    status: UserStatusTypes;
-  } | null;
+  user: CardUserDto | null;
 
   last_transaction?: CardLastTransactionResponseDTO;
-}
-
-declare interface UpdateCardResnponseDTO {
-  id: number;
-  status: string;
-}
-
-declare interface ExcelRowData {
-  card_id: string;
-  nfc_id: string;
-}
-
-declare interface CardStatsDto {
-  batch: number;
-  batchName: string;
-  type: CardType;
-  total: number;
-  active: number;
-  inactive: number;
-  blocked: number;
-  lost: number;
-  frozen: number;
-  tethered: number;
-}
-
-declare interface CardUserDto {
-  id: number;
-  fullname: string;
-  phone_number: string;
-  status: UserStatusTypes;
 }
 
 declare interface CardWithTransactionDto extends CardsModelI {
@@ -61,36 +33,9 @@ declare interface CardBatchShortDto {
   type?: CardType;
 }
 
-declare interface CardTypeStatsDTO {
-  total: number;
-  classic: number;
-  vip: number;
-  organization: number;
-}
-
-declare interface CardsDashboardStatsDTO {
-  total_cards: CardTypeStatsDTO;
-  active_cards: CardTypeStatsDTO;
-  inactive_cards: CardTypeStatsDTO;
-  blocked_lost_cards: {
-    total: number;
-  };
-}
-
-declare interface CardsPaginationResponseDTO {
-  cards: CardResponseDTO[];
-  stats?: CardsDashboardStatsDTO;
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-declare interface CardBatchStatsRaw {
-  type: CardType;
-  total_cards: string | number | null;
-  active_cards: string | number | null;
-  inactive_cards: string | number | null;
-  blocked_cards: string | number | null;
-  lost_cards: string | number | null;
+declare interface SendCardRelationOtpResponseDTO {
+  phone_number: string;
+  expires_in: number;
+  resend_in: number;
+  remaining_send_attempts: number;
 }

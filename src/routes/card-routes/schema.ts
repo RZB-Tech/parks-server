@@ -71,6 +71,91 @@ export const cardProperties = {
   },
 };
 
+export const sendCardRelationOtpSchema = {
+  tags: ["Cards route"],
+  summary: "Send card relation OTP",
+
+  body: reqBodyWrapper({
+    type: "object",
+    additionalProperties: false,
+
+    required: ["nfc", "phone_number"],
+
+    properties: {
+      nfc: {
+        type: "string",
+        minLength: 1,
+      },
+
+      phone_number: {
+        type: "string",
+        pattern: "^998[0-9]{9}$",
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      otp: {
+        type: "object",
+
+        properties: {
+          phone_number: {
+            type: "string",
+          },
+          expires_in: {
+            type: "number",
+          },
+          resend_in: {
+            type: "number",
+          },
+          remaining_send_attempts: {
+            type: "number",
+          },
+        },
+      },
+    }),
+  },
+};
+
+export const verifyCardRelationOtpSchema = {
+  tags: ["Cards route"],
+  summary: "Verify OTP and attach card to user",
+
+  body: reqBodyWrapper({
+    type: "object",
+    additionalProperties: false,
+
+    required: ["nfc", "phone_number", "code"],
+
+    properties: {
+      nfc: {
+        type: "string",
+        minLength: 1,
+      },
+
+      phone_number: {
+        type: "string",
+        pattern: "^998[0-9]{9}$",
+      },
+
+      code: {
+        type: "string",
+        pattern: "^[0-9]{6}$",
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      card: {
+        type: "object",
+        properties: cardProperties,
+      },
+    }),
+  },
+};
+
 export const getCardStatsSchema = {
   summary: "Get card statistics",
   description:

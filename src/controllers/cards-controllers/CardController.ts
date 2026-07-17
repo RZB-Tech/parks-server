@@ -5,7 +5,9 @@ import {
   DeleteCardsService,
   GetCardsService,
   GetCardStatsService,
+  SendCardRelationOtpService,
   UpdateCardsService,
+  VerifyCardRelationOtpService,
 } from "../../services/card-services/CardsServices";
 import {
   ReqData,
@@ -15,6 +17,28 @@ import {
 } from "../../types/routes";
 import { BadRequest } from "../../exceptions";
 import { CardType } from "../../models/postgresql/cards-model/enums";
+
+export const SendCardRelationOtpController = makeReplyingController(
+  "otp",
+  async (
+    request: FastifyRequest<RouteWithData<ReqData<SendCardRelationOtpData>>>,
+  ) => {
+    const body = request.body.data;
+
+    return await SendCardRelationOtpService(body);
+  },
+);
+
+export const VerifyCardRelationOtpController = makeReplyingController(
+  "card",
+  async (
+    request: FastifyRequest<RouteWithData<ReqData<VerifyCardRelationOtpData>>>,
+  ) => {
+    const body = request.body.data;
+
+    return await VerifyCardRelationOtpService(body);
+  },
+);
 
 export const GetCardStatsController = makeReplyingController(
   "card_stats",
