@@ -1,4 +1,6 @@
-export const CashboxWithOperatorsDTO = (data: CashboxModelI): CashboxWithOperatorResponseDTO => {
+export const CashboxWithOperatorsDTO = (
+  data: CashboxModelI,
+): CashboxWithOperatorResponseDTO => {
   return {
     id: Number(data.id),
     device: Number(data.device),
@@ -6,6 +8,10 @@ export const CashboxWithOperatorsDTO = (data: CashboxModelI): CashboxWithOperato
     place: data.place,
     status: data.status,
     description: data.description,
+    main_file: data.main_file,
+    dashboard_file: data.dashboard_file,
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
 
     operators: Array.isArray(data.cashbox_operator)
       ? data.cashbox_operator
@@ -30,5 +36,9 @@ export const CashboxDTO = (data: CashboxModelI): CashboxResnponseDTO => {
     place: data.place,
     status: data.status,
     description: data.description,
+    main_file: data.main_file,
+    dashboard_file: data.dashboard_file,
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
   };
 };

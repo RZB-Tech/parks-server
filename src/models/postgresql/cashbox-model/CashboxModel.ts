@@ -33,7 +33,6 @@ export class CashboxModel
         },
         device: {
           type: DataTypes.BIGINT,
-          unique: true,
           allowNull: true,
         },
         name: {

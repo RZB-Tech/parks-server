@@ -31,6 +31,8 @@ export const cashboxProperties = {
     description: "Cashbox description",
     examples: ["Cashbox #7 new"],
   },
+  main_file: { type: "number" },
+  dashboard_file: { type: "number" },
   latitude: { type: "string" },
   longitude: { type: "string" },
 };

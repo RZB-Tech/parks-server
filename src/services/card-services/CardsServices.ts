@@ -1,5 +1,8 @@
 import { BadRequest, NotFound } from "../../exceptions";
-import { CardStatusTypes, CardType } from "../../models/postgresql/cards-model/enums";
+import {
+  CardStatusTypes,
+  CardType,
+} from "../../models/postgresql/cards-model/enums";
 import {
   CardBatchModel,
   CardModel,
@@ -7,10 +10,7 @@ import {
   UserModel,
 } from "../../plugins/db/postgresql/db";
 import { ParseCardExcel, ValidateCardExcel } from "../../utils/excelHelpers";
-import {
-  CardDTO,
-  UpdateCardDTO,
-} from "../../dtos/card-dtos/CardDto";
+import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
 import { col, fn, Op } from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
@@ -24,7 +24,7 @@ export const GetCardStatsService = async (query: GetCardsQuery) => {
     cardWhere.type = query.type;
   }
 
-  if(query.batch) {
+  if (query.batch) {
     batchWhere.id = Number(query.batch);
     cardWhere.batch = Number(query.batch);
   }
@@ -162,7 +162,10 @@ export const GetCardsService = async (query: GetCardsQuery) => {
   };
 };
 
-export const CreateCardsService = async (employeeID: number, data: UploadCardsFromFile) => {
+export const CreateCardsService = async (
+  employeeID: number,
+  data: UploadCardsFromFile,
+) => {
   if (!data.file) {
     throw BadRequest("Excel file is required.");
   }
@@ -270,6 +273,72 @@ export const CreateCardsService = async (employeeID: number, data: UploadCardsFr
   } catch (error) {
     throw BadRequest("Some cards or NFC IDs already exist.");
   }
+};
+
+export const RelateCardUserService = async (body: RelateCardUserData) => {
+  const nfc = body.nfc?.trim();
+
+  if (!nfc) {
+    throw BadRequest("NFC is required!");
+  }
+
+  if (!body.phone_number?.trim()) {
+    throw BadRequest("Phone number is required!");
+  }
+
+  const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
+
+  const sequelize = CardModel.sequelize!;
+  return await sequelize.transaction(async (transaction) => {
+    const card = await CardModel.findOne({
+      where: {
+        nfc,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!card) {
+      throw NotFound("Card not found!");
+    }
+
+    /*
+     * Bu route faqat CLASSIC va ORGANIZATION
+     * kartalarni userga ulaydi.
+     */
+    const allowedCardTypes = [CardType.CLASSIC, CardType.ORGANIZATION];
+
+    if (!allowedCardTypes.includes(card.type)) {
+      throw BadRequest(
+        "Only classic and organization cards can be attached to a user!",
+      );
+    }
+
+    const user = await UserModel.findOne({
+      where: {
+        phone_number: phoneNumber,
+        status: UserStatusTypes.ACTIVE,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!user) {
+      throw NotFound("Active user with this phone number not found!");
+    }
+
+    /*
+     * Karta boshqa userga ulangan bo‘lsa,
+     * boshqa userga qayta bog‘lamaymiz.
+     */
+    if (card.user && Number(card.user) !== Number(user.id)) {
+      throw BadRequest("Card is already attached to another user!");
+    }
+
+    await card.update({ user: Number(user.id) }, { transaction });
+
+    return CardDTO(card);
+  });
 };
 
 const CARD_BATCH_COUNTER = {

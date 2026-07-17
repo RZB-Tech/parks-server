@@ -32,3 +32,8 @@ declare interface UploadCardsFromFile {
   type?: CardType;
   balance?: number | null;
 }
+
+declare interface RelateCardUserData {
+  nfc: string;
+  phone_number: string;
+}

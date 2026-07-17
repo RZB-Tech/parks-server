@@ -217,7 +217,6 @@ export const GetCashboxesService = async (query: GetCashboxesQuery) => {
             model: EmployeeModel,
             as: "operators",
             required: false,
-            attributes: ["id", "firstname", "lastname", "file"],
           },
         ],
       },
@@ -436,6 +435,7 @@ export const DeleteCashboxesService = async (body: DeleteCashboxesData) => {
           [Op.in]: cashboxIDs,
         },
       },
+      force: true,
       transaction,
     });
 

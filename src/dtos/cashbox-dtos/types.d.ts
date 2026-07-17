@@ -11,6 +11,10 @@ declare interface CashboxResnponseDTO {
   place: string;
   status: string;
   description: string;
+  main_file: number;
+  dashboard_file: number;
+  latitude: string | null;
+  longitude: string | null;
 }
 
 declare interface CashboxWithOperatorResponseDTO {
@@ -20,6 +24,10 @@ declare interface CashboxWithOperatorResponseDTO {
   place: string;
   status: string;
   description: string;
+  main_file: number;
+  dashboard_file: number;
+  latitude: string | null;
+  longitude: string | null;
 
   operators: CashboxEmployeeDTO[] | null;
 }
