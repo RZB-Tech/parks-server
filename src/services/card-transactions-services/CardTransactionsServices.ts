@@ -50,7 +50,7 @@ export const CheckNfcCardService = async (
     throw BadRequest("Card check type is required!");
   }
 
-  if (!Object.values(CardCheckType).includes(body.type)) {
+  if (!["nfc", "card"].includes(body.type)) {
     throw BadRequest("Card check type must be nfc or card!");
   }
 
@@ -75,9 +75,7 @@ export const CheckNfcCardService = async (
   }
 
   const cardWhere =
-    body.type === CardCheckType.NFC
-      ? { nfc: identifier }
-      : { card: identifier };
+    body.type === "nfc" ? { nfc: identifier } : { card: identifier };
 
   const card = await CardModel.findOne({
     where: cardWhere,
@@ -135,7 +133,7 @@ export const CardTopUpTransactionService = async (
     throw BadRequest("Operator is required!");
   }
 
-  if (!Object.values(CardCheckType).includes(body.type)) {
+  if (!["nfc", "card"].includes(body.type)) {
     throw BadRequest("Card check type must be nfc or card!");
   }
 
@@ -143,7 +141,7 @@ export const CardTopUpTransactionService = async (
 
   if (!identifier) {
     throw BadRequest(
-      body.type === CardCheckType.NFC
+      body.type === "nfc"
         ? "NFC ID is required!"
         : "Card number is required!",
     );
@@ -183,7 +181,7 @@ export const CardTopUpTransactionService = async (
     }
 
     const cardWhere =
-      body.type === CardCheckType.NFC
+      body.type === "nfc"
         ? { nfc: identifier }
         : { card: identifier };
 
@@ -195,7 +193,7 @@ export const CardTopUpTransactionService = async (
 
     if (!card) {
       throw NotFound(
-        body.type === CardCheckType.NFC
+        body.type === "nfc"
           ? "Card not found by NFC!"
           : "Card not found by card number!",
       );
