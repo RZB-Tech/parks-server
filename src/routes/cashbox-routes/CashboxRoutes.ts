@@ -28,19 +28,19 @@ const CashboxesRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/cashbox",
-    { schema: getCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
+    { schema: getCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier', 'cashier'])] },
     GetCashboxController,
   );
 
   fastify.get(
     "/cashbox/stats",
-    { schema: getCashboxStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
+    { schema: getCashboxStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier', 'cashier'])] },
     GetCashboxStatsController,
   );
 
   fastify.get(
     "/cashboxes",
-    { schema: getCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
+    { schema: getCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier', 'cashier'])] },
     GetCashboxesController,
   );
 
