@@ -283,9 +283,7 @@ export const SendPreparedOtpService = async (
 
         metadata: {
           ...prepared.metadata,
-
           provider_status: providerResponse?.status ?? null,
-
           otp_expires_seconds: prepared.expires_in,
         },
       },
@@ -296,6 +294,7 @@ export const SendPreparedOtpService = async (
       },
     );
   } catch (error) {
+    console.log(error)
     const errorMessage =
       error instanceof Error ? error.message : "Unknown SMS provider error";
 

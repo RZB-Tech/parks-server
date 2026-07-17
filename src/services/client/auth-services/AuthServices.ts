@@ -216,8 +216,6 @@ export const AuthUserService = async (
 
             telegram_last_name: telegramUser.last_name?.trim() || null,
 
-            telegram_bot_active: true,
-
             fullname,
             phone_number: phoneNumber,
             date_of_birth: dateOfBirth,
