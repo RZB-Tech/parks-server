@@ -13,7 +13,7 @@ const RolesRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/roles",
-    { schema: getRolesSchema, preHandler: [AuthMiddleware] },
+    { schema: getRolesSchema, preHandler: [] },
     GetRolesController,
   );
 };

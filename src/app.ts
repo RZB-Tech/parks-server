@@ -36,6 +36,8 @@ import ClientCardsRouter from "./routes/client/card-routes/CardRoutes";
 import ClientAttractionsRouter from "./routes/client/attraction-routes/AttractionRoutes";
 import ClientCashboxesRouter from "./routes/client/cashbox-routes/CashboxRoutes";
 import ClientCardTransactionsRouter from "./routes/client/card-transaction-routes/CardTransactionRoutes";
+import NewsRouter from "./routes/news-routes/NewsRoutes";
+import ClientNewsRouter from "./routes/client/news-routes/NewsRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -77,6 +79,7 @@ export const build = async () => {
   app.register(CardsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CardTransactionsRouter, { prefix: SERVER.API_PREFIX });
   app.register(SosRouter, { prefix: SERVER.API_PREFIX });
+  app.register(NewsRouter, { prefix: SERVER.API_PREFIX });
 
   // Client routes (Telegram Mini App)
   app.register(ClientAuthRouter, { prefix: SERVER.CLIENT_PREFIX });
@@ -85,6 +88,7 @@ export const build = async () => {
   app.register(ClientAttractionsRouter, { prefix: SERVER.CLIENT_PREFIX });
   app.register(ClientCashboxesRouter, { prefix: SERVER.CLIENT_PREFIX });
   app.register(ClientCardTransactionsRouter, { prefix: SERVER.CLIENT_PREFIX });
+  app.register(ClientNewsRouter, { prefix: SERVER.CLIENT_PREFIX });
 
   app.after();
   return app;

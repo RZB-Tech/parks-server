@@ -4,6 +4,7 @@ import getHostAddress from "./utils/getHostAddress";
 
 import { runCashboxReportWorker } from "./temporal/workers/cashbox-report.worker";
 import { runAttractionReportWorker } from "./temporal/workers/attraction-report.worker";
+import { runNewsWorker } from "./temporal/workers/news.worker";
 
 export const app = build();
 
@@ -29,6 +30,7 @@ export const app = build();
     if (process.env.TEMPORAL_WORKERS_ENABLED !== "false") {
       void runCashboxReportWorker();
       void runAttractionReportWorker();
+      void runNewsWorker();
     }
   } catch (err) {
     const fastify = await app;

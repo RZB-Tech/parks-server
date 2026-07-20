@@ -4,12 +4,13 @@
   "description": "",
   "main": "build/server.js",
   "scripts": {
-    "dev": "concurrently -n TSC,SERVER,SCHEDULE \"npm run dev:tsc\" \"npm run dev:server\" \"npm run dev:schedule\"",
+    "dev": "concurrently -n TSC,SERVER,SCHEDULE \"npm run dev:tsc\" \"npm run dev:server\" \"npm run dev:schedule\" \"npm run temporal:news\"",
     "dev:tsc": "tsc -w",
     "dev:server": "nodemon --watch build --delay 500ms --exec \"node build/server.js\"",
     "dev:schedule": "node build/temporal/schedule.js",
     "build": "tsc",
-    "start": "node build/server.js"
+    "start": "node build/server.js",
+    "temporal:news": "nodemon build/temporal/workers/news.worker.js"
   },
   "keywords": [],
   "author": "RZB Tech",
