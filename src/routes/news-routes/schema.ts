@@ -205,13 +205,21 @@ export const updateNewsSchema = {
       },
       publish_at: {
         type: "string",
-        format: "date-time",
-        description: "Date and time when the news becomes active",
+        format: "date",
+        description:
+          "Publication date in YYYY-MM-DD format. The news becomes active at 00:00:00 Asia/Tashkent on this date.",
       },
       expired_at: {
         type: "string",
-        format: "date-time",
-        description: "Date and time when the news is automatically archived",
+        format: "date",
+        description:
+          "Expiration date in YYYY-MM-DD format. The news remains active until 23:59:59.999 Asia/Tashkent on this date.",
+      },
+      status: {
+        type: "string",
+        enum: [NewsStatusTypes.ARCHIVED],
+        description:
+          "Manually archives the news and stops its Temporal lifecycle workflow.",
       },
     },
   }),
