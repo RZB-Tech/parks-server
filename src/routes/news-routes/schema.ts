@@ -8,7 +8,7 @@ export const newsResponseSchema = {
     id: { type: "integer" },
     title: { type: "string" },
     description: { type: "string" },
-    image: {
+    file: {
       anyOf: [{ type: "integer" }, { type: "null" }],
     },
     status: {

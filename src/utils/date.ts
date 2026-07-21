@@ -181,3 +181,28 @@ export const getTashkentMonthRangeUTC = (value: string) => {
     endUTC,
   };
 };
+
+const pad = (value: number) => String(value).padStart(2, "0");
+
+export const addDaysToDate = (date: string, days: number): string => {
+  const [year, month, day] = date.split("-").map(Number);
+
+  const result = new Date(Date.UTC(year, month - 1, day + days));
+
+  return [
+    result.getUTCFullYear(),
+    pad(result.getUTCMonth() + 1),
+    pad(result.getUTCDate()),
+  ].join("-");
+};
+
+/*
+ * 1 = Monday
+ * 7 = Sunday
+ */
+export const getISOWeekday = (date: string): number => {
+  const utcDate = new Date(`${date}T00:00:00Z`);
+  const day = utcDate.getUTCDay();
+
+  return day === 0 ? 7 : day;
+};

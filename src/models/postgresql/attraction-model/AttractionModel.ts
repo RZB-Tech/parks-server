@@ -143,5 +143,9 @@ export class AttractionModel
       as: "rounds",
       onDelete: "CASCADE",
     });
+    AttractionModel.hasMany(models.PromotionAttractionModel, {
+      foreignKey: "attraction",
+      as: "promotion_attractions",
+    });
   }
 }

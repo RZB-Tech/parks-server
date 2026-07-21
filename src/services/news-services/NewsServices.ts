@@ -9,6 +9,10 @@ import {
   restartNewsLifecycleWorkflow,
   startNewsLifecycleWorkflow,
 } from "../../temporal/helpers/news.helper";
+import {
+  getTashkentDayEnd,
+  getTashkentDayStart,
+} from "../../utils/newsDateHelper";
 
 export const GetAllNewsService = async (query: GetAllNewsQuery) => {
   const where: WhereOptions<NewsModelI> = {};
@@ -130,8 +134,8 @@ export const UpdateNewsService = async (
   }
 
   /*
-   * Oldingi ma'lumotlarni Temporal yoki DB update
-   * xato bo'lsa qaytarish uchun saqlab olamiz.
+   * Temporal yoki update xato bo‘lsa,
+   * oldingi qiymatlarga qaytish uchun.
    */
   const previousData = {
     title: news.title,
@@ -147,12 +151,36 @@ export const UpdateNewsService = async (
     archived_at: news.archived_at ? new Date(news.archived_at) : null,
   };
 
+  /*
+   * Status validation.
+   */
+  if (
+    body.status !== undefined &&
+    !Object.values(NewsStatusTypes).includes(body.status)
+  ) {
+    throw BadRequest("News status is invalid");
+  }
+
+  /*
+   * Archived newsni ACTIVE yoki PLANNED holatiga
+   * oddiy update orqali qaytarmaymiz.
+   */
+  if (
+    news.status === NewsStatusTypes.ARCHIVED &&
+    body.status !== undefined &&
+    body.status !== NewsStatusTypes.ARCHIVED
+  ) {
+    throw BadRequest("Archived news cannot be reactivated");
+  }
+
+  const archiveRequested = body.status === NewsStatusTypes.ARCHIVED;
+
   let title = news.title;
   let description = news.description;
   let fileID = news.file;
 
   /*
-   * Title
+   * Title.
    */
   if (body.title !== undefined) {
     const parsedTitle = body.title.trim();
@@ -165,7 +193,7 @@ export const UpdateNewsService = async (
   }
 
   /*
-   * Description
+   * Description.
    */
   if (body.description !== undefined) {
     const parsedDescription = body.description.trim();
@@ -178,66 +206,74 @@ export const UpdateNewsService = async (
   }
 
   /*
-   * Image:
-   * undefined → old image qoladi
-   * number    → yangi image tekshiriladi
+   * File:
+   *
+   * undefined → oldingi file qoladi
+   * number    → yangi file tekshiriladi
    */
   if (body.file !== undefined) {
-    const parsedImageID = Number(body.file);
+    const parsedFileID = Number(body.file);
 
-    if (!Number.isInteger(parsedImageID) || parsedImageID <= 0) {
-      throw BadRequest("News image ID is invalid");
-    }
-
-    const image = await FileModel.findByPk(parsedImageID, {
+    const file = await FileModel.findByPk(parsedFileID, {
       attributes: ["id"],
     });
 
-    if (!image) {
+    if (!file) {
       throw BadRequest("News image not found");
     }
 
-    fileID = parsedImageID;
+    fileID = parsedFileID;
   }
 
   /*
-   * Final publish_at
+   * Frontend faqat sana yuboradi.
+   *
+   * publish_at:
+   * tanlangan kunning 00:00:00.000 Tashkent vaqti.
    */
   const publishAt =
     body.publish_at !== undefined
-      ? new Date(body.publish_at)
+      ? getTashkentDayStart(body.publish_at, "News publish date")
       : new Date(news.publish_at);
 
-  if (Number.isNaN(publishAt.getTime())) {
-    throw BadRequest("News publish date is invalid");
-  }
-
   /*
-   * Final expired_at
+   * expired_at:
+   * tanlangan kunning 23:59:59.999 Tashkent vaqti.
    */
   const expiredAt =
     body.expired_at !== undefined
-      ? new Date(body.expired_at)
+      ? getTashkentDayEnd(body.expired_at, "News expiration date")
       : new Date(news.expired_at);
 
-  if (Number.isNaN(expiredAt.getTime())) {
-    throw BadRequest("News expiration date is invalid");
+  if (Number.isNaN(publishAt.getTime()) || Number.isNaN(expiredAt.getTime())) {
+    throw BadRequest("News lifecycle date is invalid");
   }
 
+  /*
+   * Bir xil kun ham mumkin:
+   *
+   * publish:  21.07.2026 00:00
+   * expired:  21.07.2026 23:59:59.999
+   */
   if (expiredAt.getTime() <= publishAt.getTime()) {
     throw BadRequest("News expiration date must be after publish date");
   }
 
   const now = new Date();
 
-  if (expiredAt.getTime() <= now.getTime()) {
+  /*
+   * Manual archive qilinayotgan bo‘lsa,
+   * expired_at o‘tgan bo‘lsa ham archive qilishga
+   * ruxsat beramiz.
+   */
+  if (
+    !archiveRequested &&
+    news.status !== NewsStatusTypes.ARCHIVED &&
+    expiredAt.getTime() <= now.getTime()
+  ) {
     throw BadRequest("News expiration date must be in the future");
   }
 
-  /*
-   * Temporal workflow faqat lifecycle vaqtlari
-   * haqiqatdan o'zgarganida restart bo'ladi.
-   */
   const lifecycleChanged =
     publishAt.getTime() !== new Date(news.publish_at).getTime() ||
     expiredAt.getTime() !== new Date(news.expired_at).getTime();
@@ -246,7 +282,24 @@ export const UpdateNewsService = async (
   let publishedAt = news.published_at;
   let archivedAt = news.archived_at;
 
-  if (lifecycleChanged) {
+  /*
+   * ACTIVE yoki PLANNED news qo‘lda ARCHIVED qilindi.
+   */
+  if (archiveRequested) {
+    status = NewsStatusTypes.ARCHIVED;
+
+    archivedAt = news.archived_at ?? now;
+
+    /*
+     * Oldingi published_at saqlanadi.
+     * Planned news publish qilinmasdan archive qilinsa null qoladi.
+     */
+    publishedAt = news.published_at;
+  } else if (news.status !== NewsStatusTypes.ARCHIVED && lifecycleChanged) {
+    /*
+     * ACTIVE va PLANNED status frontdan olinmaydi.
+     * Sana bo‘yicha server aniqlaydi.
+     */
     status =
       publishAt.getTime() > now.getTime()
         ? NewsStatusTypes.PLANNED
@@ -256,11 +309,8 @@ export const UpdateNewsService = async (
       publishedAt = null;
     } else {
       /*
-       * Active news active holatda qolayotgan bo'lsa
-       * oldingi published_at saqlanadi.
-       *
-       * Planned/archived news active bo'layotgan bo'lsa
-       * yangi published_at qo'yiladi.
+       * Oldin ham active bo‘lgan bo‘lsa,
+       * published_at saqlanadi.
        */
       publishedAt =
         news.status === NewsStatusTypes.ACTIVE && news.published_at
@@ -274,7 +324,6 @@ export const UpdateNewsService = async (
   await news.update({
     title,
     description,
-
     file: fileID,
 
     status,
@@ -286,47 +335,71 @@ export const UpdateNewsService = async (
     archived_at: archivedAt,
   });
 
-  if (lifecycleChanged) {
-    try {
+  /*
+   * Qaysi Temporal action kerakligini aniqlaymiz.
+   */
+  const shouldStopWorkflow =
+    archiveRequested && previousData.status !== NewsStatusTypes.ARCHIVED;
+
+  const shouldRestartWorkflow =
+    !archiveRequested &&
+    previousData.status !== NewsStatusTypes.ARCHIVED &&
+    lifecycleChanged;
+
+  try {
+    /*
+     * Manual archive:
+     * workflow darhol terminate qilinadi.
+     */
+    if (shouldStopWorkflow) {
+      await cancelNewsLifecycleWorkflows(Array(newsID));
+    }
+
+    /*
+     * Sana o‘zgardi:
+     * eski workflow to‘xtatilib,
+     * yangi sana bilan qayta ochiladi.
+     */
+    if (shouldRestartWorkflow) {
       await restartNewsLifecycleWorkflow(
         newsID,
         publishAt.toISOString(),
         expiredAt.toISOString(),
       );
-    } catch (error) {
-      console.error("Failed to restart news workflow:", error);
-
-      /*
-       * Yangi Temporal workflow ochilmasa,
-       * DB qiymatlarini oldingi holatiga qaytaramiz.
-       */
-      await news.update(previousData);
-
-      /*
-       * Oldingi workflow terminate bo'lgan bo'lishi mumkin.
-       * Oldingi news hali active/planned va muddati
-       * tugamagan bo'lsa workflow'ni qayta tiklaymiz.
-       */
-      if (
-        previousData.status !== NewsStatusTypes.ARCHIVED &&
-        previousData.expired_at.getTime() > Date.now()
-      ) {
-        try {
-          await restartNewsLifecycleWorkflow(
-            newsID,
-            previousData.publish_at.toISOString(),
-            previousData.expired_at.toISOString(),
-          );
-        } catch (recoveryError) {
-          console.error(
-            "Failed to restore previous news workflow:",
-            recoveryError,
-          );
-        }
-      }
-
-      throw InternalServerError("Failed to update news lifecycle");
     }
+  } catch (error) {
+    console.error("Failed to synchronize news workflow:", error);
+
+    /*
+     * Temporal action xato bo‘lsa,
+     * DB oldingi holatiga qaytariladi.
+     */
+    await news.update(previousData);
+
+    /*
+     * Eski news active/planned bo‘lgan va
+     * expired_at hali tugamagan bo‘lsa,
+     * eski workflow qayta tiklanadi.
+     */
+    if (
+      previousData.status !== NewsStatusTypes.ARCHIVED &&
+      previousData.expired_at.getTime() > Date.now()
+    ) {
+      try {
+        await restartNewsLifecycleWorkflow(
+          newsID,
+          previousData.publish_at.toISOString(),
+          previousData.expired_at.toISOString(),
+        );
+      } catch (recoveryError) {
+        console.error(
+          "Failed to restore previous news workflow:",
+          recoveryError,
+        );
+      }
+    }
+
+    throw InternalServerError("Failed to update news lifecycle");
   }
 
   const updatedNews = await NewsModel.findByPk(newsID);

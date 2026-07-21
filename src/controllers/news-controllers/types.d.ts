@@ -22,6 +22,7 @@ declare interface UpdateNewsData {
 
   publish_at?: string;
   expired_at?: string;
+  status?: NewsStatusTypes;
 }
 
 declare interface DeleteNewsData {

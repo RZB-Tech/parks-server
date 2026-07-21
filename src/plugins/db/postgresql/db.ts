@@ -17,6 +17,8 @@ import { SmsLogModel } from "../../../models/postgresql/client/smslog-model/SmsL
 import { OtpModel } from "../../../models/postgresql/client/otp-model/OtpModel";
 import { UserModel } from "../../../models/postgresql/client/user-model/UserModel";
 import { NewsModel } from "../../../models/postgresql/news-model/NewsModel";
+import { PromotionModel } from "../../../models/postgresql/promotion-model/PromotionModel";
+import { PromotionAttractionModel } from "../../../models/postgresql/promotion-attraction-model/PromotionAttractionModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -50,6 +52,8 @@ const models = {
   SmsLogModel,
   OtpModel,
   NewsModel,
+  PromotionModel,
+  PromotionAttractionModel,
 };
 
 export type ModelsType = typeof models;
@@ -85,4 +89,6 @@ export {
   SmsLogModel,
   OtpModel,
   NewsModel,
+  PromotionModel,
+  PromotionAttractionModel,
 };
