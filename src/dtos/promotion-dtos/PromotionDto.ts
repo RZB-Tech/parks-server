@@ -18,12 +18,14 @@ export const PromotionDTO = (promotion: PromotionModel) => {
     schedule:
       data.type === "one_time"
         ? {
+            start_date: data.start_date,
+            end_date: data.end_date,
+            start_time: data.start_time,
+            end_time: data.end_time,
             starts_at: data.starts_at,
             ends_at: data.ends_at,
           }
         : {
-            start_date: data.start_date,
-            end_date: data.end_date,
             start_time: data.start_time,
             end_time: data.end_time,
             weekdays: data.weekdays ?? [],
