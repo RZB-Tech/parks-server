@@ -354,15 +354,16 @@ export interface PromotionLifecycleData {
 
   weekdays?: number[] | null;
 }
-
 /**
- * Hozirgi vaqt bo‘yicha promotion statusini hisoblaydi.
+ * Hozirgi Tashkent vaqti bo‘yicha promotion statusini hisoblaydi.
  *
  * ONE_TIME:
  * PLANNED -> ACTIVE -> ARCHIVED
  *
  * REGULAR:
- * PLANNED -> ACTIVE -> PLANNED -> ... -> ARCHIVED
+ * PLANNED <-> ACTIVE
+ *
+ * REGULAR faqat manual archive yoki delete orqali tugaydi.
  */
 export const resolvePromotionStatus = (
   data: PromotionLifecycleData,
@@ -372,24 +373,29 @@ export const resolvePromotionStatus = (
     throw BadRequest("CURRENT_DATE_TIME_IS_INVALID");
   }
 
-  /*
-   * ONE_TIME
-   */
   if (data.type === PromotionTypes.ONE_TIME) {
     if (!data.starts_at || !data.ends_at) {
-      throw BadRequest("ONE_TIME_PROMOTION_SCHEDULE_IS_REQUIRED");
+      throw BadRequest(
+        "ONE_TIME_PROMOTION_SCHEDULE_IS_REQUIRED",
+      );
     }
 
     const startsAt = new Date(data.starts_at);
-
     const endsAt = new Date(data.ends_at);
 
-    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-      throw BadRequest("ONE_TIME_PROMOTION_SCHEDULE_IS_INVALID");
+    if (
+      Number.isNaN(startsAt.getTime()) ||
+      Number.isNaN(endsAt.getTime())
+    ) {
+      throw BadRequest(
+        "ONE_TIME_PROMOTION_SCHEDULE_IS_INVALID",
+      );
     }
 
     if (endsAt.getTime() <= startsAt.getTime()) {
-      throw BadRequest("PROMOTION_END_MUST_BE_AFTER_START");
+      throw BadRequest(
+        "PROMOTION_END_MUST_BE_AFTER_START",
+      );
     }
 
     if (now.getTime() < startsAt.getTime()) {
@@ -403,33 +409,27 @@ export const resolvePromotionStatus = (
     return PromotionStatusTypes.ARCHIVED;
   }
 
-  /*
-   * REGULAR
-   */
   if (data.type === PromotionTypes.REGULAR) {
-    if (
-      !data.start_date ||
-      !data.end_date ||
-      !data.start_time ||
-      !data.end_time
-    ) {
-      throw BadRequest("REGULAR_PROMOTION_SCHEDULE_IS_REQUIRED");
+    if (!data.start_time || !data.end_time) {
+      throw BadRequest(
+        "REGULAR_PROMOTION_SCHEDULE_IS_REQUIRED",
+      );
     }
 
-    const startDate = validatePromotionDate(data.start_date, "start_date");
+    const startTime = normalizePromotionTime(
+      data.start_time,
+      "start_time",
+    );
 
-    const endDate = validatePromotionDate(data.end_date, "end_date");
-
-    const startTime = normalizePromotionTime(data.start_time, "start_time");
-
-    const endTime = normalizePromotionTime(data.end_time, "end_time");
-
-    if (startDate > endDate) {
-      throw BadRequest("PROMOTION_END_DATE_MUST_BE_AFTER_START_DATE");
-    }
+    const endTime = normalizePromotionTime(
+      data.end_time,
+      "end_time",
+    );
 
     if (startTime >= endTime) {
-      throw BadRequest("OVERNIGHT_PROMOTION_IS_NOT_SUPPORTED");
+      throw BadRequest(
+        "REGULAR_PROMOTION_OVERNIGHT_IS_NOT_SUPPORTED",
+      );
     }
 
     const weekdays = data.weekdays?.length
@@ -437,47 +437,21 @@ export const resolvePromotionStatus = (
       : [...ALL_WEEKDAYS];
 
     const currentDate = getTashkentDateOnly(now);
+    const currentTime = getTashkentTimeOnly(now);
 
-    if (currentDate > endDate) {
-      return PromotionStatusTypes.ARCHIVED;
-    }
+    const currentWeekday =
+      getPromotionISOWeekday(currentDate);
 
-    let checkingDate = currentDate < startDate ? startDate : currentDate;
+    const isAllowedDay =
+      weekdays.includes(currentWeekday);
 
-    while (checkingDate <= endDate) {
-      const weekday = getPromotionISOWeekday(checkingDate);
+    const isInsideTime =
+      currentTime >= startTime &&
+      currentTime < endTime;
 
-      if (weekdays.includes(weekday)) {
-        const sessionStartsAt = tashkentDateTimeToUTC(checkingDate, startTime);
-
-        const sessionEndsAt = tashkentDateTimeToUTC(checkingDate, endTime);
-
-        /*
-         * Bugungi yoki keyingi session
-         * hali boshlanmagan.
-         */
-        if (now.getTime() < sessionStartsAt.getTime()) {
-          return PromotionStatusTypes.PLANNED;
-        }
-
-        /*
-         * Hozir session ichida.
-         */
-        if (
-          now.getTime() >= sessionStartsAt.getTime() &&
-          now.getTime() < sessionEndsAt.getTime()
-        ) {
-          return PromotionStatusTypes.ACTIVE;
-        }
-      }
-
-      checkingDate = addPromotionDateDays(checkingDate, 1);
-    }
-
-    /*
-     * End_date gacha boshqa session yo‘q.
-     */
-    return PromotionStatusTypes.ARCHIVED;
+    return isAllowedDay && isInsideTime
+      ? PromotionStatusTypes.ACTIVE
+      : PromotionStatusTypes.PLANNED;
   }
 
   throw BadRequest("PROMOTION_TYPE_IS_INVALID");
