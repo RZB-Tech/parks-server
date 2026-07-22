@@ -1,5 +1,8 @@
 import { BadRequest } from "../exceptions";
-import { PromotionStatusTypes, PromotionTypes } from "../models/postgresql/promotion-model/enums";
+import {
+  PromotionStatusTypes,
+  PromotionTypes,
+} from "../models/postgresql/promotion-model/enums";
 
 /*
  * Import pathni model joylashuvingizga moslang.
@@ -520,3 +523,136 @@ export const addDateDays = addPromotionDateDays;
 export const addDaysToDate = addPromotionDateDays;
 
 export const getISOWeekday = getPromotionISOWeekday;
+
+export interface PreparedPromotionSchedule {
+  starts_at: Date | null;
+  ends_at: Date | null;
+
+  start_date: string | null;
+  end_date: string | null;
+
+  start_time: string | null;
+  end_time: string | null;
+
+  weekdays: number[] | null;
+}
+
+interface CurrentPromotionSchedule {
+  type: PromotionTypes;
+
+  starts_at: Date | string | null;
+  ends_at: Date | string | null;
+
+  start_date: string | null;
+  end_date: string | null;
+
+  start_time: string | null;
+  end_time: string | null;
+
+  weekdays: number[] | null;
+}
+
+interface PromotionScheduleUpdate {
+  start_date?: string;
+  end_date?: string;
+
+  start_time?: string;
+  end_time?: string;
+
+  weekdays?: number[];
+}
+
+export const preparePromotionSchedule = (
+  promotion: CurrentPromotionSchedule,
+  body: PromotionScheduleUpdate,
+  type: PromotionTypes,
+): PreparedPromotionSchedule => {
+  if (type === PromotionTypes.ONE_TIME) {
+    const current =
+      promotion.type === PromotionTypes.ONE_TIME
+        ? getOneTimeCurrentSchedule(promotion)
+        : {
+            startDate: null,
+            endDate: null,
+            startTime: null,
+            endTime: null,
+          };
+
+    const startDate = body.start_date ?? current.startDate;
+    const endDate = body.end_date ?? current.endDate;
+
+    const startTime = body.start_time ?? current.startTime;
+    const endTime = body.end_time ?? current.endTime;
+
+    if (!startDate || !endDate || !startTime || !endTime) {
+      throw BadRequest("ONE_TIME_PROMOTION_SCHEDULE_IS_REQUIRED");
+    }
+
+    const startsAt = tashkentDateTimeToUTC(
+      validatePromotionDate(startDate, "start_date"),
+      normalizePromotionTime(startTime, "start_time"),
+    );
+
+    const endsAt = tashkentDateTimeToUTC(
+      validatePromotionDate(endDate, "end_date"),
+      normalizePromotionTime(endTime, "end_time"),
+    );
+
+    if (endsAt.getTime() <= startsAt.getTime()) {
+      throw BadRequest("PROMOTION_END_MUST_BE_AFTER_START");
+    }
+
+    return {
+      starts_at: startsAt,
+      ends_at: endsAt,
+
+      start_date: null,
+      end_date: null,
+
+      start_time: null,
+      end_time: null,
+
+      weekdays: null,
+    };
+  }
+
+  const startTime =
+    body.start_time ??
+    (promotion.type === PromotionTypes.REGULAR ? promotion.start_time : null);
+
+  const endTime =
+    body.end_time ??
+    (promotion.type === PromotionTypes.REGULAR ? promotion.end_time : null);
+
+  if (!startTime || !endTime) {
+    throw BadRequest("REGULAR_PROMOTION_TIME_IS_REQUIRED");
+  }
+
+  const normalizedStartTime = normalizePromotionTime(startTime, "start_time");
+
+  const normalizedEndTime = normalizePromotionTime(endTime, "end_time");
+
+  if (normalizedStartTime >= normalizedEndTime) {
+    throw BadRequest("REGULAR_PROMOTION_OVERNIGHT_IS_NOT_SUPPORTED");
+  }
+
+  const weekdays =
+    body.weekdays !== undefined
+      ? normalizePromotionWeekdays(body.weekdays)
+      : promotion.type === PromotionTypes.REGULAR && promotion.weekdays?.length
+        ? normalizePromotionWeekdays(promotion.weekdays)
+        : normalizePromotionWeekdays();
+
+  return {
+    starts_at: null,
+    ends_at: null,
+
+    start_date: null,
+    end_date: null,
+
+    start_time: normalizedStartTime,
+    end_time: normalizedEndTime,
+
+    weekdays,
+  };
+};

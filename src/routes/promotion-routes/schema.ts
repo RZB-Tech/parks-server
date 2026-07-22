@@ -266,8 +266,6 @@ export const createPromotionSchema = {
       "type",
       "code",
       "discount_percent",
-      "start_date",
-      "end_date",
       "start_time",
       "end_time",
       "attractions",
@@ -429,6 +427,10 @@ export const updatePromotionSchema = {
       type: {
         type: "string",
         enum: Object.values(PromotionTypes),
+      },
+      status: {
+        type: "string",
+        enum: [PromotionStatusTypes.ARCHIVED],
       },
       discount_percent: {
         type: "number",
