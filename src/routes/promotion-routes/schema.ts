@@ -10,23 +10,23 @@ export const promotionAttractionResponseSchema = {
   properties: {
     id: {
       type: "integer",
-    //   example: 1,
+      //   example: 1,
     },
     name: {
       type: "string",
-    //   example: "Flying Tigers",
+      //   example: "Flying Tigers",
     },
     original_price: {
       type: "number",
-    //   example: 25000,
+      //   example: 25000,
     },
     discounted_price: {
       type: "number",
-    //   example: 20000,
+      //   example: 20000,
     },
     sort_order: {
       type: "integer",
-    //   example: 0,
+      //   example: 0,
     },
   },
 };
@@ -79,7 +79,7 @@ export const promotionScheduleResponseSchema = {
       anyOf: [
         {
           type: "string",
-        //   example: "10:00:00",
+          //   example: "10:00:00",
         },
         {
           type: "null",
@@ -91,7 +91,7 @@ export const promotionScheduleResponseSchema = {
       anyOf: [
         {
           type: "string",
-        //   example: "16:00:00",
+          //   example: "16:00:00",
         },
         {
           type: "null",
@@ -110,7 +110,7 @@ export const promotionScheduleResponseSchema = {
             maximum: 7,
           },
 
-        //   example: [1, 2, 3, 4, 5, 6, 7],
+          //   example: [1, 2, 3, 4, 5, 6, 7],
         },
 
         {
@@ -127,24 +127,24 @@ export const promotionResponseSchema = {
   properties: {
     id: {
       type: "integer",
-    //   example: 1,
+      //   example: 1,
     },
 
     code: {
       type: "string",
-    //   example: "PROMO-A1B2C3",
+      //   example: "PROMO-A1B2C3",
     },
 
     name: {
       type: "string",
-    //   example: "DUJU-0916",
+      //   example: "DUJU-0916",
     },
 
     description: {
       anyOf: [
         {
           type: "string",
-        //   example: "Har kuni 20% chegirma",
+          //   example: "Har kuni 20% chegirma",
         },
 
         {
@@ -156,18 +156,18 @@ export const promotionResponseSchema = {
     type: {
       type: "string",
       enum: Object.values(PromotionTypes),
-    //   example: PromotionTypes.REGULAR,
+      //   example: PromotionTypes.REGULAR,
     },
 
     status: {
       type: "string",
       enum: Object.values(PromotionStatusTypes),
-    //   example: PromotionStatusTypes.PLANNED,
+      //   example: PromotionStatusTypes.PLANNED,
     },
 
     discount_percent: {
       type: "number",
-    //   example: 20,
+      //   example: 20,
     },
 
     schedule: promotionScheduleResponseSchema,
@@ -183,6 +183,67 @@ export const promotionResponseSchema = {
       type: "string",
       format: "date-time",
     },
+  },
+};
+
+export const getAllPromotionsSchema = {
+  tags: ["Promotion route"],
+  summary: "Get all promotions",
+  description:
+    "Returns promotions with optional status filtering and pagination. When status is omitted, promotions of all statuses are returned.",
+  security: [
+    {
+      BearerAuth: [],
+    },
+  ],
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      status: {
+        type: "string",
+        enum: Object.values(PromotionStatusTypes),
+        description: "Optional promotion status filter.",
+      },
+    },
+  },
+
+  response: {
+    200: successAnswerTemplate({
+      promotions: {
+        type: "array",
+        items: promotionResponseSchema,
+      },
+    }),
+  },
+};
+
+
+export const getPromotionSchema = {
+  tags: ["Promotion route"],
+  summary: "Get promotion",
+  description:
+    "Returns one promotion with its attractions, cover file and creator information.",
+  security: [
+    {
+      BearerAuth: [],
+    },
+  ],
+  params: {
+    type: "object",
+    required: ["promotionID"],
+    additionalProperties: false,
+    properties: {
+      promotionID: {
+        type: "integer",
+        minimum: 1,
+      },
+    },
+  },
+  response: {
+    200: successAnswerTemplate({
+      promotion: promotionResponseSchema,
+    }),
   },
 };
 
@@ -316,6 +377,158 @@ export const createPromotionSchema = {
   response: {
     200: successAnswerTemplate({
       promotion: promotionResponseSchema,
+    }),
+  },
+};
+
+export const updatePromotionSchema = {
+  tags: ["Promotion route"],
+
+  summary: "Update promotion",
+
+  description:
+    "Updates promotion information, schedule, discount, file and selected attractions. If lifecycle fields change, the Temporal workflow is refreshed automatically.",
+
+  security: [
+    {
+      BearerAuth: [],
+    },
+  ],
+
+  params: {
+    type: "object",
+    required: ["promotionID"],
+    additionalProperties: false,
+
+    properties: {
+      promotionID: {
+        type: "integer",
+        minimum: 1,
+      },
+    },
+  },
+
+  body: reqBodyWrapper({
+    type: "object",
+    additionalProperties: false,
+    minProperties: 1,
+    properties: {
+      name: {
+        type: "string",
+        minLength: 1,
+      },
+      description: {
+        anyOf: [
+          {
+            type: "string",
+            maxLength: 2000,
+          },
+          { type: "null" },
+        ],
+      },
+      type: {
+        type: "string",
+        enum: Object.values(PromotionTypes),
+      },
+      discount_percent: {
+        type: "number",
+        exclusiveMinimum: 0,
+        maximum: 100,
+      },
+      start_date: {
+        type: "string",
+        format: "date",
+        description: "Promotion start date in YYYY-MM-DD format.",
+      },
+      end_date: {
+        type: "string",
+        format: "date",
+        description: "Promotion end date in YYYY-MM-DD format.",
+      },
+      start_time: {
+        type: "string",
+        pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$",
+        description:
+          "Promotion start time in HH:mm format using Asia/Tashkent timezone.",
+      },
+      end_time: {
+        type: "string",
+        pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$",
+        description:
+          "Promotion end time in HH:mm format using Asia/Tashkent timezone.",
+      },
+      weekdays: {
+        type: "array",
+        minItems: 1,
+        uniqueItems: true,
+        description: "ISO weekdays: 1 = Monday and 7 = Sunday.",
+        items: {
+          type: "integer",
+          minimum: 1,
+          maximum: 7,
+        },
+      },
+      attractions: {
+        type: "array",
+        minItems: 1,
+        uniqueItems: true,
+        description: "Attraction IDs included in the promotion.",
+        items: {
+          type: "integer",
+          minimum: 1,
+        },
+      },
+      file: {
+        anyOf: [
+          {
+            type: "integer",
+            minimum: 1,
+          },
+          { type: "null" },
+        ],
+        description: "Dile ID. Send null to remove the current file.",
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      promotion: promotionResponseSchema,
+    }),
+  },
+};
+
+export const deletePromotionsSchema = {
+  tags: ["Promotion route"],
+  summary: "Delete promotions",
+  description:
+    "Deletes promotions and their attraction relations, then terminates their Temporal lifecycle workflows.",
+  security: [
+    {
+      BearerAuth: [],
+    },
+  ],
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["promotionIDs"],
+    additionalProperties: false,
+    properties: {
+      promotionIDs: {
+        type: "array",
+        minItems: 1,
+        uniqueItems: true,
+        items: {
+          type: "integer",
+          minimum: 1,
+        },
+        description: "Promotion IDs that must be deleted.",
+      },
+    },
+  }),
+
+  response: {
+    200: successAnswerTemplate({
+      success: { type: "boolean", const: true },
     }),
   },
 };

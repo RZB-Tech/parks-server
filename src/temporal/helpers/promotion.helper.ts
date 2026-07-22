@@ -70,3 +70,21 @@ export const RefreshPromotionWorkflow = async (
     throw error;
   }
 };
+
+export const StopPromotionWorkflow = async (
+  promotionID: number,
+): Promise<void> => {
+  const client = await getTemporalClient();
+
+  const handle = client.workflow.getHandle(getPromotionWorkflowID(promotionID));
+
+  try {
+    await handle.terminate("Promotion manually archived");
+  } catch (error) {
+    if (error instanceof WorkflowNotFoundError) {
+      return;
+    }
+
+    throw error;
+  }
+};
