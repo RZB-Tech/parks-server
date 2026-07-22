@@ -187,7 +187,7 @@ export const promotionResponseSchema = {
 };
 
 export const getAllPromotionsSchema = {
-  tags: ["Promotion route"],
+  tags: ["Promotions route"],
   summary: "Get all promotions",
   description:
     "Returns promotions with optional status filtering and pagination. When status is omitted, promotions of all statuses are returned.",
@@ -220,7 +220,7 @@ export const getAllPromotionsSchema = {
 
 
 export const getPromotionSchema = {
-  tags: ["Promotion route"],
+  tags: ["Promotions route"],
   summary: "Get promotion",
   description:
     "Returns one promotion with its attractions, cover file and creator information.",
@@ -382,7 +382,7 @@ export const createPromotionSchema = {
 };
 
 export const updatePromotionSchema = {
-  tags: ["Promotion route"],
+  tags: ["Promotions route"],
 
   summary: "Update promotion",
 
@@ -499,7 +499,7 @@ export const updatePromotionSchema = {
 };
 
 export const deletePromotionsSchema = {
-  tags: ["Promotion route"],
+  tags: ["Promotions route"],
   summary: "Delete promotions",
   description:
     "Deletes promotions and their attraction relations, then terminates their Temporal lifecycle workflows.",
