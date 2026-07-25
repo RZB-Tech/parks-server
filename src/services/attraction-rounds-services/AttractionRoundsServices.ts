@@ -23,6 +23,8 @@ import {
   CardTransactionStatusTypes,
   CardTransactionType,
 } from "../../models/postgresql/card-transactions-model/enums";
+import { FindBestActivePromotionForAttractionService } from "../promotion-services/PromotionServices";
+import { PromotionReportModel } from "../../models/postgresql/promotion-reports-model/PromotionReportsModel";
 
 export const GetCurrentAttractionRoundService = async (
   operatorID: number,
@@ -493,6 +495,12 @@ export const CloseCurrentAttractionRoundService = async (
         throw BadRequest("Round has no people!");
       }
 
+      const activePromotion =
+        await FindBestActivePromotionForAttractionService(
+          attractionID,
+          transaction,
+        );
+
       const duration = Number(operatorAttractionData.attractions.duration || 0);
 
       const startedAt = new Date(round.started_at);
@@ -511,6 +519,54 @@ export const CloseCurrentAttractionRoundService = async (
           transaction,
         },
       );
+
+      let promotionRoundIncremented = false;
+
+      if (activePromotion) {
+        const promotionKey = [
+          "promotion",
+          activePromotion.id,
+          activePromotion.discount_percent,
+          activePromotion.original_price,
+          activePromotion.discounted_price,
+        ].join(":");
+
+        const promotionReport = await PromotionReportModel.findOne({
+          where: {
+            attraction: attractionID,
+            xreport: Number(xReport.id),
+            zreport: Number(zReport.id),
+            promotion: activePromotion.id,
+            promotion_key: promotionKey,
+          },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+
+        if (promotionReport) {
+          await promotionReport.increment(
+            {
+              rounds_count: 1,
+            },
+            {
+              transaction,
+            },
+          );
+
+          promotionRoundIncremented = true;
+        }
+      }
+
+      if (!promotionRoundIncremented) {
+        await xReport.increment(
+          {
+            total_rounds: 1,
+          },
+          {
+            transaction,
+          },
+        );
+      }
 
       const reportIncrementData = {
         total_rounds: 1,
