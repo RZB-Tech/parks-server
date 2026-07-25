@@ -32,8 +32,8 @@ export const UpsertPromotionReportService = async (
         promotion_name,
         promotion_type,
 
-        promotion_started_at
-        promotion_ended_at
+        promotion_started_at,
+        promotion_ended_at,
 
         discount_percent,
 
