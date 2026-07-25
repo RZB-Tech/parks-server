@@ -40,6 +40,7 @@ export const UpsertPromotionReportService = async (
         original_unit_price,
         sale_unit_price,
 
+        rounds_count,
         total_people,
 
         total_virtual,
@@ -80,6 +81,7 @@ export const UpsertPromotionReportService = async (
         :originalUnitPrice,
         :saleUnitPrice,
 
+        0,
         :peopleCount,
 
         :totalVirtual,

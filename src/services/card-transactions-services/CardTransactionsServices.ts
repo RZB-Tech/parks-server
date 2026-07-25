@@ -637,6 +637,10 @@ export const CardPaymentTransactionService = async (
       },
     );
 
+    /*
+     * Payment promotion reportdagi odam va summa statistikalarini yangilaydi.
+     * rounds_count faqat round yopilganda oshiriladi.
+     */
     if (hasPromotion) {
       await UpsertPromotionReportService(
         {
