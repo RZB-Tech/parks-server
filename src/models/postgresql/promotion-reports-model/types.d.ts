@@ -14,6 +14,9 @@ declare interface PromotionReportModelI {
   promotion_name: string | null;
   promotion_type: PromotionTypes | null;
 
+  promotion_started_at: Date | null;
+  promotion_ended_at: Date | null;
+
   discount_percent: number;
 
   original_unit_price: number;

@@ -24,27 +24,24 @@ import {
   StartPromotionWorkflow,
   StopPromotionWorkflow,
 } from "../../temporal/helpers/promotion.helper";
+import { getTashkentDateOnly } from "../../utils/date";
 
 export const FindBestActivePromotionForAttractionService = async (
   attractionID: number,
   transaction?: Transaction,
-) => {
+): Promise<ActivePromotionForAttractionDTO | null> => {
   const parsedAttractionID = Number(attractionID);
 
-  if (
-    !Number.isInteger(parsedAttractionID) ||
-    parsedAttractionID <= 0
-  ) {
+  if (!Number.isInteger(parsedAttractionID) || parsedAttractionID <= 0) {
     throw BadRequest("ATTRACTION_ID_IS_INVALID");
   }
+
+  const now = new Date();
 
   const promotions = await PromotionModel.findAll({
     where: {
       status: {
-        [Op.in]: [
-          PromotionStatusTypes.PLANNED,
-          PromotionStatusTypes.ACTIVE,
-        ],
+        [Op.in]: [PromotionStatusTypes.PLANNED, PromotionStatusTypes.ACTIVE],
       },
     },
 
@@ -58,21 +55,10 @@ export const FindBestActivePromotionForAttractionService = async (
           attraction: parsedAttractionID,
         },
 
-        attributes: [
-          "id",
-          "attraction",
-          "original_price",
-          "discounted_price",
-        ],
+        attributes: ["id", "attraction", "original_price", "discounted_price"],
       },
     ],
 
-    /*
-     * Eng katta chegirma birinchi keladi.
-     *
-     * Foizlar teng bo‘lsa eng oxirgi yaratilgan
-     * promotion tanlanadi.
-     */
     order: [
       ["discount_percent", "DESC"],
       ["id", "DESC"],
@@ -101,36 +87,109 @@ export const FindBestActivePromotionForAttractionService = async (
       continue;
     }
 
-    const relation =
-      promotion.promotion_attractions?.[0];
+    const relation = promotion.promotion_attractions?.[0];
 
     if (!relation) {
       continue;
     }
 
+    let promotionStartedAt: Date;
+    let promotionEndedAt: Date;
+
+    if (promotion.type === PromotionTypes.ONE_TIME) {
+      if (!promotion.starts_at || !promotion.ends_at) {
+        continue;
+      }
+
+      promotionStartedAt = new Date(promotion.starts_at);
+
+      promotionEndedAt = new Date(promotion.ends_at);
+
+      if (
+        Number.isNaN(promotionStartedAt.getTime()) ||
+        Number.isNaN(promotionEndedAt.getTime())
+      ) {
+        continue;
+      }
+    } else if (promotion.type === PromotionTypes.REGULAR) {
+      if (!promotion.start_time || !promotion.end_time) {
+        continue;
+      }
+
+      const currentDate = getTashkentDateOnly(now);
+
+      promotionStartedAt = tashkentDateTimeToUTC(
+        currentDate,
+        promotion.start_time,
+      );
+
+      promotionEndedAt = tashkentDateTimeToUTC(currentDate, promotion.end_time);
+
+      if (promotionStartedAt >= promotionEndedAt) {
+        continue;
+      }
+    } else {
+      continue;
+    }
+
+    /*
+     * Qo‘shimcha safety check.
+     * Promotion aynan hozir active session ichida
+     * ekanini tekshiradi.
+     */
+    if (now < promotionStartedAt || now >= promotionEndedAt) {
+      continue;
+    }
+
+    const discountPercent = Number(promotion.discount_percent);
+
+    const originalPrice = Number(relation.original_price);
+
+    const discountedPrice = Number(relation.discounted_price);
+
+    if (
+      !Number.isFinite(discountPercent) ||
+      discountPercent < 0 ||
+      discountPercent > 100
+    ) {
+      continue;
+    }
+
+    if (!Number.isFinite(originalPrice) || originalPrice < 0) {
+      continue;
+    }
+
+    if (
+      !Number.isFinite(discountedPrice) ||
+      discountedPrice < 0 ||
+      discountedPrice > originalPrice
+    ) {
+      continue;
+    }
+
     return {
       id: Number(promotion.id),
+
       code: promotion.code,
       name: promotion.name,
 
       type: promotion.type,
 
-      discount_percent: Number(
-        promotion.discount_percent,
-      ),
+      discount_percent: discountPercent,
 
-      original_price: Number(
-        relation.original_price,
-      ),
+      original_price: originalPrice,
 
-      discounted_price: Number(
-        relation.discounted_price,
-      ),
+      discounted_price: discountedPrice,
+
+      promotion_started_at: promotionStartedAt,
+
+      promotion_ended_at: promotionEndedAt,
     };
   }
 
   return null;
 };
+
 
 export const GetAllPromotionsService = async (query: GetPromotionsQuery) => {
   const where: WhereOptions = {};

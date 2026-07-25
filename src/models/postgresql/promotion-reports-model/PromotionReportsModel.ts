@@ -24,6 +24,9 @@ export class PromotionReportModel
   public promotion_name!: string | null;
   public promotion_type!: PromotionTypes | null;
 
+  public promotion_started_at!: Date | null;
+  public promotion_ended_at!: Date | null;
+
   public discount_percent!: number;
 
   public original_unit_price!: number;
@@ -118,6 +121,16 @@ export class PromotionReportModel
 
         promotion_type: {
           type: DataTypes.ENUM(...Object.values(PromotionTypes)),
+          allowNull: true,
+        },
+
+        promotion_started_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
+
+        promotion_ended_at: {
+          type: DataTypes.DATE,
           allowNull: true,
         },
 

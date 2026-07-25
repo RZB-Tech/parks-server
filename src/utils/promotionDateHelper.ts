@@ -375,27 +375,18 @@ export const resolvePromotionStatus = (
 
   if (data.type === PromotionTypes.ONE_TIME) {
     if (!data.starts_at || !data.ends_at) {
-      throw BadRequest(
-        "ONE_TIME_PROMOTION_SCHEDULE_IS_REQUIRED",
-      );
+      throw BadRequest("ONE_TIME_PROMOTION_SCHEDULE_IS_REQUIRED");
     }
 
     const startsAt = new Date(data.starts_at);
     const endsAt = new Date(data.ends_at);
 
-    if (
-      Number.isNaN(startsAt.getTime()) ||
-      Number.isNaN(endsAt.getTime())
-    ) {
-      throw BadRequest(
-        "ONE_TIME_PROMOTION_SCHEDULE_IS_INVALID",
-      );
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      throw BadRequest("ONE_TIME_PROMOTION_SCHEDULE_IS_INVALID");
     }
 
     if (endsAt.getTime() <= startsAt.getTime()) {
-      throw BadRequest(
-        "PROMOTION_END_MUST_BE_AFTER_START",
-      );
+      throw BadRequest("PROMOTION_END_MUST_BE_AFTER_START");
     }
 
     if (now.getTime() < startsAt.getTime()) {
@@ -411,25 +402,15 @@ export const resolvePromotionStatus = (
 
   if (data.type === PromotionTypes.REGULAR) {
     if (!data.start_time || !data.end_time) {
-      throw BadRequest(
-        "REGULAR_PROMOTION_SCHEDULE_IS_REQUIRED",
-      );
+      throw BadRequest("REGULAR_PROMOTION_SCHEDULE_IS_REQUIRED");
     }
 
-    const startTime = normalizePromotionTime(
-      data.start_time,
-      "start_time",
-    );
+    const startTime = normalizePromotionTime(data.start_time, "start_time");
 
-    const endTime = normalizePromotionTime(
-      data.end_time,
-      "end_time",
-    );
+    const endTime = normalizePromotionTime(data.end_time, "end_time");
 
     if (startTime >= endTime) {
-      throw BadRequest(
-        "REGULAR_PROMOTION_OVERNIGHT_IS_NOT_SUPPORTED",
-      );
+      throw BadRequest("REGULAR_PROMOTION_OVERNIGHT_IS_NOT_SUPPORTED");
     }
 
     const weekdays = data.weekdays?.length
@@ -439,15 +420,11 @@ export const resolvePromotionStatus = (
     const currentDate = getTashkentDateOnly(now);
     const currentTime = getTashkentTimeOnly(now);
 
-    const currentWeekday =
-      getPromotionISOWeekday(currentDate);
+    const currentWeekday = getPromotionISOWeekday(currentDate);
 
-    const isAllowedDay =
-      weekdays.includes(currentWeekday);
+    const isAllowedDay = weekdays.includes(currentWeekday);
 
-    const isInsideTime =
-      currentTime >= startTime &&
-      currentTime < endTime;
+    const isInsideTime = currentTime >= startTime && currentTime < endTime;
 
     return isAllowedDay && isInsideTime
       ? PromotionStatusTypes.ACTIVE
@@ -630,3 +607,67 @@ export const preparePromotionSchedule = (
     weekdays,
   };
 };
+
+// export const resolvePromotionActivePeriod = (
+//   promotion: PromotionModelI,
+//   now: Date = new Date(),
+// ): {
+//   promotion_started_at: Date;
+//   promotion_ended_at: Date;
+// } | null => {
+//   if (promotion.type === PromotionTypes.ONE_TIME) {
+//     if (!promotion.starts_at || !promotion.ends_at) {
+//       return null;
+//     }
+
+//     const startedAt = new Date(promotion.starts_at);
+//     const endedAt = new Date(promotion.ends_at);
+
+//     if (
+//       Number.isNaN(startedAt.getTime()) ||
+//       Number.isNaN(endedAt.getTime()) ||
+//       now < startedAt ||
+//       now >= endedAt
+//     ) {
+//       return null;
+//     }
+
+//     return {
+//       promotion_started_at: startedAt,
+//       promotion_ended_at: endedAt,
+//     };
+//   }
+
+//   if (promotion.type === PromotionTypes.REGULAR) {
+//     if (!promotion.start_time || !promotion.end_time) {
+//       return null;
+//     }
+
+//     const currentDate = getTashkentDateOnly(now);
+//     const currentWeekday = getISOWeekday(currentDate);
+
+//     const weekdays =
+//       Array.isArray(promotion.weekdays) && promotion.weekdays.length > 0
+//         ? promotion.weekdays.map(Number)
+//         : ALL_WEEKDAYS;
+
+//     if (!weekdays.includes(currentWeekday)) {
+//       return null;
+//     }
+
+//     const startedAt = tashkentDateTimeToUTC(currentDate, promotion.start_time);
+
+//     const endedAt = tashkentDateTimeToUTC(currentDate, promotion.end_time);
+
+//     if (startedAt >= endedAt || now < startedAt || now >= endedAt) {
+//       return null;
+//     }
+
+//     return {
+//       promotion_started_at: startedAt,
+//       promotion_ended_at: endedAt,
+//     };
+//   }
+
+//   return null;
+// };

@@ -13,6 +13,14 @@ export const PromotionReportDTO = (data: PromotionReportPlain) => {
 
     promotion_type: data.promotion_type ?? null,
 
+    promotion_started_at: data.promotion_started_at
+      ? new Date(data.promotion_started_at)
+      : null,
+
+    promotion_ended_at: data.promotion_ended_at
+      ? new Date(data.promotion_ended_at)
+      : null,
+
     discount_percent: Number(data.discount_percent || 0),
 
     original_unit_price: Number(data.original_unit_price || 0),

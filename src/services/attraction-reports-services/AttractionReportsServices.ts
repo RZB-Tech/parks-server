@@ -199,7 +199,7 @@ export const GetPaymentOperatorAttractionService = async (
   operatorID: number,
   attractionID: number,
   transaction: Transaction,
-): Promise<PaymentOperatorAttractionData> => {
+) => {
   const operatorAttraction = await AttractionOperatorModel.findOne({
     where: {
       operator: operatorID,
@@ -721,11 +721,8 @@ export const GetTodayAttractionReportsService = async (
       include: [
         {
           model: EmployeeModel,
-
           as: "operators",
-
           required: false,
-
           attributes: ["id", "firstname", "lastname", "file"],
         },
       ],
@@ -761,54 +758,44 @@ export const GetTodayAttractionReportsService = async (
           attributes: [
             "promotion",
             "promotion_key",
-
             "promotion_code",
             "promotion_name",
             "promotion_type",
-
+            "promotion_started_at",
+            "promotion_ended_at",
             "discount_percent",
-
             "original_unit_price",
             "sale_unit_price",
-
             [fn("SUM", col("transactions_count")), "transactions_count"],
-
             [fn("SUM", col("total_people")), "total_people"],
-
             [fn("SUM", col("total_virtual")), "total_virtual"],
-
             [fn("SUM", col("total_classic")), "total_classic"],
-
             [fn("SUM", col("total_vip")), "total_vip"],
-
             [fn("SUM", col("total_organization")), "total_organization"],
-
             [fn("SUM", col("total_online")), "total_online"],
-
             [fn("SUM", col("total_offline")), "total_offline"],
-
             [fn("SUM", col("original_amount")), "original_amount"],
-
             [fn("SUM", col("discount_amount")), "discount_amount"],
-
             [fn("SUM", col("paid_amount")), "paid_amount"],
           ],
 
           group: [
             "promotion",
             "promotion_key",
-
             "promotion_code",
             "promotion_name",
             "promotion_type",
-
+            "promotion_started_at",
+            "promotion_ended_at",
             "discount_percent",
-
             "original_unit_price",
             "sale_unit_price",
           ],
 
-          order: [["discount_percent", "DESC"]],
+          order: [
+            ["discount_percent", "DESC"],
+            ["promotion_started_at", "ASC"],
+          ],
 
           raw: true,
         })
@@ -823,11 +810,9 @@ export const GetTodayAttractionReportsService = async (
     }) as PromotionReportPlain;
 
     const xreportID = Number(report.xreport);
-
     const current = promotionReportsByXReport.get(xreportID) ?? [];
 
     current.push(plain);
-
     promotionReportsByXReport.set(xreportID, current);
   }
 

@@ -498,6 +498,8 @@ export const CardPaymentTransactionService = async (
       transaction,
     );
 
+    const hasPromotion = promotion !== null;
+
     const originalUnitPrice = promotion
       ? Number(promotion.original_price)
       : attractionPrice;
@@ -608,36 +610,26 @@ export const CardPaymentTransactionService = async (
       {
         card: Number(card.id),
         operator: parsedOperatorID,
-
         cashbox: null,
         attraction: attractionID,
         xreport: xreportID,
-
         type: CardTransactionType.PAYMENT,
-
         amount: chargedAmount,
         balance_before: balanceBefore,
         balance_after: balanceAfter,
-
         promotion: promotion?.id ?? null,
         promotion_code: promotion?.code ?? null,
         promotion_name: promotion?.name ?? null,
         promotion_type: promotion?.type ?? null,
-
         discount_percent: discountPercent,
-
         people_count: peopleCount,
-
         original_unit_price: originalUnitPrice,
         sale_unit_price: saleUnitPrice,
-
         original_amount: originalAmount,
         discount_amount: discountAmount,
-
         payment_type: PaymentType.CARD,
         payment_card_type: null,
         payment_service: null,
-
         status: CardTransactionStatusTypes.SUCCESS,
       },
       {
@@ -645,50 +637,33 @@ export const CardPaymentTransactionService = async (
       },
     );
 
-    await UpsertPromotionReportService(
-      {
-        attraction: attractionID,
-
-        xreport: xreportID,
-        zreport: zreportID,
-
-        promotion: promotion?.id ?? null,
-
-        promotion_code: promotion?.code ?? null,
-        promotion_name: promotion?.name ?? null,
-        promotion_type: promotion?.type ?? null,
-
-        discount_percent: discountPercent,
-
-        original_unit_price: originalUnitPrice,
-        sale_unit_price: saleUnitPrice,
-
-        people_count: peopleCount,
-
-        total_virtual: 0,
-
-        total_classic: isClassicCard ? peopleCount : 0,
-
-        total_vip: isVipCard ? peopleCount : 0,
-
-        total_organization: isOrganizationCard ? peopleCount : 0,
-
-        /*
-         * Operator orqali to‘lov offline hisoblanadi.
-         */
-        total_online: 0,
-        total_offline: peopleCount,
-
-        original_amount: originalAmount,
-        discount_amount: discountAmount,
-
-        /*
-         * VIP uchun 0.
-         */
-        paid_amount: chargedAmount,
-      },
-      transaction,
-    );
+    if (hasPromotion) {
+      await UpsertPromotionReportService(
+        {
+          attraction: attractionID,
+          xreport: xreportID,
+          zreport: zreportID,
+          promotion: Number(promotion.id),
+          promotion_code: promotion.code,
+          promotion_name: promotion.name,
+          promotion_type: promotion.type,
+          discount_percent: discountPercent,
+          original_unit_price: originalUnitPrice,
+          sale_unit_price: saleUnitPrice,
+          people_count: peopleCount,
+          total_virtual: 0,
+          total_classic: isClassicCard ? peopleCount : 0,
+          total_vip: isVipCard ? peopleCount : 0,
+          total_organization: isOrganizationCard ? peopleCount : 0,
+          total_online: 0,
+          total_offline: peopleCount,
+          original_amount: originalAmount,
+          discount_amount: discountAmount,
+          paid_amount: chargedAmount,
+        },
+        transaction,
+      );
+    }
 
     const currentTransactionIDs = Array.isArray(round.transactions)
       ? round.transactions.map(Number)
@@ -697,72 +672,40 @@ export const CardPaymentTransactionService = async (
     await round.update(
       {
         transactions: [...currentTransactionIDs, Number(payment.id)],
-
         people_count: Number(round.people_count || 0) + peopleCount,
-
-        /*
-         * Payment source.
-         */
         offline_count: Number(round.offline_count || 0) + peopleCount,
-
-        /*
-         * Card type counters.
-         */
         classic_count:
           Number(round.classic_count || 0) + (isClassicCard ? peopleCount : 0),
-
         vip_count: Number(round.vip_count || 0) + (isVipCard ? peopleCount : 0),
-
         organization_count:
           Number(round.organization_count || 0) +
           (isOrganizationCard ? peopleCount : 0),
-
         paid_amount: Number(round.paid_amount || 0) + chargedAmount,
-
-        /*
-         * Promotiondan keyingi narx.
-         * VIP real pul to‘lamasa ham saleAmount hisoblanadi.
-         */
         total_amount: Number(round.total_amount || 0) + saleAmount,
       },
       {
         transaction,
       },
     );
-
-    await report.update(
-      {
-        total_people: Number(report.total_people || 0) + peopleCount,
-
-        /*
-         * Payment source.
-         */
-        total_offline: Number(report.total_offline || 0) + peopleCount,
-
-        /*
-         * Card type counters.
-         */
-        total_classic:
-          Number(report.total_classic || 0) + (isClassicCard ? peopleCount : 0),
-
-        total_vip:
-          Number(report.total_vip || 0) + (isVipCard ? peopleCount : 0),
-
-        total_organization:
-          Number(report.total_organization || 0) +
-          (isOrganizationCard ? peopleCount : 0),
-
-        paid_amount: Number(report.paid_amount || 0) + chargedAmount,
-
-        /*
-         * Promotiondan keyingi umumiy qiymat.
-         */
-        total_amount: Number(report.total_amount || 0) + saleAmount,
-      },
-      {
-        transaction,
-      },
-    );
+    if (!hasPromotion) {
+      await report.update(
+        {
+          total_people: Number(report.total_people || 0) + peopleCount,
+          total_offline: Number(report.total_offline || 0) + peopleCount,
+          total_classic:
+            Number(report.total_classic || 0) +
+            (isClassicCard ? peopleCount : 0),
+          total_vip:
+            Number(report.total_vip || 0) + (isVipCard ? peopleCount : 0),
+          total_organization:
+            Number(report.total_organization || 0) +
+            (isOrganizationCard ? peopleCount : 0),
+          paid_amount: Number(report.paid_amount || 0) + chargedAmount,
+          total_amount: Number(report.total_amount || 0) + saleAmount,
+        },
+        { transaction },
+      );
+    }
 
     if (!isVipCard) {
       await card.update(

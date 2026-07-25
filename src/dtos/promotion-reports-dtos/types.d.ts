@@ -9,6 +9,9 @@ declare interface ActivePromotionForAttractionDTO {
 
   original_price: number;
   discounted_price: number;
+
+  promotion_started_at: Date;
+  promotion_ended_at: Date;
 }
 
 declare interface UpsertPromotionReportData {
@@ -22,6 +25,9 @@ declare interface UpsertPromotionReportData {
   promotion_code: string | null;
   promotion_name: string | null;
   promotion_type: PromotionTypes | null;
+
+  promotion_started_at: Date;
+  promotion_ended_at: Date;
 
   discount_percent: number;
 
@@ -43,7 +49,6 @@ declare interface UpsertPromotionReportData {
   paid_amount: number;
 }
 
-
 declare interface PromotionReportPlain {
   id?: number | string;
 
@@ -55,6 +60,9 @@ declare interface PromotionReportPlain {
 
   promotion: number | string | null;
   promotion_key: string;
+
+  promotion_started_at: Date | null;
+  promotion_ended_at: Date;
 
   promotion_code: string | null;
   promotion_name: string | null;

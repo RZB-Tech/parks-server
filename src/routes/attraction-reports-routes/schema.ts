@@ -84,6 +84,30 @@ export const promotionReportProperties = {
 
   promotion_type: nullablePromotionType,
 
+  promotion_started_at: {
+    oneOf: [
+      {
+        type: "string",
+        format: "date-time",
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+
+  promotion_ended_at: {
+    oneOf: [
+      {
+        type: "string",
+        format: "date-time",
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+
   discount_percent: {
     type: "number",
   },
