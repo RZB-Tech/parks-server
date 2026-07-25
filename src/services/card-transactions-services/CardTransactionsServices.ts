@@ -24,7 +24,7 @@ import {
   CashboxReportStatusTypes,
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
-import { getTodayRange } from "../../utils/date";
+import { getTashkentDateOnly, getTodayRange } from "../../utils/date";
 import {
   getReportTopUpIncrementData,
   validateTopUpPaymentType,
@@ -41,6 +41,8 @@ import { AttractionReportTypes } from "../../models/postgresql/attraction-model/
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
 import { UserModel } from "../../plugins/db/postgresql/db";
+import { FindBestActivePromotionForAttractionService } from "../promotion-services/PromotionServices";
+import { UpsertPromotionReportService } from "../promotion-reports-services/PromotionReportsServices";
 
 export const CheckNfcCardService = async (
   operatorID: number,
@@ -141,9 +143,7 @@ export const CardTopUpTransactionService = async (
 
   if (!identifier) {
     throw BadRequest(
-      body.type === "nfc"
-        ? "NFC ID is required!"
-        : "Card number is required!",
+      body.type === "nfc" ? "NFC ID is required!" : "Card number is required!",
     );
   }
 
@@ -181,9 +181,7 @@ export const CardTopUpTransactionService = async (
     }
 
     const cardWhere =
-      body.type === "nfc"
-        ? { nfc: identifier }
-        : { card: identifier };
+      body.type === "nfc" ? { nfc: identifier } : { card: identifier };
 
     const card = await CardModel.findOne({
       where: cardWhere,
@@ -388,29 +386,29 @@ export const CardPaymentTransactionService = async (
   operatorID: number,
   body: CardPaymentTransactionData,
 ) => {
-  if (!operatorID || Number.isNaN(Number(operatorID))) {
+  const parsedOperatorID = Number(operatorID);
+
+  if (!Number.isInteger(parsedOperatorID) || parsedOperatorID <= 0) {
     throw BadRequest("Operator ID is invalid!");
   }
 
-  if (!body.nfc || !body.nfc.trim()) {
+  const nfc = body.nfc?.trim();
+
+  if (!nfc) {
     throw BadRequest("NFC is required!");
   }
 
   const attractionID = Number(body.attractionID);
 
-  if (!attractionID || Number.isNaN(attractionID)) {
+  if (!Number.isInteger(attractionID) || attractionID <= 0) {
     throw BadRequest("Attraction ID is invalid!");
   }
 
   const sequelize = CardTransactionModel.sequelize!;
 
-  return await sequelize.transaction(async (transaction) => {
-    /*
-     * Operator shu attractionga ACTIVE holatda
-     * biriktirilganini tekshiramiz.
-     */
+  return sequelize.transaction(async (transaction) => {
     const operatorAttraction = await GetPaymentOperatorAttractionService(
-      operatorID,
+      parsedOperatorID,
       attractionID,
       transaction,
     );
@@ -424,19 +422,16 @@ export const CardPaymentTransactionService = async (
     const attractionPrice = Number(attraction.price);
     const seats = Number(attraction.seats);
 
-    if (!Number.isFinite(attractionPrice) || attractionPrice < 0) {
+    if (!Number.isSafeInteger(attractionPrice) || attractionPrice < 0) {
       throw BadRequest("Attraction price is invalid!");
     }
 
-    if (!Number.isFinite(seats) || seats <= 0) {
+    if (!Number.isInteger(seats) || seats <= 0) {
       throw BadRequest("Attraction seats count is invalid!");
     }
 
-    /*
-     * Operatorning shu attractiondagi ochiq X-reportini topamiz.
-     */
     const openReport = await GetOpenAttractionReportService(
-      operatorID,
+      parsedOperatorID,
       attractionID,
       transaction,
     );
@@ -445,14 +440,10 @@ export const CardPaymentTransactionService = async (
       throw BadRequest("Open report required!");
     }
 
-    /*
-     * Parallel payment yoki report yopilishi bilan conflict
-     * bo‘lmasligi uchun reportni lock bilan qayta olamiz.
-     */
     const report = await AttractionReportModel.findOne({
       where: {
         id: Number(openReport.id),
-        operator: operatorID,
+        operator: parsedOperatorID,
         attraction: attractionID,
         report_type: AttractionReportTypes.XREPORT,
         status: AttractionReportStatusTypes.OPEN,
@@ -465,47 +456,16 @@ export const CardPaymentTransactionService = async (
       throw BadRequest("Open report required!");
     }
 
-    /*
-     * Ochiq roundni olamiz yoki yangisini yaratamiz.
-     */
-    const currentRound = await GetOrCreateOpenAttractionRoundService(
-      report,
-      attractionID,
-      operatorID,
-      transaction,
-    );
+    const xreportID = Number(report.id);
+    const zreportID = Number(report.zreport);
 
-    /*
-     * Bir vaqtning o‘zida bir nechta payment kelganda
-     * seats limit buzilmasligi uchun roundni lock qilamiz.
-     */
-    const round = await AttractionRoundModel.findOne({
-      where: {
-        id: Number(currentRound.id),
-        report: Number(report.id),
-        attraction: attractionID,
-        operator: operatorID,
-        status: AttractionRoundStatusTypes.OPEN,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!round) {
-      throw NotFound("Open attraction round not found!");
+    if (!Number.isInteger(zreportID) || zreportID <= 0) {
+      throw BadRequest("X-report is not connected to Z-report!");
     }
 
-    if (Number(round.people_count) >= seats) {
-      return CardPaymentFailedDTO("Round is full. Press GO first!");
-    }
-
-    /*
-     * NFC orqali kartani topib, parallel yechimlardan
-     * himoyalash uchun lock qilamiz.
-     */
     const card = await CardModel.findOne({
       where: {
-        nfc: body.nfc.trim(),
+        nfc,
       },
       transaction,
       lock: transaction.LOCK.UPDATE,
@@ -515,16 +475,10 @@ export const CardPaymentTransactionService = async (
       throw NotFound("Card not found!");
     }
 
-    /*
-     * Faqat ACTIVE kartadan foydalanish mumkin.
-     */
     if (card.status !== CardStatusTypes.ACTIVE) {
       throw Conflict("Card is not active!");
     }
 
-    /*
-     * Attraction payment uchun ruxsat berilgan card typelar.
-     */
     const allowedCardTypes: CardType[] = [
       CardType.CLASSIC,
       CardType.VIP,
@@ -539,12 +493,55 @@ export const CardPaymentTransactionService = async (
     const isVipCard = card.type === CardType.VIP;
     const isOrganizationCard = card.type === CardType.ORGANIZATION;
 
-    /*
-     * VIP kartada balans mavjud emas va pul yechilmaydi.
-     *
-     * CLASSIC va ORGANIZATION kartalarda esa balans
-     * tekshiriladi va attraction narxi yechiladi.
-     */
+    const promotion = await FindBestActivePromotionForAttractionService(
+      attractionID,
+      transaction,
+    );
+
+    const originalUnitPrice = promotion
+      ? Number(promotion.original_price)
+      : attractionPrice;
+
+    const saleUnitPrice = promotion
+      ? Number(promotion.discounted_price)
+      : attractionPrice;
+
+    const discountPercent = promotion ? Number(promotion.discount_percent) : 0;
+
+    if (!Number.isSafeInteger(originalUnitPrice) || originalUnitPrice < 0) {
+      throw BadRequest("Promotion original price is invalid!");
+    }
+
+    if (
+      !Number.isSafeInteger(saleUnitPrice) ||
+      saleUnitPrice < 0 ||
+      saleUnitPrice > originalUnitPrice
+    ) {
+      throw BadRequest("Promotion discounted price is invalid!");
+    }
+
+    if (
+      !Number.isFinite(discountPercent) ||
+      discountPercent < 0 ||
+      discountPercent > 100
+    ) {
+      throw BadRequest("Promotion discount percent is invalid!");
+    }
+
+    const peopleCount = 1;
+
+    const originalAmount = originalUnitPrice * peopleCount;
+    const saleAmount = saleUnitPrice * peopleCount;
+    const discountAmount = originalAmount - saleAmount;
+
+    if (
+      !Number.isSafeInteger(originalAmount) ||
+      !Number.isSafeInteger(saleAmount) ||
+      !Number.isSafeInteger(discountAmount)
+    ) {
+      throw BadRequest("Payment amount is invalid!");
+    }
+
     let balanceBefore = 0;
     let balanceAfter = 0;
     let chargedAmount = 0;
@@ -568,37 +565,74 @@ export const CardPaymentTransactionService = async (
         throw BadRequest("Card balance is invalid!");
       }
 
-      if (balanceBefore < attractionPrice) {
+      if (balanceBefore < saleAmount) {
         return CardPaymentFailedDTO("Not enough balance!");
       }
 
-      chargedAmount = attractionPrice;
+      chargedAmount = saleAmount;
       balanceAfter = balanceBefore - chargedAmount;
     }
 
     /*
-     * VIP:
-     * amount = 0
-     * balance_before = 0
-     * balance_after = 0
-     *
-     * CLASSIC va ORGANIZATION:
-     * amount = attraction price
+     * Balance tekshirilgandan keyin round olinadi.
+     * Shunda yetarli balans bo‘lmasa yangi round bekorga yaratilmaydi.
      */
+    const currentRound = await GetOrCreateOpenAttractionRoundService(
+      report,
+      attractionID,
+      parsedOperatorID,
+      transaction,
+    );
+
+    const round = await AttractionRoundModel.findOne({
+      where: {
+        id: Number(currentRound.id),
+        report: xreportID,
+        attraction: attractionID,
+        operator: parsedOperatorID,
+        status: AttractionRoundStatusTypes.OPEN,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!round) {
+      throw NotFound("Open attraction round not found!");
+    }
+
+    if (Number(round.people_count) >= seats) {
+      return CardPaymentFailedDTO("Round is full. Press GO first!");
+    }
+
     const payment = await CardTransactionModel.create(
       {
         card: Number(card.id),
-        operator: operatorID,
+        operator: parsedOperatorID,
 
         cashbox: null,
         attraction: attractionID,
-        xreport: Number(report.id),
+        xreport: xreportID,
 
         type: CardTransactionType.PAYMENT,
 
         amount: chargedAmount,
         balance_before: balanceBefore,
         balance_after: balanceAfter,
+
+        promotion: promotion?.id ?? null,
+        promotion_code: promotion?.code ?? null,
+        promotion_name: promotion?.name ?? null,
+        promotion_type: promotion?.type ?? null,
+
+        discount_percent: discountPercent,
+
+        people_count: peopleCount,
+
+        original_unit_price: originalUnitPrice,
+        sale_unit_price: saleUnitPrice,
+
+        original_amount: originalAmount,
+        discount_amount: discountAmount,
 
         payment_type: PaymentType.CARD,
         payment_card_type: null,
@@ -611,62 +645,125 @@ export const CardPaymentTransactionService = async (
       },
     );
 
-    /*
-     * Round hisoblari:
-     *
-     * CLASSIC      -> offline_count
-     * VIP          -> vip_count
-     * ORGANIZATION -> organization_count
-     *
-     * paid_amount faqat real yechilgan summaga oshadi.
-     * VIP uchun chargedAmount = 0.
-     */
+    await UpsertPromotionReportService(
+      {
+        attraction: attractionID,
+
+        xreport: xreportID,
+        zreport: zreportID,
+
+        promotion: promotion?.id ?? null,
+
+        promotion_code: promotion?.code ?? null,
+        promotion_name: promotion?.name ?? null,
+        promotion_type: promotion?.type ?? null,
+
+        discount_percent: discountPercent,
+
+        original_unit_price: originalUnitPrice,
+        sale_unit_price: saleUnitPrice,
+
+        people_count: peopleCount,
+
+        total_virtual: 0,
+
+        total_classic: isClassicCard ? peopleCount : 0,
+
+        total_vip: isVipCard ? peopleCount : 0,
+
+        total_organization: isOrganizationCard ? peopleCount : 0,
+
+        /*
+         * Operator orqali to‘lov offline hisoblanadi.
+         */
+        total_online: 0,
+        total_offline: peopleCount,
+
+        original_amount: originalAmount,
+        discount_amount: discountAmount,
+
+        /*
+         * VIP uchun 0.
+         */
+        paid_amount: chargedAmount,
+      },
+      transaction,
+    );
 
     const currentTransactionIDs = Array.isArray(round.transactions)
       ? round.transactions.map(Number)
       : [];
+
     await round.update(
       {
         transactions: [...currentTransactionIDs, Number(payment.id)],
-        people_count: Number(round.people_count) + 1,
-        offline_count: Number(round.offline_count) + (isClassicCard ? 1 : 0),
-        vip_count: Number(round.vip_count) + (isVipCard ? 1 : 0),
-        organization_count:
-          Number(round.organization_count) + (isOrganizationCard ? 1 : 0),
-        paid_amount: Number(round.paid_amount) + chargedAmount,
+
+        people_count: Number(round.people_count || 0) + peopleCount,
+
         /*
-         * total_amount barcha kirishlarning umumiy qiymati.
-         * VIP pul to‘lamasa ham attraction narxi shu yerga qo‘shiladi.
+         * Payment source.
          */
-        total_amount: Number(round.total_amount) + attractionPrice,
+        offline_count: Number(round.offline_count || 0) + peopleCount,
+
+        /*
+         * Card type counters.
+         */
+        classic_count:
+          Number(round.classic_count || 0) + (isClassicCard ? peopleCount : 0),
+
+        vip_count: Number(round.vip_count || 0) + (isVipCard ? peopleCount : 0),
+
+        organization_count:
+          Number(round.organization_count || 0) +
+          (isOrganizationCard ? peopleCount : 0),
+
+        paid_amount: Number(round.paid_amount || 0) + chargedAmount,
+
+        /*
+         * Promotiondan keyingi narx.
+         * VIP real pul to‘lamasa ham saleAmount hisoblanadi.
+         */
+        total_amount: Number(round.total_amount || 0) + saleAmount,
       },
       {
         transaction,
       },
     );
 
-    /*
-     * X-report umumiy hisoblari.
-     */
     await report.update(
       {
-        total_people: Number(report.total_people) + 1,
-        total_offline: Number(report.total_offline) + (isClassicCard ? 1 : 0),
-        total_vip: Number(report.total_vip) + (isVipCard ? 1 : 0),
+        total_people: Number(report.total_people || 0) + peopleCount,
+
+        /*
+         * Payment source.
+         */
+        total_offline: Number(report.total_offline || 0) + peopleCount,
+
+        /*
+         * Card type counters.
+         */
+        total_classic:
+          Number(report.total_classic || 0) + (isClassicCard ? peopleCount : 0),
+
+        total_vip:
+          Number(report.total_vip || 0) + (isVipCard ? peopleCount : 0),
+
         total_organization:
-          Number(report.total_organization) + (isOrganizationCard ? 1 : 0),
-        paid_amount: Number(report.paid_amount) + chargedAmount,
-        total_amount: Number(report.total_amount) + attractionPrice,
+          Number(report.total_organization || 0) +
+          (isOrganizationCard ? peopleCount : 0),
+
+        paid_amount: Number(report.paid_amount || 0) + chargedAmount,
+
+        /*
+         * Promotiondan keyingi umumiy qiymat.
+         */
+        total_amount: Number(report.total_amount || 0) + saleAmount,
       },
       {
         transaction,
       },
     );
 
-    /*
-     * VIP kartada balans yo‘q va o‘zgarmaydi.
-     * Faqat CLASSIC va ORGANIZATION kartalar balansi yangilanadi.
-     */
     if (!isVipCard) {
       await card.update(
         {

@@ -19,6 +19,7 @@ import { UserModel } from "../../../models/postgresql/client/user-model/UserMode
 import { NewsModel } from "../../../models/postgresql/news-model/NewsModel";
 import { PromotionModel } from "../../../models/postgresql/promotion-model/PromotionModel";
 import { PromotionAttractionModel } from "../../../models/postgresql/promotion-attraction-model/PromotionAttractionModel";
+import { PromotionReportModel } from "../../../models/postgresql/promotion-reports-model/PromotionReportsModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -54,6 +55,7 @@ const models = {
   NewsModel,
   PromotionModel,
   PromotionAttractionModel,
+  PromotionReportModel,
 };
 
 export type ModelsType = typeof models;
@@ -91,4 +93,5 @@ export {
   NewsModel,
   PromotionModel,
   PromotionAttractionModel,
+  PromotionReportModel,
 };

@@ -187,6 +187,15 @@ export class AttractionReportModel
       foreignKey: "operator",
       as: "operators",
     });
+    AttractionReportModel.hasMany(models.PromotionReportModel, {
+      foreignKey: "xreport",
+      as: "xreport_promotion_reports",
+    });
+
+    AttractionReportModel.hasMany(models.PromotionReportModel, {
+      foreignKey: "zreport",
+      as: "zreport_promotion_reports",
+    });
     //  AttractionReportModel.hasMany(models.AttractionRoundModel, {
     //    foreignKey: "report",
     //    as: "rounds",

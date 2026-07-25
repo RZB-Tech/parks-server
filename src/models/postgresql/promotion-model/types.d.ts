@@ -26,4 +26,6 @@ declare interface PromotionModelI {
   weekdays: number[] | null;
 
   file: number | null;
+
+  promotion_attractions?: PromotionAttractionModel[];
 }

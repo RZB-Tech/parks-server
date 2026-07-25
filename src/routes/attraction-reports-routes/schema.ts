@@ -2,14 +2,150 @@ import {
   AttractionReportStatusTypes,
   AttractionReportTypes,
 } from "../../models/postgresql/attraction-report-model/enums";
+
+import { PromotionTypes } from "../../models/postgresql/promotion-model/enums";
+
 import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
 
 const nullableNumber = {
-  oneOf: [{ type: "number" }, { type: "null" }],
+  oneOf: [
+    {
+      type: "number",
+    },
+    {
+      type: "null",
+    },
+  ],
 };
 
 const nullableString = {
-  oneOf: [{ type: "string" }, { type: "null" }],
+  oneOf: [
+    {
+      type: "string",
+    },
+    {
+      type: "null",
+    },
+  ],
+};
+
+const nullableDateTime = {
+  oneOf: [
+    {
+      type: "string",
+      format: "date-time",
+    },
+    {
+      type: "null",
+    },
+  ],
+};
+
+const nullablePromotionType = {
+  oneOf: [
+    {
+      type: "string",
+      enum: Object.values(PromotionTypes),
+    },
+    {
+      type: "null",
+    },
+  ],
+};
+
+const authorizationHeaders = {
+  type: "object",
+  required: ["authorization"],
+  additionalProperties: true,
+
+  properties: {
+    authorization: {
+      type: "string",
+      description: "Bearer access token",
+    },
+  },
+};
+
+export const promotionReportProperties = {
+  promotion: nullableNumber,
+
+  promotion_key: {
+    type: "string",
+  },
+
+  promotion_code: nullableString,
+
+  /*
+   * DTO promotion bo‘lmasa "AKSIYASIZ" qaytaradi.
+   */
+  promotion_name: {
+    type: "string",
+  },
+
+  promotion_type: nullablePromotionType,
+
+  discount_percent: {
+    type: "number",
+  },
+
+  original_unit_price: {
+    type: "number",
+  },
+
+  sale_unit_price: {
+    type: "number",
+  },
+
+  transactions_count: {
+    type: "number",
+  },
+
+  total_people: {
+    type: "number",
+  },
+
+  total_virtual: {
+    type: "number",
+  },
+
+  total_classic: {
+    type: "number",
+  },
+
+  total_vip: {
+    type: "number",
+  },
+
+  total_organization: {
+    type: "number",
+  },
+
+  total_online: {
+    type: "number",
+  },
+
+  total_offline: {
+    type: "number",
+  },
+
+  original_amount: {
+    type: "number",
+  },
+
+  discount_amount: {
+    type: "number",
+  },
+
+  paid_amount: {
+    type: "number",
+  },
+};
+
+export const promotionReportSchema = {
+  type: "object",
+  additionalProperties: false,
+
+  properties: promotionReportProperties,
 };
 
 export const attractionReportOperatorProperties = {
@@ -28,6 +164,13 @@ export const attractionReportOperatorProperties = {
   file: nullableNumber,
 };
 
+export const attractionReportOperatorSchema = {
+  type: "object",
+  additionalProperties: false,
+
+  properties: attractionReportOperatorProperties,
+};
+
 export const attractionReportProperties = {
   id: {
     type: "number",
@@ -42,10 +185,9 @@ export const attractionReportProperties = {
       {
         type: "number",
       },
-      {
-        type: "object",
-        properties: attractionReportOperatorProperties,
-      },
+
+      attractionReportOperatorSchema,
+
       {
         type: "null",
       },
@@ -66,13 +208,14 @@ export const attractionReportProperties = {
 
   opened_at: {
     type: "string",
+    format: "date-time",
   },
 
-  stopped_at: nullableString,
+  stopped_at: nullableDateTime,
 
-  closed_at: nullableString,
+  closed_at: nullableDateTime,
 
-  confirmed_at: nullableString,
+  confirmed_at: nullableDateTime,
 
   confirmed_by: nullableNumber,
 
@@ -91,9 +234,11 @@ export const attractionReportProperties = {
   total_online: {
     type: "number",
   },
+
   total_virtual: {
     type: "number",
   },
+
   total_classic: {
     type: "number",
   },
@@ -114,26 +259,44 @@ export const attractionReportProperties = {
     type: "number",
   },
 
+  promotion_reports: {
+    type: "array",
+
+    items: promotionReportSchema,
+  },
+
   created_at: {
     type: "string",
+    format: "date-time",
   },
+};
+
+export const attractionReportSchema = {
+  type: "object",
+  additionalProperties: false,
+
+  properties: attractionReportProperties,
 };
 
 export const openAttractionReportSchema = {
   summary: "Open attraction report",
+
   description:
     "Open X report for current operator and selected attraction. If today's Z report is not opened, it will be opened automatically.",
+
   tags: ["Attraction reports route"],
 
   headers: {
     type: "object",
     required: ["authorization", "device-id"],
     additionalProperties: true,
+
     properties: {
       authorization: {
         type: "string",
         description: "Bearer access token",
       },
+
       "device-id": {
         type: "string",
       },
@@ -144,9 +307,11 @@ export const openAttractionReportSchema = {
     type: "object",
     required: ["attractionID"],
     additionalProperties: false,
+
     properties: {
       attractionID: {
         type: "number",
+        minimum: 1,
         description: "Attraction ID",
       },
     },
@@ -154,43 +319,36 @@ export const openAttractionReportSchema = {
 
   response: {
     200: successAnswerTemplate({
-      "attraction-report": {
-        type: "object",
-        properties: attractionReportProperties,
-      },
+      "attraction-report": attractionReportSchema,
     }),
   },
 };
 
 export const updateAttractionReportStatusSchema = {
   summary: "Update attraction report status",
+
   description:
     "Update current operator attraction report status. You can stop, reopen or close X/Z report.",
+
   tags: ["Attraction reports route"],
 
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: {
-        type: "string",
-        description: "Bearer access token",
-      },
-    },
-  },
+  headers: authorizationHeaders,
 
   params: {
     type: "object",
     required: ["attractionID", "reportID"],
     additionalProperties: false,
+
     properties: {
       attractionID: {
         type: "number",
+        minimum: 1,
         description: "Attraction ID",
       },
+
       reportID: {
         type: "number",
+        minimum: 1,
         description: "Attraction report ID",
       },
     },
@@ -200,27 +358,28 @@ export const updateAttractionReportStatusSchema = {
     type: "object",
     required: ["status"],
     additionalProperties: false,
+
     properties: {
       status: {
         type: "string",
+
         description:
-          "Send open to reopen stopped report, stopped to pause report, closed to close report.",
+          "Send open to reopen stopped report, stopped to pause report, or closed to close report.",
+
         enum: [
           AttractionReportStatusTypes.OPEN,
           AttractionReportStatusTypes.STOPPED,
           AttractionReportStatusTypes.CLOSED,
         ],
       },
-      description: { type: "string" },
+
+      description: nullableString,
     },
   }),
 
   response: {
     200: successAnswerTemplate({
-      "attraction-report": {
-        type: "object",
-        properties: attractionReportProperties,
-      },
+      "attraction-report": attractionReportSchema,
     }),
   },
 };
@@ -228,10 +387,7 @@ export const updateAttractionReportStatusSchema = {
 export const attractionReportsTodayProperties = {
   zreport: {
     oneOf: [
-      {
-        type: "object",
-        properties: attractionReportProperties,
-      },
+      attractionReportSchema,
       {
         type: "null",
       },
@@ -240,30 +396,16 @@ export const attractionReportsTodayProperties = {
 
   xreports: {
     type: "array",
-    items: {
-      type: "object",
-      properties: attractionReportProperties,
-    },
+    items: attractionReportSchema,
   },
 };
 
 export const getTodayAttractionReportsSchema = {
   summary: "Get today attraction reports",
-  description: "Get today's Z report and X reports for selected attraction",
+  description:
+    "Get today's Z report and X reports with promotion statistics for selected attraction.",
   tags: ["Attraction reports route"],
-
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: {
-        type: "string",
-        description: "Bearer access token",
-      },
-    },
-  },
-
+  headers: authorizationHeaders,
   params: {
     type: "object",
     required: ["attractionID"],
@@ -271,6 +413,7 @@ export const getTodayAttractionReportsSchema = {
     properties: {
       attractionID: {
         type: "number",
+        minimum: 1,
         description: "Attraction ID",
       },
     },
@@ -280,6 +423,7 @@ export const getTodayAttractionReportsSchema = {
     200: successAnswerTemplate({
       "attraction-reports": {
         type: "object",
+        additionalProperties: false,
         properties: attractionReportsTodayProperties,
       },
     }),
@@ -324,10 +468,12 @@ export const attractionZReportsTotalsProperties = {
   total_online: {
     type: "number",
   },
+
   total_virtual: {
     type: "number",
   },
-  total_card: {
+
+  total_classic: {
     type: "number",
   },
 
@@ -359,16 +505,13 @@ export const attractionWithZReportsProperties = {
 
   manufacturer: nullableString,
 
-  category: {
-    type: "number",
-  },
+  category: nullableNumber,
 
   status: {
     type: "string",
   },
-  description: {
-    type: "string",
-  },
+
+  description: nullableString,
 
   dashboard_file: nullableNumber,
 
@@ -376,6 +519,7 @@ export const attractionWithZReportsProperties = {
 
   files: {
     type: "array",
+
     items: {
       type: "number",
     },
@@ -407,36 +551,24 @@ export const attractionWithZReportsProperties = {
 
   zreports: {
     type: "array",
-    items: {
-      type: "object",
-      properties: attractionReportProperties,
-    },
+
+    items: attractionReportSchema,
   },
 };
 
 export const getAttractionZReportsSchema = {
   summary: "Get attraction Z reports",
-  description: "Get attraction Z reports by date for admin panel",
+  description:
+    "Get attraction Z reports with aggregated promotion statistics by date for admin panel.",
   tags: ["Attraction reports route"],
-
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: {
-        type: "string",
-        description: "Bearer access token",
-      },
-    },
-  },
-
+  headers: authorizationHeaders,
   querystring: {
     type: "object",
     additionalProperties: false,
     properties: {
       date: {
         type: "string",
+        format: "date",
         description: "Date format: YYYY-MM-DD",
       },
     },
@@ -446,11 +578,13 @@ export const getAttractionZReportsSchema = {
     200: successAnswerTemplate({
       stats: {
         type: "object",
+        additionalProperties: false,
         properties: attractionZReportsStatsProperties,
       },
 
       totals: {
         type: "object",
+        additionalProperties: false,
         properties: attractionZReportsTotalsProperties,
       },
 
@@ -458,6 +592,7 @@ export const getAttractionZReportsSchema = {
         type: "array",
         items: {
           type: "object",
+          additionalProperties: false,
           properties: attractionWithZReportsProperties,
         },
       },
@@ -467,10 +602,9 @@ export const getAttractionZReportsSchema = {
 
 export const confirmAttractionZReportsSchema = {
   summary: "Confirm Z reports",
-  description:
-    "Confirm or cancel all today's Z reports. All today Z report ids must be sent.",
+  description: "Confirm selected attraction Z reports.",
   tags: ["Attraction reports route"],
-
+  headers: authorizationHeaders,
   body: reqBodyWrapper({
     type: "object",
     required: ["zreports"],
@@ -479,13 +613,16 @@ export const confirmAttractionZReportsSchema = {
       zreports: {
         type: "array",
         minItems: 1,
+
         items: {
           type: "object",
           required: ["id", "status"],
           additionalProperties: false,
+
           properties: {
             id: {
               type: "number",
+              minimum: 1,
             },
 
             status: {
@@ -500,7 +637,10 @@ export const confirmAttractionZReportsSchema = {
 
   response: {
     200: successAnswerTemplate({
-      success: { type: "boolean", const: true },
+      success: {
+        type: "boolean",
+        const: true,
+      },
     }),
   },
 };
@@ -516,9 +656,7 @@ export const accountingAttractionProperties = {
 
   manufacturer: nullableString,
 
-  category: {
-    type: "number",
-  },
+  category: nullableNumber,
 
   status: {
     type: "string",
@@ -530,6 +668,7 @@ export const accountingAttractionProperties = {
 
   files: {
     type: "array",
+
     items: {
       type: "number",
     },
@@ -578,9 +717,11 @@ export const accountingAttractionZReportProperties = {
   total_online: {
     type: "number",
   },
+
   total_virtual: {
     type: "number",
   },
+
   total_classic: {
     type: "number",
   },
@@ -602,53 +743,114 @@ export const accountingAttractionZReportProperties = {
   },
 };
 
+export const promotionReportTotalsProperties = {
+  transactions_count: {
+    type: "number",
+  },
+
+  total_people: {
+    type: "number",
+  },
+
+  total_virtual: {
+    type: "number",
+  },
+
+  total_classic: {
+    type: "number",
+  },
+
+  total_vip: {
+    type: "number",
+  },
+
+  total_organization: {
+    type: "number",
+  },
+
+  total_online: {
+    type: "number",
+  },
+
+  total_offline: {
+    type: "number",
+  },
+
+  original_amount: {
+    type: "number",
+  },
+
+  discount_amount: {
+    type: "number",
+  },
+
+  paid_amount: {
+    type: "number",
+  },
+};
+
 export const accountingAttractionReportProperties = {
   attraction: {
     type: "object",
+    additionalProperties: false,
     properties: accountingAttractionProperties,
   },
 
   zreport: {
     type: "object",
+    additionalProperties: false,
     properties: accountingAttractionZReportProperties,
+  },
+
+  promotion_totals: {
+    type: "object",
+    additionalProperties: false,
+    properties: promotionReportTotalsProperties,
+  },
+
+  promotion_reports: {
+    type: "array",
+    items: {
+      type: "object",
+      additionalProperties: false,
+      properties: promotionReportProperties,
+    },
   },
 };
 
 export const getAccountingAttractionReportsSchema = {
   summary: "Get accounting attraction reports",
   description:
-    "Get confirmed attraction Z reports grouped by attractions for accounting",
+    "Get confirmed attraction Z reports grouped by attractions for accounting.",
   tags: ["Attraction reports route"],
-
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: {
-        type: "string",
-        description: "Bearer access token",
-      },
-    },
-  },
-
+  headers: authorizationHeaders,
   querystring: {
     type: "object",
     additionalProperties: false,
     properties: {
       date: {
         type: "string",
+        format: "date",
         description: "Date format: YYYY-MM-DD",
       },
 
       start_date: {
         type: "string",
+        format: "date",
         description: "Start date format: YYYY-MM-DD",
       },
 
       end_date: {
         type: "string",
+        format: "date",
         description: "End date format: YYYY-MM-DD",
+      },
+
+      promotion_code: {
+        type: "string",
+        minLength: 1,
+        maxLength: 100,
+        description: "Filter promotion statistics by exact promotion code",
       },
     },
   },
@@ -657,24 +859,45 @@ export const getAccountingAttractionReportsSchema = {
     200: successAnswerTemplate({
       "attraction-reports": {
         type: "object",
+        additionalProperties: false,
+
         properties: {
           start_date: {
             type: "string",
+            format: "date-time",
           },
 
           end_date: {
             type: "string",
+            format: "date-time",
           },
 
+          promotion_code: nullableString,
+
+          /*
+           * Barcha selected CONFIRMED Z-reportlar totalsi.
+           */
           totals: {
             type: "object",
+            additionalProperties: false,
             properties: accountingAttractionZReportProperties,
+          },
+
+          /*
+           * Filterdan o‘tgan promotion reportlar totalsi.
+           */
+          promotion_totals: {
+            type: "object",
+            additionalProperties: false,
+            properties: promotionReportTotalsProperties,
           },
 
           attractions: {
             type: "array",
+
             items: {
               type: "object",
+              additionalProperties: false,
               properties: accountingAttractionReportProperties,
             },
           },
@@ -685,8 +908,10 @@ export const getAccountingAttractionReportsSchema = {
 };
 
 export const getNotConfirmedAttractionZReportDatesSchema = {
+  summary: "Get not confirmed attraction Z report dates",
+  description: "Get dates that contain unconfirmed attraction Z reports.",
   tags: ["Attraction reports route"],
-  summary: "Get not confirmed attraction zreport dates",
+  headers: authorizationHeaders,
   response: {
     200: successAnswerTemplate({
       dates: {

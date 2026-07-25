@@ -1,5 +1,7 @@
-import { Model, DataTypes, Sequelize, Optional } from "sequelize";
+import { DataTypes, Model, Sequelize } from "sequelize";
+
 import { ModelsType } from "../../../plugins/db/postgresql/db";
+
 import {
   CardTransactionStatusTypes,
   CardTransactionType,
@@ -7,6 +9,7 @@ import {
   PaymentServiceType,
   PaymentType,
 } from "./enums";
+import { PromotionTypes } from "../promotion-model/enums";
 
 export class CardTransactionModel
   extends Model<CardTransactionModelI, TableOptionalAttributes>
@@ -15,10 +18,11 @@ export class CardTransactionModel
   public id!: number;
 
   public card!: number;
+
   public operator!: number | null;
-  public cashbox!: number;
-  public attraction!: number;
-  public xreport!: number;
+  public cashbox!: number | null;
+  public attraction!: number | null;
+  public xreport!: number | null;
 
   public type!: CardTransactionType;
 
@@ -26,18 +30,41 @@ export class CardTransactionModel
   public balance_before!: number;
   public balance_after!: number;
 
+  /*
+   * Promotion snapshot
+   */
+  public promotion!: number | null;
+
+  public promotion_code!: string | null;
+  public promotion_name!: string | null;
+  public promotion_type!: PromotionTypes | null;
+
+  public discount_percent!: number;
+
+  /*
+   * Attraction payment snapshot
+   */
+  public people_count!: number;
+
+  public original_unit_price!: number;
+  public sale_unit_price!: number;
+
+  public original_amount!: number;
+  public discount_amount!: number;
+
+  /*
+   * Payment ma’lumotlari
+   */
   public payment_type!: PaymentType;
+
   public payment_card_type!: PaymentCardType | null;
   public payment_service!: PaymentServiceType | null;
 
   public status!: CardTransactionStatusTypes;
 
-  // timestamps
-  public readonly created_at!: Date;
-  public readonly updated_at!: Date;
-  public readonly deleted_at!: Date | null;
-
-  public static associations: {};
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+  public readonly deletedAt!: Date | null;
 
   public static initialize(sequelize: Sequelize) {
     CardTransactionModel.init(
@@ -80,20 +107,88 @@ export class CardTransactionModel
         },
 
         amount: {
-          type: DataTypes.INTEGER,
+          type: DataTypes.BIGINT,
           allowNull: false,
+          defaultValue: 0,
         },
 
         balance_before: {
-          type: DataTypes.INTEGER,
+          type: DataTypes.BIGINT,
           allowNull: false,
+          defaultValue: 0,
         },
 
         balance_after: {
-          type: DataTypes.INTEGER,
+          type: DataTypes.BIGINT,
           allowNull: false,
+          defaultValue: 0,
         },
 
+        /*
+         * Promotion
+         */
+        promotion: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+        },
+
+        promotion_code: {
+          type: DataTypes.STRING(100),
+          allowNull: true,
+        },
+
+        promotion_name: {
+          type: DataTypes.STRING(255),
+          allowNull: true,
+        },
+
+        promotion_type: {
+          type: DataTypes.ENUM(...Object.values(PromotionTypes)),
+          allowNull: true,
+        },
+
+        discount_percent: {
+          type: DataTypes.DECIMAL(5, 2),
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        /*
+         * Payment snapshot
+         */
+        people_count: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        original_unit_price: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        sale_unit_price: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        original_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        discount_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        /*
+         * Payment type
+         */
         payment_type: {
           type: DataTypes.ENUM(...Object.values(PaymentType)),
           allowNull: false,
@@ -117,10 +212,30 @@ export class CardTransactionModel
       },
       {
         sequelize,
-        underscored: true,
+
         tableName: "card_transactions",
+
         timestamps: true,
         paranoid: true,
+        underscored: true,
+
+        indexes: [
+          {
+            fields: ["card"],
+          },
+          {
+            fields: ["xreport"],
+          },
+          {
+            fields: ["attraction"],
+          },
+          {
+            fields: ["promotion"],
+          },
+          {
+            fields: ["type", "status"],
+          },
+        ],
       },
     );
   }
@@ -139,6 +254,21 @@ export class CardTransactionModel
     CardTransactionModel.belongsTo(models.CashboxModel, {
       foreignKey: "cashbox",
       as: "cashboxes",
+    });
+
+    CardTransactionModel.belongsTo(models.AttractionModel, {
+      foreignKey: "attraction",
+      as: "attractions",
+    });
+
+    CardTransactionModel.belongsTo(models.AttractionReportModel, {
+      foreignKey: "xreport",
+      as: "xreports",
+    });
+
+    CardTransactionModel.belongsTo(models.PromotionModel, {
+      foreignKey: "promotion",
+      as: "promotions",
     });
   }
 }

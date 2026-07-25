@@ -1,43 +1,54 @@
-declare interface AttractionReportDto {
-  id: number;
-  attraction: number;
-  operator: number;
-  status: AttractionReportStatusTypes;
-  opened_at: Date;
-  closed_at: Date | null;
-  total_rounds: number;
-  total_people: number;
-  paid_amount: number;
-  total_amount: number;
-  created_at?: Date;
-}
+/*
+|--------------------------------------------------------------------------
+| ATTRACTION REPORT OPERATOR TYPES
+|--------------------------------------------------------------------------
+*/
 
-declare interface PaymentAttractionPlain {
+declare interface AttractionReportOperatorPlain {
   id: number | string;
-  name: string;
-  price: number | string;
-  seats: number | string;
-}
 
-declare interface PaymentOperatorAttractionData extends AttractionOperatorModelI {
-  attractions: PaymentAttractionPlain;
-}
-
-declare type AttractionReportOperatorDTO = {
-  id: number;
   firstname: string;
   lastname: string;
+
+  file: number | string | null;
+}
+
+declare interface AttractionReportOperatorResponseDTO {
+  id: number;
+
+  firstname: string;
+  lastname: string;
+
   file: number | null;
-};
+}
+
+/*
+|--------------------------------------------------------------------------
+| ATTRACTION REPORT PLAIN TYPE
+|--------------------------------------------------------------------------
+*/
 
 declare type AttractionReportWithOperatorPlain = AttractionReportModelI & {
-  operators?: AttractionReportOperatorDTO | null;
+  operators?: AttractionReportOperatorPlain | null;
+
+  promotion_reports?: PromotionReportPlain[];
+
+  created_at?: Date;
+  updated_at?: Date;
+  deleted_at?: Date | null;
 };
 
-declare type AttractionReportDto = {
+/*
+|--------------------------------------------------------------------------
+| ATTRACTION REPORT RESPONSE
+|--------------------------------------------------------------------------
+*/
+
+declare interface AttractionReportResponseDTO {
   id: number;
   attraction: number;
-  operator: number | AttractionReportOperatorDTOType | null;
+
+  operator: number | AttractionReportOperatorResponseDTO | null;
 
   report_type: AttractionReportTypes;
   zreport: number | null;
@@ -56,19 +67,32 @@ declare type AttractionReportDto = {
 
   total_offline: number;
   total_online: number;
+
+  total_virtual: number;
+  total_classic: number;
+
   total_vip: number;
   total_organization: number;
 
   paid_amount: number;
   total_amount: number;
 
-  created_at: Date;
-};
+  promotion_reports: PromotionReportResponseDTO[];
 
-declare type AttractionReportsTodayDto = {
-  zreport: AttractionReportDto | null;
-  xreports: AttractionReportDto[];
-};
+  created_at?: Date;
+}
+
+declare interface AttractionReportsTodayDto {
+  zreport: AttractionReportResponseDTO | null;
+
+  xreports: AttractionReportResponseDTO[];
+}
+
+/*
+|--------------------------------------------------------------------------
+| ATTRACTION ZREPORT TOTALS
+|--------------------------------------------------------------------------
+*/
 
 declare interface AttractionZReportTotalsDTO {
   total_rounds: number;
@@ -76,8 +100,10 @@ declare interface AttractionZReportTotalsDTO {
 
   total_offline: number;
   total_online: number;
+
   total_virtual: number;
   total_classic: number;
+
   total_vip: number;
   total_organization: number;
 
@@ -85,34 +111,103 @@ declare interface AttractionZReportTotalsDTO {
   total_amount: number;
 }
 
+/*
+|--------------------------------------------------------------------------
+| PROMOTION REPORT TOTALS
+|--------------------------------------------------------------------------
+*/
+
+declare interface PromotionReportTotalsDTO {
+  transactions_count: number;
+  total_people: number;
+
+  total_virtual: number;
+  total_classic: number;
+
+  total_vip: number;
+  total_organization: number;
+
+  total_online: number;
+  total_offline: number;
+
+  original_amount: number;
+  discount_amount: number;
+  paid_amount: number;
+}
+
 declare type AttractionWithZReportsPlain = AttractionModelI & {
   reports?: AttractionReportWithOperatorPlain[];
 };
 
-declare type AccountingAttractionReportDTO = {
-  attraction: {
-    id: number;
-    name: string;
-    manufacturer: string | null;
-    status: string;
-    dashboard_file: number | null;
-    main_file: number | null;
-    files: number[];
-    price: number;
-    duration: number;
-    seats: number;
-    age_limit: number;
-    min_height: number;
-    max_weight: number;
-    description: string | null;
-  };
+declare interface AttractionZReportAttractionResponseDTO {
+  id: number;
+
+  name: string;
+  manufacturer: string | null;
+
+  status: string;
+
+  dashboard_file: number | null;
+  main_file: number | null;
+
+  files: number[];
+
+  price: number;
+  duration: number;
+  seats: number;
+
+  age_limit: number;
+  min_height: number;
+  max_weight: number;
+
+  description: string | null;
+
+  zreports: AttractionReportResponseDTO[];
+}
+
+declare interface AccountingAttractionDTO {
+  id: number;
+
+  name: string;
+  manufacturer: string | null;
+
+  status: string;
+
+  dashboard_file: number | null;
+  main_file: number | null;
+
+  files: number[];
+
+  price: number;
+  duration: number;
+  seats: number;
+
+  age_limit: number;
+  min_height: number;
+  max_weight: number;
+
+  description: string | null;
+}
+
+declare interface AccountingAttractionReportDTO {
+  attraction: AccountingAttractionDTO;
   zreport: AttractionZReportTotalsDTO;
-};
+  promotion_totals: PromotionReportTotalsDTO;
+  promotion_reports: PromotionReportResponseDTO[];
+}
 
-
-declare type AccountingAttractionReportsResponseDTO = {
+declare interface AccountingAttractionReportsResponseDTO {
   start_date: Date;
   end_date: Date;
+  promotion_code: string | null;
   totals: AttractionZReportTotalsDTO;
+  promotion_totals: PromotionReportTotalsDTO;
   attractions: AccountingAttractionReportDTO[];
-};
+}
+
+declare interface GetAccountingAttractionReportsQuery {
+  date?: string;
+  start_date?: string;
+  end_date?: string;
+  promotion_code?: string;
+}

@@ -1,4 +1,4 @@
-import { literal, Op, WhereOptions } from "sequelize";
+import { literal, Op, Transaction, WhereOptions } from "sequelize";
 import { PromotionModel } from "../../models/postgresql/promotion-model/PromotionModel";
 import { BadRequest, InternalServerError, NotFound } from "../../exceptions";
 import {
@@ -24,6 +24,113 @@ import {
   StartPromotionWorkflow,
   StopPromotionWorkflow,
 } from "../../temporal/helpers/promotion.helper";
+
+export const FindBestActivePromotionForAttractionService = async (
+  attractionID: number,
+  transaction?: Transaction,
+) => {
+  const parsedAttractionID = Number(attractionID);
+
+  if (
+    !Number.isInteger(parsedAttractionID) ||
+    parsedAttractionID <= 0
+  ) {
+    throw BadRequest("ATTRACTION_ID_IS_INVALID");
+  }
+
+  const promotions = await PromotionModel.findAll({
+    where: {
+      status: {
+        [Op.in]: [
+          PromotionStatusTypes.PLANNED,
+          PromotionStatusTypes.ACTIVE,
+        ],
+      },
+    },
+
+    include: [
+      {
+        model: PromotionAttractionModel,
+        as: "promotion_attractions",
+        required: true,
+
+        where: {
+          attraction: parsedAttractionID,
+        },
+
+        attributes: [
+          "id",
+          "attraction",
+          "original_price",
+          "discounted_price",
+        ],
+      },
+    ],
+
+    /*
+     * Eng katta chegirma birinchi keladi.
+     *
+     * Foizlar teng bo‘lsa eng oxirgi yaratilgan
+     * promotion tanlanadi.
+     */
+    order: [
+      ["discount_percent", "DESC"],
+      ["id", "DESC"],
+    ],
+
+    transaction,
+  });
+
+  for (const promotion of promotions) {
+    const status = resolvePromotionStatus({
+      type: promotion.type,
+
+      starts_at: promotion.starts_at,
+      ends_at: promotion.ends_at,
+
+      start_date: promotion.start_date,
+      end_date: promotion.end_date,
+
+      start_time: promotion.start_time,
+      end_time: promotion.end_time,
+
+      weekdays: promotion.weekdays,
+    });
+
+    if (status !== PromotionStatusTypes.ACTIVE) {
+      continue;
+    }
+
+    const relation =
+      promotion.promotion_attractions?.[0];
+
+    if (!relation) {
+      continue;
+    }
+
+    return {
+      id: Number(promotion.id),
+      code: promotion.code,
+      name: promotion.name,
+
+      type: promotion.type,
+
+      discount_percent: Number(
+        promotion.discount_percent,
+      ),
+
+      original_price: Number(
+        relation.original_price,
+      ),
+
+      discounted_price: Number(
+        relation.discounted_price,
+      ),
+    };
+  }
+
+  return null;
+};
 
 export const GetAllPromotionsService = async (query: GetPromotionsQuery) => {
   const where: WhereOptions = {};

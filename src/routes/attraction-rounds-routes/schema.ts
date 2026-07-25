@@ -1,10 +1,26 @@
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
-import { CardTransactionType } from "../../models/postgresql/card-transactions-model/enums";
+
+import {
+  CardTransactionType,
+  PaymentType,
+  PaymentCardType,
+  PaymentServiceType,
+} from "../../models/postgresql/card-transactions-model/enums";
+
 import {
   CardStatusTypes,
   CardType,
 } from "../../models/postgresql/cards-model/enums";
+
+import { PromotionTypes } from "../../models/postgresql/promotion-model/enums";
+
 import { successAnswerTemplate } from "../schemas";
+
+/*
+|--------------------------------------------------------------------------
+| COMMON NULLABLE SCHEMAS
+|--------------------------------------------------------------------------
+*/
 
 const nullableNumber = {
   oneOf: [{ type: "number" }, { type: "null" }],
@@ -13,6 +29,37 @@ const nullableNumber = {
 const nullableString = {
   oneOf: [{ type: "string" }, { type: "null" }],
 };
+
+const nullableDateTime = {
+  oneOf: [
+    {
+      type: "string",
+      format: "date-time",
+    },
+    {
+      type: "null",
+    },
+  ],
+};
+
+const authorizationHeaders = {
+  type: "object",
+  required: ["authorization"],
+  additionalProperties: true,
+
+  properties: {
+    authorization: {
+      type: "string",
+      description: "Bearer access token",
+    },
+  },
+};
+
+/*
+|--------------------------------------------------------------------------
+| ROUND OPERATOR
+|--------------------------------------------------------------------------
+*/
 
 export const attractionRoundOperatorProperties = {
   id: {
@@ -31,9 +78,7 @@ export const attractionRoundOperatorProperties = {
     type: "string",
   },
 
-  telegram_username: {
-    type: "string",
-  },
+  telegram_username: nullableString,
 
   role: {
     type: "number",
@@ -46,6 +91,18 @@ export const attractionRoundOperatorProperties = {
   file: nullableNumber,
 };
 
+export const attractionRoundOperatorSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: attractionRoundOperatorProperties,
+};
+
+/*
+|--------------------------------------------------------------------------
+| ROUND ATTRACTION
+|--------------------------------------------------------------------------
+*/
+
 export const attractionRoundAttractionProperties = {
   id: {
     type: "number",
@@ -55,13 +112,7 @@ export const attractionRoundAttractionProperties = {
     type: "string",
   },
 
-  manufacturer: {
-    type: "string",
-  },
-
-  category: {
-    type: "number",
-  },
+  manufacturer: nullableString,
 
   status: {
     type: "string",
@@ -94,107 +145,22 @@ export const attractionRoundAttractionProperties = {
 
   min_height: nullableNumber,
 
-  max_weight: {
-    type: "number",
-  },
+  max_weight: nullableNumber,
 
-  description: {
-    type: "string",
-  },
+  description: nullableString,
 };
 
-export const attractionRoundProperties = {
-  id: {
-    type: "number",
-  },
-
-  report: {
-    type: "number",
-  },
-
-  attraction: {
-    oneOf: [
-      {
-        type: "number",
-      },
-      {
-        type: "object",
-        properties: attractionRoundAttractionProperties,
-      },
-      {
-        type: "null",
-      },
-    ],
-  },
-
-  operator: {
-    oneOf: [
-      {
-        type: "number",
-      },
-      {
-        type: "object",
-        properties: attractionRoundOperatorProperties,
-      },
-      {
-        type: "null",
-      },
-    ],
-  },
-
-  round_number: {
-    type: "number",
-  },
-
-  status: {
-    type: "string",
-    enum: Object.values(AttractionRoundStatusTypes),
-  },
-
-  people_count: {
-    type: "number",
-  },
-
-  offline_count: {
-    type: "number",
-  },
-
-  online_count: {
-    type: "number",
-  },
-
-  virtual_count: {
-    type: "number",
-  },
-  classic_count: {
-    type: "number",
-  },
-  vip_count: {
-    type: "number",
-  },
-
-  organization_count: {
-    type: "number",
-  },
-
-  paid_amount: {
-    type: "number",
-  },
-
-  total_amount: {
-    type: "number",
-  },
-
-  started_at: {
-    type: "string",
-  },
-
-  finished_at: nullableString,
-
-  created_at: {
-    type: "string",
-  },
+export const attractionRoundAttractionSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: attractionRoundAttractionProperties,
 };
+
+/*
+|--------------------------------------------------------------------------
+| TRANSACTION CARD
+|--------------------------------------------------------------------------
+*/
 
 export const attractionRoundTransactionCardProperties = {
   id: {
@@ -224,6 +190,34 @@ export const attractionRoundTransactionCardProperties = {
   },
 };
 
+export const attractionRoundTransactionCardSchema = {
+  type: "object",
+
+  required: ["id", "card", "nfc", "type", "status", "balance"],
+
+  additionalProperties: false,
+
+  properties: attractionRoundTransactionCardProperties,
+};
+
+export const attractionRoundTransactionCardIDSchema = {
+  type: "object",
+  required: ["id"],
+  additionalProperties: false,
+
+  properties: {
+    id: {
+      type: "number",
+    },
+  },
+};
+
+/*
+|--------------------------------------------------------------------------
+| ROUND TRANSACTION
+|--------------------------------------------------------------------------
+*/
+
 export const attractionRoundTransactionProperties = {
   id: {
     type: "number",
@@ -232,6 +226,46 @@ export const attractionRoundTransactionProperties = {
   transaction_type: {
     type: "string",
     enum: Object.values(CardTransactionType),
+  },
+
+  payment_source: {
+    type: "string",
+    enum: ["operator", "client"],
+  },
+
+  operator: nullableNumber,
+
+  payment_type: {
+    type: "string",
+    enum: Object.values(PaymentType),
+  },
+
+  payment_card_type: {
+    oneOf: [
+      {
+        type: "string",
+        enum: Object.values(PaymentCardType),
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+
+  payment_service: {
+    oneOf: [
+      {
+        type: "string",
+        enum: Object.values(PaymentServiceType),
+      },
+      {
+        type: "null",
+      },
+    ],
+  },
+
+  people_count: {
+    type: "number",
   },
 
   amount: {
@@ -246,64 +280,198 @@ export const attractionRoundTransactionProperties = {
     type: "number",
   },
 
-  card: {
-    oneOf: [
-      {
-        type: "object",
-        required: ["id", "card", "nfc", "type", "status", "balance"],
-        additionalProperties: false,
-        properties: attractionRoundTransactionCardProperties,
-      },
-      {
-        type: "object",
-        required: ["id"],
-        additionalProperties: false,
-        properties: {
-          id: {
-            type: "number",
-          },
-        },
-      },
-    ],
+  promotion: nullableNumber,
+
+  promotion_code: nullableString,
+
+  promotion_name: {
+    type: "string",
   },
 
-  created_at: {
+  promotion_type: {
     oneOf: [
       {
         type: "string",
-        format: "date-time",
+        enum: Object.values(PromotionTypes),
       },
       {
         type: "null",
       },
     ],
   },
+
+  discount_percent: {
+    type: "number",
+  },
+
+  original_unit_price: {
+    type: "number",
+  },
+
+  sale_unit_price: {
+    type: "number",
+  },
+
+  original_amount: {
+    type: "number",
+  },
+
+  discount_amount: {
+    type: "number",
+  },
+
+  card: {
+    oneOf: [
+      attractionRoundTransactionCardSchema,
+      attractionRoundTransactionCardIDSchema,
+    ],
+  },
+
+  created_at: nullableDateTime,
 };
+
+export const attractionRoundTransactionSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: attractionRoundTransactionProperties,
+};
+
+/*
+|--------------------------------------------------------------------------
+| ATTRACTION ROUND
+|--------------------------------------------------------------------------
+*/
+
+export const attractionRoundProperties = {
+  id: {
+    type: "number",
+  },
+
+  report: {
+    type: "number",
+  },
+
+  attraction: {
+    oneOf: [
+      {
+        type: "number",
+      },
+      attractionRoundAttractionSchema,
+      {
+        type: "null",
+      },
+    ],
+  },
+
+  operator: {
+    oneOf: [
+      {
+        type: "number",
+      },
+      attractionRoundOperatorSchema,
+      {
+        type: "null",
+      },
+    ],
+  },
+
+  round_number: {
+    type: "number",
+  },
+
+  status: {
+    type: "string",
+    enum: Object.values(AttractionRoundStatusTypes),
+  },
+
+  people_count: {
+    type: "number",
+  },
+
+  /*
+   * Payment source counters.
+   */
+  offline_count: {
+    type: "number",
+  },
+
+  online_count: {
+    type: "number",
+  },
+
+  /*
+   * Card type counters.
+   */
+  virtual_count: {
+    type: "number",
+  },
+
+  classic_count: {
+    type: "number",
+  },
+
+  vip_count: {
+    type: "number",
+  },
+
+  organization_count: {
+    type: "number",
+  },
+
+  paid_amount: {
+    type: "number",
+  },
+
+  total_amount: {
+    type: "number",
+  },
+
+  started_at: {
+    type: "string",
+    format: "date-time",
+  },
+
+  finished_at: nullableDateTime,
+
+  created_at: nullableDateTime,
+
+  transactions: {
+    type: "array",
+    items: attractionRoundTransactionSchema,
+  },
+};
+
+export const attractionRoundSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: attractionRoundProperties,
+};
+
+/*
+|--------------------------------------------------------------------------
+| GET CURRENT ROUND
+|--------------------------------------------------------------------------
+*/
 
 export const getCurrentAttractionRoundSchema = {
   summary: "Get current attraction round",
-  description: "Get current open round for current operator attraction",
+
+  description:
+    "Get current open round with accumulated counters and payment transactions for current operator attraction.",
+
   tags: ["Attraction rounds route"],
 
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: {
-        type: "string",
-        description: "Bearer access token",
-      },
-    },
-  },
+  headers: authorizationHeaders,
 
   params: {
     type: "object",
     required: ["attractionID"],
     additionalProperties: false,
+
     properties: {
       attractionID: {
         type: "number",
+        minimum: 1,
         description: "Attraction ID",
       },
     },
@@ -313,21 +481,7 @@ export const getCurrentAttractionRoundSchema = {
     200: successAnswerTemplate({
       "attraction-round": {
         oneOf: [
-          {
-            type: "object",
-            properties: {
-              ...attractionRoundProperties,
-
-              transactions: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: attractionRoundTransactionProperties,
-                },
-              },
-            },
-          },
+          attractionRoundSchema,
           {
             type: "null",
           },
@@ -337,31 +491,31 @@ export const getCurrentAttractionRoundSchema = {
   },
 };
 
+/*
+|--------------------------------------------------------------------------
+| GET TODAY CURRENT OPERATOR ATTRACTION ROUNDS
+|--------------------------------------------------------------------------
+*/
+
 export const getTodayAttractionRoundsSchema = {
   summary: "Get today attraction rounds",
+
   description:
-    "Get today open and finished rounds for current operator attraction",
+    "Get today's open and finished rounds with payment transactions for current operator and selected attraction.",
+
   tags: ["Attraction rounds route"],
 
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: {
-        type: "string",
-        description: "Bearer access token",
-      },
-    },
-  },
+  headers: authorizationHeaders,
 
   params: {
     type: "object",
     required: ["attractionID"],
     additionalProperties: false,
+
     properties: {
       attractionID: {
         type: "number",
+        minimum: 1,
         description: "Attraction ID",
       },
     },
@@ -371,71 +525,63 @@ export const getTodayAttractionRoundsSchema = {
     200: successAnswerTemplate({
       "attraction-rounds": {
         type: "array",
-        items: {
-          type: "object",
-          properties: attractionRoundProperties,
-        },
+        items: attractionRoundSchema,
       },
     }),
   },
 };
 
+/*
+|--------------------------------------------------------------------------
+| GET TODAY ALL ROUNDS
+|--------------------------------------------------------------------------
+*/
+
 export const getTodayRoundsSchema = {
-  summary: "Get today attraction rounds",
+  summary: "Get all today attraction rounds",
+
   description:
-    "Get today open and finished rounds for current operator attraction",
+    "Get today's open and finished rounds for all attractions with operator, attraction and payment transaction details.",
+
   tags: ["Attraction rounds route"],
 
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: {
-        type: "string",
-        description: "Bearer access token",
-      },
-    },
-  },
+  headers: authorizationHeaders,
 
   response: {
     200: successAnswerTemplate({
       "attraction-rounds": {
         type: "array",
-        items: {
-          type: "object",
-          properties: attractionRoundProperties,
-        },
+        items: attractionRoundSchema,
       },
     }),
   },
 };
 
+/*
+|--------------------------------------------------------------------------
+| CLOSE CURRENT ROUND
+|--------------------------------------------------------------------------
+*/
+
 export const closeCurrentAttractionRoundSchema = {
   summary: "Close attraction round",
+
   description:
-    "Close open round by round ID. finished_at is calculated from started_at plus attraction duration. Round data is added to X report and Z report totals.",
+    "Close an open attraction round by round ID and set its finished time.",
+
   tags: ["Attraction rounds route"],
 
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: {
-        type: "string",
-        description: "Bearer access token",
-      },
-    },
-  },
+  headers: authorizationHeaders,
 
   params: {
     type: "object",
     required: ["roundID"],
     additionalProperties: false,
+
     properties: {
       roundID: {
         type: "number",
+        minimum: 1,
         description: "Attraction round ID",
       },
     },
@@ -443,10 +589,7 @@ export const closeCurrentAttractionRoundSchema = {
 
   response: {
     200: successAnswerTemplate({
-      "attraction-round": {
-        type: "object",
-        properties: attractionRoundProperties,
-      },
+      "attraction-round": attractionRoundSchema,
     }),
   },
 };

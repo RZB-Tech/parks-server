@@ -1,4 +1,4 @@
-import { literal, Op, QueryTypes, Transaction } from "sequelize";
+import { col, fn, literal, Op, QueryTypes, Transaction } from "sequelize";
 import { BadRequest, Conflict, Forbidden, NotFound } from "../../exceptions";
 import { AttractionModel } from "../../models/postgresql/attraction-model/AttractionModel";
 import {
@@ -27,7 +27,7 @@ import {
 } from "../../utils/date";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
-import { sequelize } from "../../plugins/db/postgresql/db";
+import { PromotionReportModel, sequelize } from "../../plugins/db/postgresql/db";
 
 export const OpenAttractionReportService = async (
   operatorID: number,
@@ -666,65 +666,196 @@ export const GetTodayAttractionReportsService = async (
   operatorID: number,
   params: AttractionReportParams,
 ) => {
-  if (!operatorID) {
+  const normalizedOperatorID = Number(operatorID);
+
+  if (!Number.isInteger(normalizedOperatorID) || normalizedOperatorID <= 0) {
     throw BadRequest("Operator is required!");
   }
 
   const attractionID = Number(params.attractionID);
 
-  if (!attractionID || Number.isNaN(attractionID)) {
+  if (!Number.isInteger(attractionID) || attractionID <= 0) {
     throw BadRequest("Attraction ID is invalid!");
   }
 
   const { start, end } = getTodayRange();
 
-  const zReport = await AttractionReportModel.findOne({
-    where: {
-      attraction: attractionID,
-      report_type: AttractionReportTypes.ZREPORT,
-      createdAt: {
-        [Op.between]: [start, end],
-      },
-    },
-    include: [
-      {
-        model: EmployeeModel,
-        as: "operators",
-        required: false,
-        attributes: ["id", "firstname", "lastname", "file"],
-      },
-    ],
-    order: [["id", "DESC"]],
-  });
+  const [zReport, xReports] = await Promise.all([
+    AttractionReportModel.findOne({
+      where: {
+        attraction: attractionID,
 
-  const xReports = await AttractionReportModel.findAll({
-    where: {
-      attraction: attractionID,
-      report_type: AttractionReportTypes.XREPORT,
-      createdAt: {
-        [Op.between]: [start, end],
+        report_type: AttractionReportTypes.ZREPORT,
+
+        createdAt: {
+          [Op.between]: [start, end],
+        },
       },
-    },
-    include: [
-      {
-        model: EmployeeModel,
-        as: "operators",
-        required: false,
-        attributes: ["id", "firstname", "lastname", "file"],
+
+      include: [
+        {
+          model: EmployeeModel,
+
+          as: "operators",
+
+          required: false,
+
+          attributes: ["id", "firstname", "lastname", "file"],
+        },
+      ],
+
+      order: [["id", "DESC"]],
+    }),
+
+    AttractionReportModel.findAll({
+      where: {
+        attraction: attractionID,
+
+        report_type: AttractionReportTypes.XREPORT,
+
+        createdAt: {
+          [Op.between]: [start, end],
+        },
       },
-    ],
-    order: [["id", "DESC"]],
+
+      include: [
+        {
+          model: EmployeeModel,
+
+          as: "operators",
+
+          required: false,
+
+          attributes: ["id", "firstname", "lastname", "file"],
+        },
+      ],
+
+      order: [["id", "DESC"]],
+    }),
+  ]);
+
+  const xReportIDs = xReports.map((report) => Number(report.id));
+
+  const [xPromotionReports, zPromotionReports] = await Promise.all([
+    xReportIDs.length
+      ? PromotionReportModel.findAll({
+          where: {
+            xreport: {
+              [Op.in]: xReportIDs,
+            },
+          },
+
+          order: [
+            ["discount_percent", "DESC"],
+            ["promotion", "DESC"],
+          ],
+        })
+      : Promise.resolve([]),
+
+    zReport
+      ? PromotionReportModel.findAll({
+          where: {
+            zreport: Number(zReport.id),
+          },
+
+          attributes: [
+            "promotion",
+            "promotion_key",
+
+            "promotion_code",
+            "promotion_name",
+            "promotion_type",
+
+            "discount_percent",
+
+            "original_unit_price",
+            "sale_unit_price",
+
+            [fn("SUM", col("transactions_count")), "transactions_count"],
+
+            [fn("SUM", col("total_people")), "total_people"],
+
+            [fn("SUM", col("total_virtual")), "total_virtual"],
+
+            [fn("SUM", col("total_classic")), "total_classic"],
+
+            [fn("SUM", col("total_vip")), "total_vip"],
+
+            [fn("SUM", col("total_organization")), "total_organization"],
+
+            [fn("SUM", col("total_online")), "total_online"],
+
+            [fn("SUM", col("total_offline")), "total_offline"],
+
+            [fn("SUM", col("original_amount")), "original_amount"],
+
+            [fn("SUM", col("discount_amount")), "discount_amount"],
+
+            [fn("SUM", col("paid_amount")), "paid_amount"],
+          ],
+
+          group: [
+            "promotion",
+            "promotion_key",
+
+            "promotion_code",
+            "promotion_name",
+            "promotion_type",
+
+            "discount_percent",
+
+            "original_unit_price",
+            "sale_unit_price",
+          ],
+
+          order: [["discount_percent", "DESC"]],
+
+          raw: true,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const promotionReportsByXReport = new Map<number, PromotionReportPlain[]>();
+
+  for (const report of xPromotionReports) {
+    const plain = report.get({
+      plain: true,
+    }) as PromotionReportPlain;
+
+    const xreportID = Number(report.xreport);
+
+    const current = promotionReportsByXReport.get(xreportID) ?? [];
+
+    current.push(plain);
+
+    promotionReportsByXReport.set(xreportID, current);
+  }
+
+  const zReportPlain = zReport
+    ? ({
+        ...(zReport.get({
+          plain: true,
+        }) as AttractionReportWithOperatorPlain),
+
+        promotion_reports: zPromotionReports as PromotionReportPlain[],
+      } satisfies AttractionReportWithOperatorPlain)
+    : null;
+
+  const xReportsPlain = xReports.map((report) => {
+    const plain = report.get({
+      plain: true,
+    }) as AttractionReportWithOperatorPlain;
+
+    return {
+      ...plain,
+
+      promotion_reports: promotionReportsByXReport.get(Number(report.id)) ?? [],
+    };
   });
 
   return AttractionReportsTodayDTO({
-    zreport: zReport
-      ? (zReport.get({ plain: true }) as AttractionReportWithOperatorPlain)
-      : null,
-
-    xreports: xReports.map(
-      (report) =>
-        report.get({ plain: true }) as AttractionReportWithOperatorPlain,
-    ),
+    zreport: zReportPlain,
+    xreports: xReportsPlain,
   });
 };
 
@@ -735,21 +866,26 @@ export const GetAttractionZReportsService = async (
 
   const baseReportWhere = {
     report_type: AttractionReportTypes.ZREPORT,
-    created_at: {
+
+    createdAt: {
       [Op.between]: [start, end],
     },
   };
 
   const allReports = await AttractionReportModel.findAll({
     where: baseReportWhere,
+
     order: [
       ["attraction", "ASC"],
-      ["created_at", "ASC"],
+      ["createdAt", "ASC"],
     ],
   });
 
   const allReportsPlain = allReports.map(
-    (report) => report.get({ plain: true }) as AttractionReportModelI,
+    (report) =>
+      report.get({
+        plain: true,
+      }) as AttractionReportModelI,
   );
 
   const totals = emptyAttractionZReportsTotals();
@@ -784,36 +920,149 @@ export const GetAttractionZReportsService = async (
     }
   }
 
-  const attractions = await AttractionModel.findAll({
-    order: [["id", "DESC"]],
-    include: [
-      {
-        model: AttractionReportModel,
-        as: "reports",
-        required: false,
-        separate: true,
-        where: baseReportWhere,
-        include: [
-          {
-            model: EmployeeModel,
-            as: "operators",
-            required: false,
-            attributes: ["id", "firstname", "lastname", "file"],
+  const zReportIDs = allReportsPlain.map((report) => Number(report.id));
+
+  const [promotionReports, attractions] = await Promise.all([
+    zReportIDs.length
+      ? PromotionReportModel.findAll({
+          where: {
+            zreport: {
+              [Op.in]: zReportIDs,
+            },
           },
-        ],
-        order: [["id", "DESC"]],
-      },
-    ],
-  });
+
+          attributes: [
+            "zreport",
+
+            "promotion",
+            "promotion_key",
+
+            "promotion_code",
+            "promotion_name",
+            "promotion_type",
+
+            "discount_percent",
+
+            "original_unit_price",
+            "sale_unit_price",
+
+            [fn("SUM", col("transactions_count")), "transactions_count"],
+
+            [fn("SUM", col("total_people")), "total_people"],
+
+            [fn("SUM", col("total_virtual")), "total_virtual"],
+
+            [fn("SUM", col("total_classic")), "total_classic"],
+
+            [fn("SUM", col("total_vip")), "total_vip"],
+
+            [fn("SUM", col("total_organization")), "total_organization"],
+
+            [fn("SUM", col("total_online")), "total_online"],
+
+            [fn("SUM", col("total_offline")), "total_offline"],
+
+            [fn("SUM", col("original_amount")), "original_amount"],
+
+            [fn("SUM", col("discount_amount")), "discount_amount"],
+
+            [fn("SUM", col("paid_amount")), "paid_amount"],
+          ],
+
+          group: [
+            "zreport",
+
+            "promotion",
+            "promotion_key",
+
+            "promotion_code",
+            "promotion_name",
+            "promotion_type",
+
+            "discount_percent",
+
+            "original_unit_price",
+            "sale_unit_price",
+          ],
+
+          order: [
+            ["zreport", "DESC"],
+
+            ["discount_percent", "DESC"],
+          ],
+
+          raw: true,
+        })
+      : Promise.resolve([]),
+
+    AttractionModel.findAll({
+      order: [["id", "DESC"]],
+
+      include: [
+        {
+          model: AttractionReportModel,
+
+          as: "reports",
+
+          required: false,
+          separate: true,
+
+          where: baseReportWhere,
+
+          include: [
+            {
+              model: EmployeeModel,
+
+              as: "operators",
+
+              required: false,
+
+              attributes: ["id", "firstname", "lastname", "file"],
+            },
+          ],
+
+          order: [["id", "DESC"]],
+        },
+      ],
+    }),
+  ]);
+
+  const promotionReportsByZReport = new Map<number, PromotionReportPlain[]>();
+
+  for (const report of promotionReports) {
+    const plain = report as PromotionReportPlain;
+
+    const zreportID = Number(plain.zreport);
+
+    const current = promotionReportsByZReport.get(zreportID) ?? [];
+
+    current.push(plain);
+
+    promotionReportsByZReport.set(zreportID, current);
+  }
 
   return {
     stats,
     totals,
-    attractions: attractions.map((attraction) =>
-      AttractionZReportAttractionDTO(
-        attraction.get({ plain: true }) as AttractionWithZReportsPlain,
-      ),
-    ),
+
+    attractions: attractions.map((attraction) => {
+      const plain = attraction.get({
+        plain: true,
+      }) as AttractionWithZReportsPlain;
+
+      const reports = Array.isArray(plain.reports)
+        ? plain.reports.map((report) => ({
+            ...report,
+            promotion_reports:
+              promotionReportsByZReport.get(Number(report.id)) ?? [],
+          }))
+        : [];
+
+      return AttractionZReportAttractionDTO({
+        ...plain,
+        reports,
+      });
+    }),
   };
 };
 
@@ -925,40 +1174,185 @@ export const ConfirmAttractionZReportsService = async (
   });
 };
 
+
 export const GetAccountingAttractionReportsService = async (
   query: GetAccountingAttractionReportsQuery,
 ): Promise<AccountingAttractionReportsResponseDTO> => {
   const { start, end } = getAccountingDateRange(query);
 
-  const attractions = await AttractionModel.findAll({
-    order: [["id", "ASC"]],
-  });
+  const promotionCode =
+    typeof query.promotion_code === "string" ? query.promotion_code.trim() : "";
 
+  /*
+   * Faqat CONFIRMED ZReportlar.
+   */
   const reports = await AttractionReportModel.findAll({
     where: {
       report_type: AttractionReportTypes.ZREPORT,
       status: AttractionReportStatusTypes.CONFIRMED,
+
       createdAt: {
         [Op.between]: [start, end],
       },
     },
+
     order: [
       ["attraction", "ASC"],
       ["createdAt", "ASC"],
     ],
   });
 
+  const reportsPlain = reports.map(
+    (report) =>
+      report.get({
+        plain: true,
+      }) as AttractionReportModelI,
+  );
+
+  const zreportIDs = reportsPlain.map((report) => Number(report.id));
+
+  /*
+   * Faqat CONFIRMED ZReportlarga tegishli
+   * promotion reportlar olinadi.
+   *
+   * promotion_code yuborilsa faqat shu aksiya.
+   * Yuborilmasa barcha aksiyalar va aksiyasiz
+   * paymentlar ham olinadi.
+   */
+  const promotionReports = zreportIDs.length
+    ? await PromotionReportModel.findAll({
+        where: {
+          zreport: {
+            [Op.in]: zreportIDs,
+          },
+
+          ...(promotionCode
+            ? {
+                promotion_code: promotionCode,
+              }
+            : {}),
+        },
+
+        attributes: [
+          "attraction",
+
+          "promotion",
+          "promotion_key",
+
+          "promotion_code",
+          "promotion_name",
+          "promotion_type",
+
+          "discount_percent",
+
+          "original_unit_price",
+          "sale_unit_price",
+
+          [fn("SUM", col("transactions_count")), "transactions_count"],
+
+          [fn("SUM", col("total_people")), "total_people"],
+
+          [fn("SUM", col("total_virtual")), "total_virtual"],
+
+          [fn("SUM", col("total_classic")), "total_classic"],
+
+          [fn("SUM", col("total_vip")), "total_vip"],
+
+          [fn("SUM", col("total_organization")), "total_organization"],
+
+          [fn("SUM", col("total_online")), "total_online"],
+
+          [fn("SUM", col("total_offline")), "total_offline"],
+
+          [fn("SUM", col("original_amount")), "original_amount"],
+
+          [fn("SUM", col("discount_amount")), "discount_amount"],
+
+          [fn("SUM", col("paid_amount")), "paid_amount"],
+        ],
+
+        group: [
+          "attraction",
+
+          "promotion",
+          "promotion_key",
+
+          "promotion_code",
+          "promotion_name",
+          "promotion_type",
+
+          "discount_percent",
+
+          "original_unit_price",
+          "sale_unit_price",
+        ],
+
+        order: [
+          ["attraction", "ASC"],
+          ["discount_percent", "DESC"],
+          ["promotion_name", "ASC"],
+        ],
+
+        raw: true,
+      })
+    : [];
+
+  const promotionReportsPlain =
+    promotionReports as unknown as PromotionReportPlain[];
+
+  /*
+   * promotion_code filter bo‘lsa faqat shu aksiya
+   * ishlatilgan attractionlar qaytadi.
+   *
+   * Filter bo‘lmasa confirmed ZReport mavjud
+   * attractionlar qaytadi.
+   */
+  const attractionIDs = promotionCode
+    ? [
+        ...new Set(
+          promotionReportsPlain.map((report) => Number(report.attraction)),
+        ),
+      ]
+    : [...new Set(reportsPlain.map((report) => Number(report.attraction)))];
+
+  const attractions = attractionIDs.length
+    ? await AttractionModel.findAll({
+        where: {
+          id: {
+            [Op.in]: attractionIDs,
+          },
+        },
+
+        order: [["id", "ASC"]],
+      })
+    : [];
+
+  const selectedAttractionIDs = new Set(attractionIDs);
+
+  /*
+   * Filter ishlatilganda faqat topilgan
+   * attractionlarning ZReportlari totalsga kiradi.
+   */
+  const selectedReports = reportsPlain.filter((report) =>
+    selectedAttractionIDs.has(Number(report.attraction)),
+  );
+
   return AccountingAttractionReportsDTO({
     start_date: start,
     end_date: end,
 
+    promotion_code: promotionCode || null,
+
     attractions: attractions.map(
-      (attraction) => attraction.get({ plain: true }) as AttractionModelI,
+      (attraction) =>
+        attraction.get({
+          plain: true,
+        }) as AttractionModelI,
     ),
 
-    reports: reports.map(
-      (report) => report.get({ plain: true }) as AttractionReportModelI,
-    ),
+    reports: selectedReports,
+
+    promotion_reports: promotionReportsPlain,
   });
 };
 

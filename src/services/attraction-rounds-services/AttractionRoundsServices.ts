@@ -1,5 +1,8 @@
 import { Op } from "sequelize";
-import { AttractionRoundDTO, AttractionRoundTransactionDTO } from "../../dtos/attraction-rounds-dtos/AttractionRoundDto";
+import {
+  AttractionRoundDTO,
+  AttractionRoundTransactionDTO,
+} from "../../dtos/attraction-rounds-dtos/AttractionRoundDto";
 import { BadRequest, NotFound } from "../../exceptions";
 import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
@@ -16,137 +19,261 @@ import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeM
 import { getTashkentDayRangeUTC } from "../../utils/date";
 import { CardTransactionModel } from "../../models/postgresql/card-transactions-model/CardTransactionModel";
 import { CardModel } from "../../models/postgresql/cards-model/CardModel";
-import { CardTransactionStatusTypes } from "../../models/postgresql/card-transactions-model/enums";
+import {
+  CardTransactionStatusTypes,
+  CardTransactionType,
+} from "../../models/postgresql/card-transactions-model/enums";
 
 export const GetCurrentAttractionRoundService = async (
   operatorID: number,
   params: AttractionRoundParams,
-) => {
+): Promise<AttractionRoundResponseDTO | null> => {
+  const parsedOperatorID = Number(operatorID);
+
+  if (!Number.isInteger(parsedOperatorID) || parsedOperatorID <= 0) {
+    throw BadRequest("Operator ID is invalid!");
+  }
+
   const attractionID = Number(params.attractionID);
 
-  if (!attractionID || Number.isNaN(attractionID)) {
+  if (!Number.isInteger(attractionID) || attractionID <= 0) {
     throw BadRequest("Attraction ID is invalid!");
   }
 
+  /*
+   * Operatorning shu attractiondagi ochiq XReporti.
+   */
   const openReport = await AttractionReportModel.findOne({
     where: {
-      operator: operatorID,
+      operator: parsedOperatorID,
       attraction: attractionID,
       status: AttractionReportStatusTypes.OPEN,
       report_type: AttractionReportTypes.XREPORT,
     },
+    order: [["id", "DESC"]],
   });
 
-  if (openReport === null) {
+  if (!openReport) {
     return null;
   }
 
+  /*
+   * Shu XReportdagi current ochiq round.
+   */
   const round = await AttractionRoundModel.findOne({
     where: {
       report: Number(openReport.id),
       attraction: attractionID,
-      operator: operatorID,
+      operator: parsedOperatorID,
       status: AttractionRoundStatusTypes.OPEN,
     },
-    order: [["round_number", "DESC"]],
+
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+      },
+
+      {
+        model: AttractionModel,
+        as: "attractions",
+      },
+    ],
+
+    order: [
+      ["round_number", "DESC"],
+      ["id", "DESC"],
+    ],
   });
 
-  if (round === null) {
+  if (!round) {
     return null;
   }
 
+  /*
+   * Roundga biriktirilgan transaction IDlar.
+   */
   const transactionIDs = Array.isArray(round.transactions)
-    ? round.transactions.map(Number).filter(Number.isFinite)
+    ? [
+        ...new Set(
+          round.transactions
+            .map(Number)
+            .filter((id) => Number.isInteger(id) && id > 0),
+        ),
+      ]
     : [];
 
-  const transactions =
-    transactionIDs.length > 0
-      ? await CardTransactionModel.findAll({
-          where: {
-            id: {
-              [Op.in]: transactionIDs,
-            },
-            status: CardTransactionStatusTypes.SUCCESS,
-          },
-          include: [
-            {
-              model: CardModel,
-              as: "cards",
-              required: true,
-            },
-          ],
-          order: [["id", "ASC"]],
-        })
-      : [];
+  let transactionData: AttractionRoundTransactionPlain[] = [];
+
+  if (transactionIDs.length > 0) {
+    const transactions = await CardTransactionModel.findAll({
+      where: {
+        id: {
+          [Op.in]: transactionIDs,
+        },
+        type: CardTransactionType.PAYMENT,
+        status: CardTransactionStatusTypes.SUCCESS,
+      },
+      include: [
+        {
+          model: CardModel,
+          as: "cards",
+        },
+      ],
+    });
+
+    /*
+     * Database orderiga emas,
+     * round.transactions array tartibiga qaytaramiz.
+     */
+    const transactionMap = new Map<number, AttractionRoundTransactionPlain>();
+
+    for (const transaction of transactions) {
+      const plain = transaction.get({
+        plain: true,
+      }) as AttractionRoundTransactionPlain;
+
+      transactionMap.set(Number(plain.id), plain);
+    }
+
+    transactionData = transactionIDs
+      .map((transactionID) => transactionMap.get(transactionID))
+      .filter(
+        (transaction): transaction is AttractionRoundTransactionPlain =>
+          transaction !== undefined,
+      );
+  }
 
   const roundData = round.get({
     plain: true,
-  }) as AttractionRoundModelI;
+  }) as AttractionRoundWithRelationsPlain;
 
-  const transactionData = transactions.map((item) =>
-    item.get({
-      plain: true,
-    }),
-  ) as AttractionRoundTransactionPlain[];
-
- return {
-   ...AttractionRoundDTO(roundData),
-
-   transactions: transactionData.map(AttractionRoundTransactionDTO),
- };
+  return AttractionRoundDTO(roundData, transactionData);
 };
 
 export const GetTodayAttractionRoundsService = async (
   operatorID: number,
   params: AttractionRoundParams,
-) => {
+): Promise<AttractionRoundResponseDTO[]> => {
+  const parsedOperatorID = Number(operatorID);
+
+  if (!Number.isInteger(parsedOperatorID) || parsedOperatorID <= 0) {
+    throw BadRequest("Operator ID is invalid!");
+  }
+
   const attractionID = Number(params.attractionID);
 
-  if (!attractionID || Number.isNaN(attractionID)) {
+  if (!Number.isInteger(attractionID) || attractionID <= 0) {
     throw BadRequest("Attraction ID is invalid!");
   }
 
-  const offset = 5 * 60 * 60 * 1000;
-  const now = new Date();
-  const tashkentNow = new Date(now.getTime() + offset);
-
-  const year = tashkentNow.getUTCFullYear();
-  const month = tashkentNow.getUTCMonth();
-  const date = tashkentNow.getUTCDate();
-
-  const start = new Date(Date.UTC(year, month, date, -5, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month, date + 1, -5, 0, 0, 0));
+  const { startDate, endDate } = getTashkentDayRangeUTC();
 
   const rounds = await AttractionRoundModel.findAll({
     where: {
-      operator: operatorID,
+      operator: parsedOperatorID,
       attraction: attractionID,
+
       status: {
         [Op.in]: [
           AttractionRoundStatusTypes.OPEN,
           AttractionRoundStatusTypes.FINISHED,
         ],
       },
+
       started_at: {
-        [Op.gte]: start,
-        [Op.lt]: end,
+        [Op.gte]: startDate,
+        [Op.lt]: endDate,
       },
     },
+
     order: [
       ["round_number", "ASC"],
       ["id", "ASC"],
     ],
   });
 
-  const data = rounds.map((round) =>
-    round.get({
-      plain: true,
-    }),
-  ) as AttractionRoundModelI[];
+  if (rounds.length === 0) {
+    return [];
+  }
 
-  return data.map(AttractionRoundDTO);
+  const roundData = rounds.map(
+    (round) =>
+      round.get({
+        plain: true,
+      }) as AttractionRoundWithRelationsPlain,
+  );
+
+  const transactionIDs = [
+    ...new Set(
+      roundData.flatMap((round) => {
+        if (!Array.isArray(round.transactions)) {
+          return [];
+        }
+
+        return round.transactions
+          .map(Number)
+          .filter(
+            (transactionID) =>
+              Number.isInteger(transactionID) && transactionID > 0,
+          );
+      }),
+    ),
+  ];
+
+  const transactionMap = new Map<number, AttractionRoundTransactionPlain>();
+
+  if (transactionIDs.length > 0) {
+    const transactions = await CardTransactionModel.findAll({
+      where: {
+        id: {
+          [Op.in]: transactionIDs,
+        },
+        type: CardTransactionType.PAYMENT,
+        status: CardTransactionStatusTypes.SUCCESS,
+      },
+      include: [
+        {
+          model: CardModel,
+          as: "cards",
+          required: false,
+        },
+      ],
+    });
+
+    for (const transaction of transactions) {
+      const plain = transaction.get({
+        plain: true,
+      }) as AttractionRoundTransactionPlain;
+
+      transactionMap.set(Number(plain.id), plain);
+    }
+  }
+
+  return roundData.map((round) => {
+    const roundTransactionIDs = Array.isArray(round.transactions)
+      ? round.transactions
+          .map(Number)
+          .filter(
+            (transactionID) =>
+              Number.isInteger(transactionID) && transactionID > 0,
+          )
+      : [];
+
+    const roundTransactions = roundTransactionIDs
+      .map((transactionID) => transactionMap.get(transactionID))
+      .filter(
+        (transaction): transaction is AttractionRoundTransactionPlain =>
+          transaction !== undefined,
+      );
+
+    return AttractionRoundDTO(round, roundTransactions);
+  });
 };
-export const GetTodayRoundsService = async () => {
+
+export const GetTodayRoundsService = async (): Promise<
+  AttractionRoundResponseDTO[]
+> => {
   const { startDate, endDate } = getTashkentDayRangeUTC();
 
   const rounds = await AttractionRoundModel.findAll({
@@ -162,32 +289,111 @@ export const GetTodayRoundsService = async () => {
         [Op.lt]: endDate,
       },
     },
+
     include: [
       {
         model: EmployeeModel,
         as: "operators",
-        required: false,
       },
+
       {
         model: AttractionModel,
         as: "attractions",
-        required: false,
       },
     ],
+
     order: [
+      ["attraction", "ASC"],
       ["round_number", "ASC"],
       ["id", "ASC"],
     ],
   });
 
-  const data = rounds.map(
+  if (rounds.length === 0) {
+    return [];
+  }
+
+  const roundData = rounds.map(
     (round) =>
       round.get({
         plain: true,
       }) as AttractionRoundWithRelationsPlain,
   );
 
-  return data.map(AttractionRoundDTO);
+  /*
+   * Barcha roundlardagi transaction IDlarni yig‘amiz.
+   */
+  const transactionIDs = [
+    ...new Set(
+      roundData.flatMap((round) => {
+        if (!Array.isArray(round.transactions)) {
+          return [];
+        }
+
+        return round.transactions
+          .map(Number)
+          .filter(
+            (transactionID) =>
+              Number.isInteger(transactionID) && transactionID > 0,
+          );
+      }),
+    ),
+  ];
+
+  const transactionMap = new Map<number, AttractionRoundTransactionPlain>();
+
+  /*
+   * Barcha transactionlar uchun faqat bitta query.
+   */
+  if (transactionIDs.length > 0) {
+    const transactions = await CardTransactionModel.findAll({
+      where: {
+        id: {
+          [Op.in]: transactionIDs,
+        },
+        type: CardTransactionType.PAYMENT,
+        status: CardTransactionStatusTypes.SUCCESS,
+      },
+      include: [
+        {
+          model: CardModel,
+          as: "cards",
+        },
+      ],
+    });
+
+    for (const transaction of transactions) {
+      const plain = transaction.get({
+        plain: true,
+      }) as AttractionRoundTransactionPlain;
+
+      transactionMap.set(Number(plain.id), plain);
+    }
+  }
+
+  return roundData.map((round) => {
+    /*
+     * Har bir round uchun o‘z transactionlarini
+     * round.transactions array tartibida olamiz.
+     */
+    const roundTransactionIDs = Array.isArray(round.transactions)
+      ? round.transactions
+          .map(Number)
+          .filter(
+            (transactionID) =>
+              Number.isInteger(transactionID) && transactionID > 0,
+          )
+      : [];
+
+    const roundTransactions = roundTransactionIDs
+      .map((transactionID) => transactionMap.get(transactionID))
+      .filter(
+        (transaction): transaction is AttractionRoundTransactionPlain =>
+          transaction !== undefined,
+      );
+
+    return AttractionRoundDTO(round, roundTransactions);
+  });
 };
 
 export const CloseCurrentAttractionRoundService = async (

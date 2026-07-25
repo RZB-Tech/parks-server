@@ -29,6 +29,8 @@ import {
   ClientTransactionDTO,
 } from "../../../dtos/client/card-transaction-dtos/CardTransactionDto";
 import { getTashkentMonthRangeUTC } from "../../../utils/date";
+import { FindBestActivePromotionForAttractionService } from "../../promotion-services/PromotionServices";
+import { UpsertPromotionReportService } from "../../promotion-reports-services/PromotionReportsServices";
 
 export const ClientAttractionPaymentService = async (
   telegramID: number,
@@ -37,26 +39,46 @@ export const ClientAttractionPaymentService = async (
 ): Promise<ClientAttractionPaymentResponseDTO> => {
   const normalizedTelegramID = Number(telegramID);
   const attractionID = Number(params.attractionID);
+
   const cardID = Number(body.card);
   const membersCount = Number(body.membersCount);
   const clientTotalAmount = Number(body.totalAmount);
 
-  /*
-   * VIP uchun totalAmount 0 bo‘lishi mumkin.
-   */
+  if (
+    !Number.isSafeInteger(normalizedTelegramID) ||
+    normalizedTelegramID <= 0
+  ) {
+    throw BadRequest("INVALID_TELEGRAM_ID");
+  }
+
+  if (!Number.isInteger(attractionID) || attractionID <= 0) {
+    throw BadRequest("INVALID_ATTRACTION_ID");
+  }
+
+  if (!Number.isInteger(cardID) || cardID <= 0) {
+    throw BadRequest("INVALID_CARD_ID");
+  }
+
+  if (!Number.isInteger(membersCount) || membersCount <= 0) {
+    throw BadRequest("INVALID_MEMBERS_COUNT");
+  }
+
   if (!Number.isSafeInteger(clientTotalAmount) || clientTotalAmount < 0) {
     throw BadRequest("INVALID_TOTAL_AMOUNT");
   }
 
   const sequelize = CardTransactionModel.sequelize!;
 
-  return await sequelize.transaction(
+  return sequelize.transaction(
     {
       isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED,
     },
     async (transaction) => {
       const user = await UserModel.findOne({
-        where: { telegram_id: normalizedTelegramID },
+        where: {
+          telegram_id: normalizedTelegramID,
+        },
+
         transaction,
       });
 
@@ -72,13 +94,11 @@ export const ClientAttractionPaymentService = async (
         throw BadRequest("USER_NOT_VERIFIED");
       }
 
-      /*
-       * Attraction tekshiriladi.
-       */
       const attraction = await AttractionModel.findOne({
         where: {
           id: attractionID,
         },
+
         transaction,
       });
 
@@ -90,8 +110,9 @@ export const ClientAttractionPaymentService = async (
         throw BadRequest("ATTRACTION_NOT_AVAILABLE");
       }
 
-      const attractionPrice = Number(attraction.price || 0);
-      const totalSeats = Number(attraction.seats || 0);
+      const attractionPrice = Number(attraction.price ?? 0);
+
+      const totalSeats = Number(attraction.seats ?? 0);
 
       if (!Number.isSafeInteger(attractionPrice) || attractionPrice < 1) {
         throw BadRequest("INVALID_ATTRACTION_PRICE");
@@ -101,22 +122,20 @@ export const ClientAttractionPaymentService = async (
         throw BadRequest("INVALID_ATTRACTION_SEATS");
       }
 
-      /*
-       * Attraction'ning ochiq X-reporti olinadi.
-       *
-       * Report UPDATE lock qilinadi. Shu orqali parallel
-       * requestlar ikkita round yaratib yubora olmaydi.
-       */
       const report = await AttractionReportModel.findOne({
         where: {
           attraction: attractionID,
+
           report_type: AttractionReportTypes.XREPORT,
+
           status: AttractionReportStatusTypes.OPEN,
         },
+
         order: [
           ["opened_at", "DESC"],
           ["id", "DESC"],
         ],
+
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
@@ -125,16 +144,25 @@ export const ClientAttractionPaymentService = async (
         throw BadRequest("ATTRACTION_REPORT_NOT_OPEN");
       }
 
-      /*
-       * Card UPDATE lock qilinadi.
-       *
-       * Parallel requestlarda bitta card balansidan
-       * ikki marta pul yechilmaydi.
-       */
+      const xreportID = Number(report.id);
+
+      const zreportID = Number(report.zreport);
+
+      const reportOperatorID = Number(report.operator);
+
+      if (!Number.isInteger(zreportID) || zreportID <= 0) {
+        throw BadRequest("ATTRACTION_ZREPORT_NOT_FOUND");
+      }
+
+      if (!Number.isInteger(reportOperatorID) || reportOperatorID <= 0) {
+        throw BadRequest("ATTRACTION_REPORT_OPERATOR_NOT_FOUND");
+      }
+
       const card = await CardModel.findOne({
         where: {
           id: cardID,
         },
+
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
@@ -151,12 +179,12 @@ export const ClientAttractionPaymentService = async (
         throw BadRequest("CARD_NOT_ACTIVE");
       }
 
-      /*
-       * Card turlari.
-       */
       const isClassic = card.type === CardType.CLASSIC;
+
       const isVirtual = card.type === CardType.VIRTUAL;
+
       const isVIP = card.type === CardType.VIP;
+
       const isOrganization = card.type === CardType.ORGANIZATION;
 
       if (!isClassic && !isVirtual && !isVIP && !isOrganization) {
@@ -164,36 +192,64 @@ export const ClientAttractionPaymentService = async (
       }
 
       /*
-       * VIP uchun summa 0.
-       *
-       * CLASSIC, VIRTUAL va ORGANIZATION uchun:
-       * attraction.price * membersCount.
+       * Bir nechta promotion active bo‘lsa,
+       * eng katta discount tanlanadi.
        */
-      const calculatedTotalAmount = isVIP ? 0 : attractionPrice * membersCount;
+      const promotion = await FindBestActivePromotionForAttractionService(
+        attractionID,
+        transaction,
+      );
+
+      const originalUnitPrice = promotion
+        ? Number(promotion.original_price)
+        : attractionPrice;
+
+      const saleUnitPrice = promotion
+        ? Number(promotion.discounted_price)
+        : attractionPrice;
+
+      const discountPercent = promotion
+        ? Number(promotion.discount_percent)
+        : 0;
+
+      if (!Number.isSafeInteger(originalUnitPrice) || originalUnitPrice < 0) {
+        throw BadRequest("INVALID_ORIGINAL_UNIT_PRICE");
+      }
 
       if (
-        !Number.isSafeInteger(calculatedTotalAmount) ||
-        calculatedTotalAmount < 0
+        !Number.isSafeInteger(saleUnitPrice) ||
+        saleUnitPrice < 0 ||
+        saleUnitPrice > originalUnitPrice
+      ) {
+        throw BadRequest("INVALID_SALE_UNIT_PRICE");
+      }
+
+      const originalAmount = originalUnitPrice * membersCount;
+
+      const saleAmount = saleUnitPrice * membersCount;
+
+      const discountAmount = originalAmount - saleAmount;
+
+      if (
+        !Number.isSafeInteger(originalAmount) ||
+        !Number.isSafeInteger(saleAmount) ||
+        !Number.isSafeInteger(discountAmount)
       ) {
         throw BadRequest("INVALID_CALCULATED_AMOUNT");
       }
 
       /*
-       * VIP uchun frontend yuborgan totalAmount
-       * tekshirilmaydi, chunki backend baribir 0 oladi.
+       * VIP pul to‘lamaydi.
+       * Qolgan kartalar promotion narxini to‘laydi.
        */
+      const calculatedTotalAmount = isVIP ? 0 : saleAmount;
+
       if (!isVIP && clientTotalAmount !== calculatedTotalAmount) {
         throw BadRequest("TOTAL_AMOUNT_MISMATCH");
       }
 
       const rawBalance = Number(card.balance ?? 0);
 
-      /*
-       * VIP karta balance ishlatmaydi.
-       *
-       * Boshqa kartalar uchun balans valid
-       * bo‘lishi kerak.
-       */
       if (!isVIP && (!Number.isFinite(rawBalance) || rawBalance < 0)) {
         throw BadRequest("INVALID_CARD_BALANCE");
       }
@@ -211,72 +267,68 @@ export const ClientAttractionPaymentService = async (
         ? balanceBefore
         : balanceBefore - chargedAmount;
 
-      /*
-       * Shu X-reportga tegishli ochiq round olinadi.
-       */
       let round = await AttractionRoundModel.findOne({
         where: {
           attraction: attractionID,
-          report: Number(report.id),
+          report: xreportID,
           status: AttractionRoundStatusTypes.OPEN,
         },
+
         order: [
           ["round_number", "DESC"],
           ["id", "DESC"],
         ],
+
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
 
       let roundCreated = false;
 
-      /*
-       * Eski round OPEN holatda qolgan, lekin to‘lib
-       * bo‘lgan bo‘lsa, uni yopamiz.
-       */
-      if (round && Number(round.people_count || 0) >= totalSeats) {
+      if (round && Number(round.people_count ?? 0) >= totalSeats) {
         await round.update(
           {
             status: AttractionRoundStatusTypes.FINISHED,
+
             finished_at: round.finished_at || new Date(),
           },
           {
             transaction,
           },
         );
+
         round = null;
       }
 
-      /*
-       * Ochiq round bo‘lmasa avtomatik yangi round yaratiladi.
-       */
       if (!round) {
-        /*
-         * Oxirgi round number attraction bo‘yicha olinadi.
-         * Shu sabab round_number ketma-ket davom etadi.
-         */
         const lastRound = await AttractionRoundModel.findOne({
           where: {
             attraction: attractionID,
           },
+
           attributes: ["id", "round_number"],
+
           order: [
             ["round_number", "DESC"],
             ["id", "DESC"],
           ],
+
           transaction,
           lock: transaction.LOCK.UPDATE,
         });
 
-        const nextRoundNumber = Number(lastRound?.round_number || 0) + 1;
+        const nextRoundNumber = Number(lastRound?.round_number ?? 0) + 1;
 
         round = await AttractionRoundModel.create(
           {
-            report: Number(report.id),
+            report: xreportID,
+
             attraction: attractionID,
-            operator: report.operator,
+
+            operator: reportOperatorID,
 
             round_number: nextRoundNumber,
+
             status: AttractionRoundStatusTypes.OPEN,
 
             people_count: 0,
@@ -295,6 +347,7 @@ export const ClientAttractionPaymentService = async (
             transactions: [],
 
             started_at: new Date(),
+
             finished_at: null,
           },
           {
@@ -305,25 +358,14 @@ export const ClientAttractionPaymentService = async (
         roundCreated = true;
       }
 
-      const currentPeopleCount = Number(round.people_count || 0);
+      const currentPeopleCount = Number(round.people_count ?? 0);
 
       const availableSeats = Math.max(totalSeats - currentPeopleCount, 0);
 
-      /*
-       * Bir payment ichidagi odamlarni ikki roundga
-       * bo‘lib yubormaymiz.
-       */
       if (membersCount > availableSeats) {
         throw BadRequest("NOT_ENOUGH_SEATS");
       }
 
-      /*
-       * Transaction yoziladi.
-       *
-       * VIP uchun:
-       * amount = 0
-       * balance_before = balance_after
-       */
       const cardTransaction = await CardTransactionModel.create(
         {
           card: Number(card.id),
@@ -333,17 +375,40 @@ export const ClientAttractionPaymentService = async (
 
           attraction: attractionID,
 
-          xreport: Number(report.id),
+          xreport: xreportID,
 
           type: CardTransactionType.PAYMENT,
 
           amount: chargedAmount,
 
           balance_before: balanceBefore,
+
           balance_after: balanceAfter,
 
+          promotion: promotion?.id ?? null,
+
+          promotion_code: promotion?.code ?? null,
+
+          promotion_name: promotion?.name ?? null,
+
+          promotion_type: promotion?.type ?? null,
+
+          discount_percent: discountPercent,
+
+          people_count: membersCount,
+
+          original_unit_price: originalUnitPrice,
+
+          sale_unit_price: saleUnitPrice,
+
+          original_amount: originalAmount,
+
+          discount_amount: discountAmount,
+
           payment_type: PaymentType.ONLINE,
+
           payment_card_type: null,
+
           payment_service: null,
 
           status: CardTransactionStatusTypes.SUCCESS,
@@ -353,12 +418,32 @@ export const ClientAttractionPaymentService = async (
         },
       );
 
-      /*
-       * VIP karta balansiga tegmaymiz.
-       *
-       * CLASSIC, VIRTUAL va ORGANIZATION
-       * kartalaridan pul yechiladi.
-       */
+      await UpsertPromotionReportService(
+        {
+          attraction: attractionID,
+          xreport: xreportID,
+          zreport: zreportID,
+          promotion: promotion?.id ?? null,
+          promotion_code: promotion?.code ?? null,
+          promotion_name: promotion?.name ?? null,
+          promotion_type: promotion?.type ?? null,
+          discount_percent: discountPercent,
+          original_unit_price: originalUnitPrice,
+          sale_unit_price: saleUnitPrice,
+          people_count: membersCount,
+          total_virtual: isVirtual ? membersCount : 0,
+          total_classic: isClassic ? membersCount : 0,
+          total_vip: isVIP ? membersCount : 0,
+          total_organization: isOrganization ? membersCount : 0,
+          total_online: membersCount,
+          total_offline: 0,
+          original_amount: originalAmount,
+          discount_amount: discountAmount,
+          paid_amount: chargedAmount,
+        },
+        transaction,
+      );
+
       if (!isVIP) {
         await card.update(
           {
@@ -378,44 +463,37 @@ export const ClientAttractionPaymentService = async (
 
       const isRoundFull = nextPeopleCount >= totalSeats;
 
-      /*
-       * Round yangilanadi.
-       *
-       * Barcha client payment:
-       * online_count += membersCount
-       *
-       * Bundan tashqari card type counter ham oshadi.
-       */
       await round.update(
         {
           people_count: nextPeopleCount,
 
-          online_count: Number(round.online_count || 0) + membersCount,
+          online_count: Number(round.online_count ?? 0) + membersCount,
 
           classic_count:
-            Number(round.classic_count || 0) + (isClassic ? membersCount : 0),
+            Number(round.classic_count ?? 0) + (isClassic ? membersCount : 0),
 
           virtual_count:
-            Number(round.virtual_count || 0) + (isVirtual ? membersCount : 0),
+            Number(round.virtual_count ?? 0) + (isVirtual ? membersCount : 0),
 
-          vip_count: Number(round.vip_count || 0) + (isVIP ? membersCount : 0),
+          vip_count: Number(round.vip_count ?? 0) + (isVIP ? membersCount : 0),
 
           organization_count:
-            Number(round.organization_count || 0) +
+            Number(round.organization_count ?? 0) +
             (isOrganization ? membersCount : 0),
 
           /*
-           * VIP uchun chargedAmount 0.
+           * Real kartadan yechilgan summa.
            */
-          paid_amount: Number(round.paid_amount || 0) + chargedAmount,
+          paid_amount: Number(round.paid_amount ?? 0) + chargedAmount,
 
-          total_amount: Number(round.total_amount || 0) + chargedAmount,
+          /*
+           * Promotiondan keyingi qiymat.
+           * VIP ham saleAmount bilan hisoblanadi.
+           */
+          total_amount: Number(round.total_amount ?? 0) + saleAmount,
 
           transactions: [...currentTransactions, Number(cardTransaction.id)],
 
-          /*
-           * Round to‘lsa avtomatik yopiladi.
-           */
           status: isRoundFull
             ? AttractionRoundStatusTypes.FINISHED
             : AttractionRoundStatusTypes.OPEN,
@@ -427,42 +505,30 @@ export const ClientAttractionPaymentService = async (
         },
       );
 
-      /*
-       * Attraction X-report yangilanadi.
-       */
       await report.update(
         {
-          /*
-           * Faqat yangi round yaratilganda +1.
-           */
           total_rounds:
-            Number(report.total_rounds || 0) + (roundCreated ? 1 : 0),
+            Number(report.total_rounds ?? 0) + (roundCreated ? 1 : 0),
 
-          total_people: Number(report.total_people || 0) + membersCount,
+          total_people: Number(report.total_people ?? 0) + membersCount,
 
-          /*
-           * Barcha client payment online hisoblanadi.
-           */
-          total_online: Number(report.total_online || 0) + membersCount,
+          total_online: Number(report.total_online ?? 0) + membersCount,
 
           total_classic:
-            Number(report.total_classic || 0) + (isClassic ? membersCount : 0),
+            Number(report.total_classic ?? 0) + (isClassic ? membersCount : 0),
 
           total_virtual:
-            Number(report.total_virtual || 0) + (isVirtual ? membersCount : 0),
+            Number(report.total_virtual ?? 0) + (isVirtual ? membersCount : 0),
 
-          total_vip: Number(report.total_vip || 0) + (isVIP ? membersCount : 0),
+          total_vip: Number(report.total_vip ?? 0) + (isVIP ? membersCount : 0),
 
           total_organization:
-            Number(report.total_organization || 0) +
+            Number(report.total_organization ?? 0) +
             (isOrganization ? membersCount : 0),
 
-          /*
-           * VIP uchun chargedAmount 0.
-           */
-          paid_amount: Number(report.paid_amount || 0) + chargedAmount,
+          paid_amount: Number(report.paid_amount ?? 0) + chargedAmount,
 
-          total_amount: Number(report.total_amount || 0) + chargedAmount,
+          total_amount: Number(report.total_amount ?? 0) + saleAmount,
         },
         {
           transaction,
@@ -471,7 +537,9 @@ export const ClientAttractionPaymentService = async (
 
       return {
         paid: true,
+
         message: "PAYMENT_SUCCESS",
+
         transaction: ClientAttractionPaymentTransactionDTO(cardTransaction),
       };
     },

@@ -1,36 +1,57 @@
+import { PromotionReportDTO } from "../promotion-reports-dtos/PromotionReportDto";
+
+/*
+|--------------------------------------------------------------------------
+| REPORT OPERATOR
+|--------------------------------------------------------------------------
+*/
+
 export const AttractionReportOperatorDTO = (
-  data: AttractionReportOperatorDTO | null | undefined,
-) => {
+  data: AttractionReportOperatorPlain | null | undefined,
+): AttractionReportOperatorResponseDTO | null => {
   if (!data) {
     return null;
   }
 
   return {
     id: Number(data.id),
+
     firstname: data.firstname,
     lastname: data.lastname,
-    file: data.file !== null ? Number(data.file) : null,
+
+    file:
+      data.file !== null && data.file !== undefined ? Number(data.file) : null,
   };
 };
 
+/*
+|--------------------------------------------------------------------------
+| ATTRACTION REPORT
+|--------------------------------------------------------------------------
+*/
+
 export const AttractionReportDTO = (
   data: AttractionReportWithOperatorPlain,
-) => {
+): AttractionReportResponseDTO => {
   const operator =
     data.operators !== undefined
       ? AttractionReportOperatorDTO(data.operators)
-      : Number(data.operator);
+      : data.operator !== null && data.operator !== undefined
+        ? Number(data.operator)
+        : null;
 
   return {
     id: Number(data.id),
-
     attraction: Number(data.attraction),
 
     operator,
 
     report_type: data.report_type,
 
-    zreport: data.zreport !== null ? Number(data.zreport) : null,
+    zreport:
+      data.zreport !== null && data.zreport !== undefined
+        ? Number(data.zreport)
+        : null,
 
     status: data.status,
 
@@ -39,6 +60,7 @@ export const AttractionReportDTO = (
     closed_at: data.closed_at ?? null,
 
     confirmed_at: data.confirmed_at ?? null,
+
     confirmed_by:
       data.confirmed_by !== null && data.confirmed_by !== undefined
         ? Number(data.confirmed_by)
@@ -49,27 +71,46 @@ export const AttractionReportDTO = (
 
     total_offline: Number(data.total_offline || 0),
     total_online: Number(data.total_online || 0),
-    total_virtual: Number(data.total_online || 0),
-    total_classic: Number(data.total_online || 0),
+
+    total_virtual: Number(data.total_virtual || 0),
+    total_classic: Number(data.total_classic || 0),
+
     total_vip: Number(data.total_vip || 0),
     total_organization: Number(data.total_organization || 0),
 
     paid_amount: Number(data.paid_amount || 0),
     total_amount: Number(data.total_amount || 0),
 
-    created_at: data.createdAt,
+    promotion_reports: Array.isArray(data.promotion_reports)
+      ? data.promotion_reports.map(PromotionReportDTO)
+      : [],
+
+    created_at: data.createdAt ?? data.created_at,
   };
 };
+
+/*
+|--------------------------------------------------------------------------
+| TODAY REPORTS
+|--------------------------------------------------------------------------
+*/
 
 export const AttractionReportsTodayDTO = (data: {
   zreport: AttractionReportWithOperatorPlain | null;
   xreports: AttractionReportWithOperatorPlain[];
-}) => {
+}): AttractionReportsTodayDto => {
   return {
     zreport: data.zreport ? AttractionReportDTO(data.zreport) : null,
+
     xreports: data.xreports.map(AttractionReportDTO),
   };
 };
+
+/*
+|--------------------------------------------------------------------------
+| EMPTY ZREPORT TOTALS
+|--------------------------------------------------------------------------
+*/
 
 export const emptyAttractionZReportsTotals = (): AttractionZReportTotalsDTO => {
   return {
@@ -78,8 +119,10 @@ export const emptyAttractionZReportsTotals = (): AttractionZReportTotalsDTO => {
 
     total_offline: 0,
     total_online: 0,
+
     total_virtual: 0,
     total_classic: 0,
+
     total_vip: 0,
     total_organization: 0,
 
@@ -87,6 +130,12 @@ export const emptyAttractionZReportsTotals = (): AttractionZReportTotalsDTO => {
     total_amount: 0,
   };
 };
+
+/*
+|--------------------------------------------------------------------------
+| ADD ZREPORT TOTALS
+|--------------------------------------------------------------------------
+*/
 
 export const addAttractionZReportsTotals = (
   target: AttractionZReportTotalsDTO,
@@ -97,8 +146,10 @@ export const addAttractionZReportsTotals = (
 
   target.total_offline += Number(report.total_offline || 0);
   target.total_online += Number(report.total_online || 0);
-  target.total_virtual += Number(report.total_online || 0);
-  target.total_classic += Number(report.total_online || 0);
+
+  target.total_virtual += Number(report.total_virtual || 0);
+  target.total_classic += Number(report.total_classic || 0);
+
   target.total_vip += Number(report.total_vip || 0);
   target.total_organization += Number(report.total_organization || 0);
 
@@ -106,13 +157,76 @@ export const addAttractionZReportsTotals = (
   target.total_amount += Number(report.total_amount || 0);
 };
 
+/*
+|--------------------------------------------------------------------------
+| EMPTY PROMOTION TOTALS
+|--------------------------------------------------------------------------
+*/
+
+export const emptyPromotionReportTotals = (): PromotionReportTotalsDTO => {
+  return {
+    transactions_count: 0,
+    total_people: 0,
+
+    total_virtual: 0,
+    total_classic: 0,
+
+    total_vip: 0,
+    total_organization: 0,
+
+    total_online: 0,
+    total_offline: 0,
+
+    original_amount: 0,
+    discount_amount: 0,
+    paid_amount: 0,
+  };
+};
+
+/*
+|--------------------------------------------------------------------------
+| ADD PROMOTION TOTALS
+|--------------------------------------------------------------------------
+*/
+
+export const addPromotionReportTotals = (
+  target: PromotionReportTotalsDTO,
+  report: PromotionReportPlain,
+) => {
+  target.transactions_count += Number(report.transactions_count || 0);
+
+  target.total_people += Number(report.total_people || 0);
+
+  target.total_virtual += Number(report.total_virtual || 0);
+  target.total_classic += Number(report.total_classic || 0);
+
+  target.total_vip += Number(report.total_vip || 0);
+  target.total_organization += Number(report.total_organization || 0);
+
+  target.total_online += Number(report.total_online || 0);
+  target.total_offline += Number(report.total_offline || 0);
+
+  target.original_amount += Number(report.original_amount || 0);
+  target.discount_amount += Number(report.discount_amount || 0);
+  target.paid_amount += Number(report.paid_amount || 0);
+};
+
+/*
+|--------------------------------------------------------------------------
+| ATTRACTION WITH ZREPORTS
+|--------------------------------------------------------------------------
+*/
+
 export const AttractionZReportAttractionDTO = (
   data: AttractionWithZReportsPlain,
-) => {
+): AttractionZReportAttractionResponseDTO => {
   return {
     id: Number(data.id),
+
     name: data.name,
+
     manufacturer: data.manufacturer ?? null,
+
     status: data.status,
 
     dashboard_file:
@@ -130,6 +244,7 @@ export const AttractionZReportAttractionDTO = (
     price: Number(data.price || 0),
     duration: Number(data.duration || 0),
     seats: Number(data.seats || 0),
+
     age_limit: Number(data.age_limit || 0),
     min_height: Number(data.min_height || 0),
     max_weight: Number(data.max_weight || 0),
@@ -142,32 +257,101 @@ export const AttractionZReportAttractionDTO = (
   };
 };
 
+/*
+|--------------------------------------------------------------------------
+| ACCOUNTING REPORTS
+|--------------------------------------------------------------------------
+*/
+
 export const AccountingAttractionReportsDTO = (data: {
   start_date: Date;
   end_date: Date;
+
+  promotion_code: string | null;
+
   attractions: AttractionModelI[];
   reports: AttractionReportModelI[];
+
+  promotion_reports: PromotionReportPlain[];
 }): AccountingAttractionReportsResponseDTO => {
   const totals = emptyAttractionZReportsTotals();
 
+  const promotionTotals = emptyPromotionReportTotals();
+
+  const reportsByAttraction = new Map<number, AttractionReportModelI[]>();
+
+  const promotionReportsByAttraction = new Map<
+    number,
+    PromotionReportPlain[]
+  >();
+
+  /*
+   * CONFIRMED ZReportlarni attraction bo‘yicha ajratamiz.
+   */
+  for (const report of data.reports) {
+    const attractionID = Number(report.attraction);
+
+    if (!Number.isInteger(attractionID) || attractionID <= 0) {
+      continue;
+    }
+
+    const currentReports = reportsByAttraction.get(attractionID) ?? [];
+
+    currentReports.push(report);
+
+    reportsByAttraction.set(attractionID, currentReports);
+
+    addAttractionZReportsTotals(totals, report);
+  }
+
+  /*
+   * Promotion reportlarni attraction bo‘yicha ajratamiz.
+   */
+  for (const report of data.promotion_reports) {
+    const attractionID = Number(report.attraction);
+
+    if (!Number.isInteger(attractionID) || attractionID <= 0) {
+      continue;
+    }
+
+    const currentReports = promotionReportsByAttraction.get(attractionID) ?? [];
+
+    currentReports.push(report);
+
+    promotionReportsByAttraction.set(attractionID, currentReports);
+
+    addPromotionReportTotals(promotionTotals, report);
+  }
+
   const attractions: AccountingAttractionReportDTO[] = data.attractions.map(
     (attraction) => {
+      const attractionID = Number(attraction.id);
+
       const zreport = emptyAttractionZReportsTotals();
 
-      const reports = data.reports.filter(
-        (report) => Number(report.attraction) === Number(attraction.id),
-      );
+      const attractionPromotionTotals = emptyPromotionReportTotals();
 
-      for (const report of reports) {
+      const attractionReports = reportsByAttraction.get(attractionID) ?? [];
+
+      const attractionPromotionReports =
+        promotionReportsByAttraction.get(attractionID) ?? [];
+
+      for (const report of attractionReports) {
         addAttractionZReportsTotals(zreport, report);
-        addAttractionZReportsTotals(totals, report);
+      }
+
+      for (const report of attractionPromotionReports) {
+        addPromotionReportTotals(attractionPromotionTotals, report);
       }
 
       return {
         attraction: {
-          id: Number(attraction.id),
+          id: attractionID,
+
           name: attraction.name,
+
           manufacturer: attraction.manufacturer ?? null,
+
           status: attraction.status,
 
           dashboard_file:
@@ -188,6 +372,7 @@ export const AccountingAttractionReportsDTO = (data: {
           price: Number(attraction.price || 0),
           duration: Number(attraction.duration || 0),
           seats: Number(attraction.seats || 0),
+
           age_limit: Number(attraction.age_limit || 0),
           min_height: Number(attraction.min_height || 0),
           max_weight: Number(attraction.max_weight || 0),
@@ -196,6 +381,10 @@ export const AccountingAttractionReportsDTO = (data: {
         },
 
         zreport,
+
+        promotion_totals: attractionPromotionTotals,
+
+        promotion_reports: attractionPromotionReports.map(PromotionReportDTO),
       };
     },
   );
@@ -203,7 +392,13 @@ export const AccountingAttractionReportsDTO = (data: {
   return {
     start_date: data.start_date,
     end_date: data.end_date,
+
+    promotion_code: data.promotion_code,
+
     totals,
+
+    promotion_totals: promotionTotals,
+
     attractions,
   };
 };

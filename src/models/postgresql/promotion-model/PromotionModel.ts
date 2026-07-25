@@ -1,5 +1,5 @@
 import { DataTypes, Model, Sequelize } from "sequelize";
-import { ModelsType } from "../../../plugins/db/postgresql/db";
+import { ModelsType, PromotionAttractionModel } from "../../../plugins/db/postgresql/db";
 import { PromotionStatusTypes, PromotionTypes } from "./enums";
 
 export class PromotionModel
@@ -27,6 +27,8 @@ export class PromotionModel
   public weekdays!: number[] | null;
 
   public file!: number | null;
+
+  public promotion_attractions?: PromotionAttractionModel[];
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
