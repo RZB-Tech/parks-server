@@ -120,7 +120,7 @@ export const promotionReportProperties = {
     type: "number",
   },
 
-  transactions_count: {
+  rounds_count: {
     type: "number",
   },
 
@@ -768,7 +768,7 @@ export const accountingAttractionZReportProperties = {
 };
 
 export const promotionReportTotalsProperties = {
-  transactions_count: {
+  rounds_count: {
     type: "number",
   },
 
