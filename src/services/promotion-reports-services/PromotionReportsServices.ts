@@ -32,6 +32,9 @@ export const UpsertPromotionReportService = async (
         promotion_name,
         promotion_type,
 
+        promotion_started_at
+        promotion_ended_at
+
         discount_percent,
 
         original_unit_price,
@@ -69,6 +72,10 @@ export const UpsertPromotionReportService = async (
         :promotionName,
         :promotionType,
 
+        :promotion_started_at,        
+        :promotion_ended_at,        
+
+
         :discountPercent,
 
         :originalUnitPrice,
@@ -104,6 +111,10 @@ export const UpsertPromotionReportService = async (
 
         promotion_type =
           EXCLUDED.promotion_type,
+        promotion_started_at =
+          EXCLUDED.promotion_started_at,
+        promotion_ended_at =
+          EXCLUDED.promotion_ended_at,
 
         transactions_count =
           promotion_reports.transactions_count + 1,
@@ -167,6 +178,8 @@ export const UpsertPromotionReportService = async (
         promotionName: data.promotion_name,
 
         promotionType: data.promotion_type,
+        promotion_started_at: data.promotion_started_at,
+        promotion_ended_at: data.promotion_ended_at,
 
         discountPercent: data.discount_percent,
 

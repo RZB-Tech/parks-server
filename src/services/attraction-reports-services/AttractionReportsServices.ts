@@ -766,7 +766,7 @@ export const GetTodayAttractionReportsService = async (
             "discount_percent",
             "original_unit_price",
             "sale_unit_price",
-            [fn("SUM", col("transactions_count")), "transactions_count"],
+            "rounds_count",
             [fn("SUM", col("total_people")), "total_people"],
             [fn("SUM", col("total_virtual")), "total_virtual"],
             [fn("SUM", col("total_classic")), "total_classic"],

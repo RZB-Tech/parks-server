@@ -647,6 +647,8 @@ export const CardPaymentTransactionService = async (
           promotion_code: promotion.code,
           promotion_name: promotion.name,
           promotion_type: promotion.type,
+          promotion_started_at: promotion.promotion_started_at,
+          promotion_ended_at: promotion.promotion_ended_at,
           discount_percent: discountPercent,
           original_unit_price: originalUnitPrice,
           sale_unit_price: saleUnitPrice,

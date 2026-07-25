@@ -35,7 +35,7 @@ export class PromotionReportModel
   /*
    * Umumiy statistika
    */
-  public transactions_count!: number;
+  public rounds_count!: number;
   public total_people!: number;
 
   /*
@@ -152,7 +152,7 @@ export class PromotionReportModel
           defaultValue: 0,
         },
 
-        transactions_count: {
+        rounds_count: {
           type: DataTypes.BIGINT,
           allowNull: false,
           defaultValue: 0,

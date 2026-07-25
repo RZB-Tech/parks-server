@@ -22,7 +22,7 @@ declare interface PromotionReportModelI {
   original_unit_price: number;
   sale_unit_price: number;
 
-  transactions_count: number;
+  rounds_count: number;
   total_people: number;
 
   total_virtual: number;

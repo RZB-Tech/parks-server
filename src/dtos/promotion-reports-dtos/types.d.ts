@@ -73,7 +73,7 @@ declare interface PromotionReportPlain {
   original_unit_price: number | string;
   sale_unit_price: number | string;
 
-  transactions_count: number | string;
+  rounds_count: number | string;
   total_people: number | string;
 
   total_virtual: number | string;
