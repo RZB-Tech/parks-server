@@ -42,7 +42,7 @@ export const ClientAttractionPaymentService = async (
 
   const cardID = Number(body.card);
   const membersCount = Number(body.membersCount);
-  const clientTotalAmount = Number(body.totalAmount);
+  const clientAuthorizedAmount = Number(body.totalAmount);
 
   if (
     !Number.isSafeInteger(normalizedTelegramID) ||
@@ -63,7 +63,10 @@ export const ClientAttractionPaymentService = async (
     throw BadRequest("INVALID_MEMBERS_COUNT");
   }
 
-  if (!Number.isSafeInteger(clientTotalAmount) || clientTotalAmount < 0) {
+  if (
+    !Number.isSafeInteger(clientAuthorizedAmount) ||
+    clientAuthorizedAmount < 0
+  ) {
     throw BadRequest("INVALID_TOTAL_AMOUNT");
   }
 
@@ -232,9 +235,13 @@ export const ClientAttractionPaymentService = async (
       const calculatedTotalAmount = isVIP ? 0 : saleAmount;
 
       /*
-       * VIP ham 0 yuborishi kerak.
+       * Client base narxni tasdiqlaganidan keyin aktiv promotion topilsa,
+       * server arzonroq promotion narxini qo‘llaydi.
+       *
+       * Promotion tugab, joriy narx client tasdiqlagan summadan oshsa,
+       * clientni kutilmagan katta yechimdan himoya qilamiz.
        */
-      if (clientTotalAmount !== calculatedTotalAmount) {
+      if (calculatedTotalAmount > clientAuthorizedAmount) {
         throw BadRequest("TOTAL_AMOUNT_MISMATCH");
       }
 

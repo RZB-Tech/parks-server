@@ -26,14 +26,30 @@ import {
 } from "../../temporal/helpers/promotion.helper";
 import { getTashkentDateOnly } from "../../utils/date";
 
-export const FindBestActivePromotionForAttractionService = async (
-  attractionID: number,
+export const FindBestActivePromotionsForAttractionsService = async (
+  attractionIDs: number[],
   transaction?: Transaction,
-): Promise<ActivePromotionForAttractionDTO | null> => {
-  const parsedAttractionID = Number(attractionID);
+): Promise<Map<number, ActivePromotionForAttractionDTO>> => {
+  const parsedAttractionIDs = [
+    ...new Set(attractionIDs.map((attractionID) => Number(attractionID))),
+  ];
 
-  if (!Number.isInteger(parsedAttractionID) || parsedAttractionID <= 0) {
+  if (
+    parsedAttractionIDs.some(
+      (attractionID) =>
+        !Number.isInteger(attractionID) || attractionID <= 0,
+    )
+  ) {
     throw BadRequest("ATTRACTION_ID_IS_INVALID");
+  }
+
+  const activePromotions = new Map<
+    number,
+    ActivePromotionForAttractionDTO
+  >();
+
+  if (parsedAttractionIDs.length === 0) {
+    return activePromotions;
   }
 
   const now = new Date();
@@ -52,7 +68,9 @@ export const FindBestActivePromotionForAttractionService = async (
         required: true,
 
         where: {
-          attraction: parsedAttractionID,
+          attraction: {
+            [Op.in]: parsedAttractionIDs,
+          },
         },
 
         attributes: ["id", "attraction", "original_price", "discounted_price"],
@@ -68,28 +86,25 @@ export const FindBestActivePromotionForAttractionService = async (
   });
 
   for (const promotion of promotions) {
-    const status = resolvePromotionStatus({
-      type: promotion.type,
+    const status = resolvePromotionStatus(
+      {
+        type: promotion.type,
 
-      starts_at: promotion.starts_at,
-      ends_at: promotion.ends_at,
+        starts_at: promotion.starts_at,
+        ends_at: promotion.ends_at,
 
-      start_date: promotion.start_date,
-      end_date: promotion.end_date,
+        start_date: promotion.start_date,
+        end_date: promotion.end_date,
 
-      start_time: promotion.start_time,
-      end_time: promotion.end_time,
+        start_time: promotion.start_time,
+        end_time: promotion.end_time,
 
-      weekdays: promotion.weekdays,
-    });
+        weekdays: promotion.weekdays,
+      },
+      now,
+    );
 
     if (status !== PromotionStatusTypes.ACTIVE) {
-      continue;
-    }
-
-    const relation = promotion.promotion_attractions?.[0];
-
-    if (!relation) {
       continue;
     }
 
@@ -143,10 +158,6 @@ export const FindBestActivePromotionForAttractionService = async (
 
     const discountPercent = Number(promotion.discount_percent);
 
-    const originalPrice = Number(relation.original_price);
-
-    const discountedPrice = Number(relation.discounted_price);
-
     if (
       !Number.isFinite(discountPercent) ||
       discountPercent < 0 ||
@@ -155,41 +166,74 @@ export const FindBestActivePromotionForAttractionService = async (
       continue;
     }
 
-    if (!Number.isFinite(originalPrice) || originalPrice < 0) {
-      continue;
+    for (const relation of promotion.promotion_attractions ?? []) {
+      const relationAttractionID = Number(relation.attraction);
+
+      /*
+       * Promotions discount_percent DESC va id DESC tartibida keladi.
+       * Shu attraction uchun birinchi valid promotion eng yaxshisi bo‘ladi.
+       */
+      if (activePromotions.has(relationAttractionID)) {
+        continue;
+      }
+
+      const originalPrice = Number(relation.original_price);
+      const discountedPrice = Number(relation.discounted_price);
+
+      if (!Number.isFinite(originalPrice) || originalPrice < 0) {
+        continue;
+      }
+
+      if (
+        !Number.isFinite(discountedPrice) ||
+        discountedPrice < 0 ||
+        discountedPrice > originalPrice
+      ) {
+        continue;
+      }
+
+      activePromotions.set(relationAttractionID, {
+        id: Number(promotion.id),
+
+        code: promotion.code,
+        name: promotion.name,
+
+        type: promotion.type,
+
+        discount_percent: discountPercent,
+
+        original_price: originalPrice,
+
+        discounted_price: discountedPrice,
+
+        promotion_started_at: promotionStartedAt,
+
+        promotion_ended_at: promotionEndedAt,
+      });
     }
-
-    if (
-      !Number.isFinite(discountedPrice) ||
-      discountedPrice < 0 ||
-      discountedPrice > originalPrice
-    ) {
-      continue;
-    }
-
-    return {
-      id: Number(promotion.id),
-
-      code: promotion.code,
-      name: promotion.name,
-
-      type: promotion.type,
-
-      discount_percent: discountPercent,
-
-      original_price: originalPrice,
-
-      discounted_price: discountedPrice,
-
-      promotion_started_at: promotionStartedAt,
-
-      promotion_ended_at: promotionEndedAt,
-    };
   }
 
-  return null;
+  return activePromotions;
 };
 
+export const FindBestActivePromotionForAttractionService = async (
+  attractionID: number,
+  transaction?: Transaction,
+): Promise<ActivePromotionForAttractionDTO | null> => {
+  const parsedAttractionID = Number(attractionID);
+
+  if (!Number.isInteger(parsedAttractionID) || parsedAttractionID <= 0) {
+    throw BadRequest("ATTRACTION_ID_IS_INVALID");
+  }
+
+  const activePromotions =
+    await FindBestActivePromotionsForAttractionsService(
+      [parsedAttractionID],
+      transaction,
+    );
+
+  return activePromotions.get(parsedAttractionID) ?? null;
+};
 
 export const GetAllPromotionsService = async (query: GetPromotionsQuery) => {
   const where: WhereOptions = {};

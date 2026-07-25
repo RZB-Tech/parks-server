@@ -11,7 +11,10 @@ import {
   AttractionLastRoundDTO,
   ClientAttractionDTO,
 } from "../../../dtos/client/attraction-dtos/AttractionDto";
-import { AttractionRoundStatusTypes } from "../../../models/postgresql/attraction-round-model/enums";
+import {
+  FindBestActivePromotionForAttractionService,
+  FindBestActivePromotionsForAttractionsService,
+} from "../../promotion-services/PromotionServices";
 
 export const GetClientAttractionsService = async (
   telegramID: number,
@@ -47,7 +50,16 @@ export const GetClientAttractionsService = async (
     order: [["name", "ASC"]],
   });
 
-  return attractions.map(ClientAttractionDTO);
+  const promotions = await FindBestActivePromotionsForAttractionsService(
+    attractions.map((attraction) => Number(attraction.id)),
+  );
+
+  return attractions.map((attraction) =>
+    ClientAttractionDTO(
+      attraction,
+      promotions.get(Number(attraction.id)) ?? null,
+    ),
+  );
 };
 
 export const GetAttractionRoundService = async (
@@ -94,18 +106,22 @@ export const GetAttractionRoundService = async (
     throw BadRequest("ATTRACTION_NOT_FOUND");
   }
 
-  const lastRound = await AttractionRoundModel.findOne({
-    where: {
-      attraction: attractionID,
-    },
-    order: [
-      ["round_number", "DESC"],
-      ["id", "DESC"],
-    ],
-  });
+  const [lastRound, promotion] = await Promise.all([
+    AttractionRoundModel.findOne({
+      where: {
+        attraction: attractionID,
+      },
+      order: [
+        ["round_number", "DESC"],
+        ["id", "DESC"],
+      ],
+    }),
+    FindBestActivePromotionForAttractionService(attractionID),
+  ]);
 
   return AttractionLastRoundDTO({
     attraction,
     lastRound,
+    promotion,
   });
 };

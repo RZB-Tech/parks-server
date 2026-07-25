@@ -12,7 +12,9 @@ declare interface ClientAttractionResponseDTO {
   latitude: string | null;
   longitude: string | null;
 
+  original_price: number;
   price: number;
+  discount_percent: number;
   duration: number;
   seats: number;
 
@@ -26,8 +28,11 @@ declare interface ClientAttractionResponseDTO {
 declare interface AttractionLastRoundResponseDTO {
   id: number;
   name: string;
+  original_price: number;
   price: number;
+  discount_percent: number;
   main_file: number | null;
+  seats: number;
 
   round: {
     id: number;

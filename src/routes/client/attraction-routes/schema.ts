@@ -11,7 +11,8 @@ const nullableIntegerSchema = {
 export const getClientAttractionsSchema = {
   tags: ["Clients|Attractions"],
   summary: "Get client attractions",
-  description: "Returns all active attractions for the Telegram Mini App user.",
+  description:
+    "Returns all active attractions for the Telegram Mini App user. Price is the current active promotion price when available.",
   security: [
     {
       InitDataHeader: [],
@@ -45,7 +46,21 @@ export const getClientAttractionsSchema = {
             },
             latitude: { type: "string" },
             longitude: { type: "string" },
-            price: { type: "integer" },
+            original_price: {
+              type: "integer",
+              description:
+                "Original unit price before the active promotion discount.",
+            },
+            price: {
+              type: "integer",
+              description:
+                "Current payable unit price. Uses the active promotion discounted price when available.",
+            },
+            discount_percent: {
+              type: "number",
+              description:
+                "Current active promotion discount percent, or zero when no promotion is active.",
+            },
             duration: { type: "integer" },
             seats: { type: "integer" },
             age_limit: nullableIntegerSchema,
@@ -62,7 +77,7 @@ export const getClientAttractionRoundSchema = {
   tags: ["Clients|Attractions"],
   summary: "Get client attraction last round",
   description:
-    "Returns attraction information, last round number and available seats for the Telegram Mini App user.",
+    "Returns attraction information, current payable price, last round number and available seats for the Telegram Mini App user.",
 
   security: [
     {
@@ -89,7 +104,21 @@ export const getClientAttractionRoundSchema = {
         properties: {
           id: { type: "integer" },
           name: { type: "string" },
-          price: { type: "integer" },
+          original_price: {
+            type: "integer",
+            description:
+              "Original unit price before the active promotion discount.",
+          },
+          price: {
+            type: "integer",
+            description:
+              "Current payable unit price. Uses the active promotion discounted price when available.",
+          },
+          discount_percent: {
+            type: "number",
+            description:
+              "Current active promotion discount percent, or zero when no promotion is active.",
+          },
           main_file: nullableIntegerSchema,
           seats: { type: "integer" },
           available_seats: { type: "integer" },
@@ -100,7 +129,8 @@ export const getClientAttractionRoundSchema = {
                 properties: {
                   id: { type: "integer" },
                   round_number: { type: "integer" },
-                  people_count: { type: "integer" },
+                  total_seats: { type: "integer" },
+                  occupied_seats: { type: "integer" },
                   available_seats: { type: "integer" },
                 },
               },

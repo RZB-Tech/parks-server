@@ -1,6 +1,11 @@
 export const ClientAttractionDTO = (
   data: AttractionModelI,
+  promotion: ActivePromotionForAttractionDTO | null = null,
 ): ClientAttractionResponseDTO => {
+  const originalPrice = promotion
+    ? Number(promotion.original_price)
+    : Number(data.price || 0);
+
   return {
     id: Number(data.id),
     name: data.name,
@@ -13,7 +18,11 @@ export const ClientAttractionDTO = (
       : null,
     latitude: data.latitude ?? null,
     longitude: data.longitude ?? null,
-    price: Number(data.price || 0),
+    original_price: originalPrice,
+    price: promotion
+      ? Number(promotion.discounted_price)
+      : Number(data.price || 0),
+    discount_percent: promotion ? Number(promotion.discount_percent) : 0,
     duration: Number(data.duration || 0),
     seats: Number(data.seats || 0),
     age_limit: data.age_limit !== null ? Number(data.age_limit) : null,
@@ -26,6 +35,7 @@ export const ClientAttractionDTO = (
 interface AttractionLastRoundData {
   attraction: AttractionModelI;
   lastRound: AttractionRoundModelI | null;
+  promotion: ActivePromotionForAttractionDTO | null;
 }
 
 export const AttractionLastRoundDTO = (
@@ -34,14 +44,24 @@ export const AttractionLastRoundDTO = (
   const totalSeats = Number(data.attraction.seats || 0);
   const occupiedSeats = Number(data.lastRound?.people_count || 0);
   const availableSeats = Math.max(totalSeats - occupiedSeats, 0);
+  const originalPrice = data.promotion
+    ? Number(data.promotion.original_price)
+    : Number(data.attraction.price || 0);
 
   return {
     id: Number(data.attraction.id),
     name: data.attraction.name,
-    price: Number(data.attraction.price || 0),
+    original_price: originalPrice,
+    price: data.promotion
+      ? Number(data.promotion.discounted_price)
+      : Number(data.attraction.price || 0),
+    discount_percent: data.promotion
+      ? Number(data.promotion.discount_percent)
+      : 0,
     main_file: data.attraction.main_file
       ? Number(data.attraction.main_file)
       : null,
+    seats: totalSeats,
 
     round: data.lastRound
       ? {

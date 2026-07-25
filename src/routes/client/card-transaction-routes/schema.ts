@@ -44,7 +44,8 @@ export const clientAttractionPaymentSchema = {
       totalAmount: {
         type: "integer",
         minimum: 0,
-        description: "Total payment amount. Can be zero for VIP cards.",
+        description:
+          "Maximum amount confirmed by the client. The server recalculates and applies the current active promotion price.",
       },
     },
   }),
