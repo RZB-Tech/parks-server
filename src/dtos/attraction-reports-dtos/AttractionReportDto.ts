@@ -165,7 +165,7 @@ export const addAttractionZReportsTotals = (
 
 export const emptyPromotionReportTotals = (): PromotionReportTotalsDTO => {
   return {
-    transactions_count: 0,
+    rounds_count: 0,
     total_people: 0,
 
     total_virtual: 0,
@@ -193,7 +193,7 @@ export const addPromotionReportTotals = (
   target: PromotionReportTotalsDTO,
   report: PromotionReportPlain,
 ) => {
-  target.transactions_count += Number(report.transactions_count || 0);
+  target.rounds_count += Number(report.rounds_count || 0);
 
   target.total_people += Number(report.total_people || 0);
 

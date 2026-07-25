@@ -118,7 +118,7 @@ declare interface AttractionZReportTotalsDTO {
 */
 
 declare interface PromotionReportTotalsDTO {
-  transactions_count: number;
+  rounds_count: number;
   total_people: number;
 
   total_virtual: number;

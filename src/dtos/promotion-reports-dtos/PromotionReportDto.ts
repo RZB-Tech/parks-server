@@ -27,7 +27,7 @@ export const PromotionReportDTO = (data: PromotionReportPlain) => {
 
     sale_unit_price: Number(data.sale_unit_price || 0),
 
-    transactions_count: Number(data.transactions_count || 0),
+    rounds_count: Number(data.rounds_count || 0),
 
     total_people: Number(data.total_people || 0),
 
