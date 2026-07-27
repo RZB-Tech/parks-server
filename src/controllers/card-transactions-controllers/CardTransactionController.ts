@@ -1,8 +1,12 @@
 import { FastifyRequest } from "fastify";
 import { makeReplyingController } from "../../utils/controllerHelpers";
-import { ReqData, RouteWithData, RouteWithParamsAndQuery } from "../../types/routes";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParamsAndQuery,
+} from "../../types/routes";
 import { Unauthorized } from "../../exceptions";
-import { CheckNfcCardService, CardTopUpTransactionService, GetCardTransactionsService, CardPaymentTransactionService } from "../../services/card-transactions-services/CardTransactionsServices";
+import { CheckNfcCardService, CardTopUpTransactionService, GetCardTransactionsService, CardPaymentTransactionService, CardRefundTransactionService } from "../../services/card-transactions-services/CardTransactionsServices";
 
 export const CheckNfcCardController = makeReplyingController(
   "card",
@@ -23,6 +27,19 @@ export const CardTopUpTransactionController = makeReplyingController(
     const body = request.body.data;
 
     return CardTopUpTransactionService(Number(operatorID), body);
+  },
+);
+
+export const CardRefundTransactionController = makeReplyingController(
+  "transaction",
+  async (request: FastifyRequest) => {
+    const operatorID = request.employee?.id;
+    const body = request.body as ReqData<CardRefundData> | undefined;
+
+    return CardRefundTransactionService(
+      Number(operatorID),
+      body?.data ?? { card: "" },
+    );
   },
 );
 

@@ -43,6 +43,14 @@ export const cardLastTransactionProperties = {
     type: "number",
   },
 
+  activation_amount: {
+    type: "number",
+    description:
+      "Card activation fee deducted from the received amount on the first top-up.",
+  },
+
+  description: nullableString,
+
   balance_before: {
     type: "number",
   },
@@ -174,6 +182,12 @@ export const cardTransactionProperties = {
     type: "number",
   },
 
+  activation_amount: {
+    type: "number",
+  },
+
+  description: nullableString,
+
   balance_before: {
     type: "number",
   },
@@ -273,6 +287,12 @@ export const cardTransactionHistoryProperties = {
   amount: {
     type: "number",
   },
+
+  activation_amount: {
+    type: "number",
+  },
+
+  description: nullableString,
 
   balance_before: {
     type: "number",
@@ -388,6 +408,8 @@ export const cardTopUpTransactionSchema = {
       amount: {
         type: "number",
         minimum: 1,
+        description:
+          "Total received amount. For an inactive card, the backend deducts the configured activation fee and credits the remainder to the balance.",
       },
 
       payment_type: {
@@ -400,6 +422,45 @@ export const cardTopUpTransactionSchema = {
     },
   }),
 
+  response: {
+    200: successAnswerTemplate({
+      transaction: {
+        type: "object",
+        properties: cardTransactionProperties,
+      },
+    }),
+  },
+};
+
+export const cardRefundTransactionSchema = {
+  summary: "Return card and refund its amounts",
+  description:
+    "Returns an active physical card and refunds its current balance together with the activation fee snapshot.",
+  tags: ["Card Transactions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["card"],
+    additionalProperties: false,
+    properties: {
+      card: {
+        type: "string",
+        minLength: 1,
+        description: "Physical card number",
+      },
+      description: nullableString,
+    },
+  }),
   response: {
     200: successAnswerTemplate({
       transaction: {

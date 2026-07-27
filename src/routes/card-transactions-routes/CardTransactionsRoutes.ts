@@ -6,11 +6,12 @@ import {
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 import {
   CardPaymentTransactionController,
+  CardRefundTransactionController,
   CardTopUpTransactionController,
   CheckNfcCardController,
   GetCashboxCardTransactionsController,
 } from "../../controllers/card-transactions-controllers/CardTransactionController";
-import { cardPaymentTransactionSchema, cardTopUpTransactionSchema, checkNfcCardSchema, getCardTransactionsSchema } from "./schema";
+import { cardPaymentTransactionSchema, cardRefundTransactionSchema, cardTopUpTransactionSchema, checkNfcCardSchema, getCardTransactionsSchema } from "./schema";
 
 const CardTransactionsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -26,6 +27,12 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
     "/cards/topup",
     { schema: cardTopUpTransactionSchema, preHandler: [AuthMiddleware]},
     CardTopUpTransactionController,
+  );
+
+  fastify.post(
+    "/cards/refund",
+    { schema: cardRefundTransactionSchema, preHandler: [AuthMiddleware] },
+    CardRefundTransactionController,
   );
 
   fastify.post(

@@ -13,6 +13,8 @@ declare interface CardTransactionModelI {
   amount: number;
   balance_before: number;
   balance_after: number;
+  activation_amount: number;
+  description: string | null;
 
   promotion: number | null;
 

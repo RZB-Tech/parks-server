@@ -227,6 +227,10 @@ export const getCardStatsSchema = {
             type: "number",
             example: 0,
           },
+          returned: {
+            type: "number",
+            example: 0,
+          },
 
           types: {
             type: "object",

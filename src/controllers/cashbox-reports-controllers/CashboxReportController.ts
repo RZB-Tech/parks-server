@@ -29,11 +29,12 @@ export const CashboxReportOpenController = makeReplyingController(
 
 export const CashboxReportsTodayController = makeReplyingController(
   "cashbox-reports",
-  async (request: FastifyRequest<RouteWithParams<CashboxReportsParams>>) => {
+  async (request: FastifyRequest) => {
     const employeeID = request.employee?.id;
-    const params = request.params;
+    const params = request.params as CashboxReportsParams;
+    const query = request.query as GetCashboxReportsQuery;
 
-    return GetTodayCashboxReportsService(Number(employeeID), params);
+    return GetTodayCashboxReportsService(Number(employeeID), params, query);
   },
 );
 

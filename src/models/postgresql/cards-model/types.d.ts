@@ -9,4 +9,5 @@ declare interface CardsModelI {
   balance: number;
   imported_at: DATE;
   activated_at: DATE | null;
+  returned_at: DATE | null;
 }

@@ -29,6 +29,8 @@ export class CardTransactionModel
   public amount!: number;
   public balance_before!: number;
   public balance_after!: number;
+  public activation_amount!: number;
+  public description!: string | null;
 
   /*
    * Promotion snapshot
@@ -122,6 +124,17 @@ export class CardTransactionModel
           type: DataTypes.BIGINT,
           allowNull: false,
           defaultValue: 0,
+        },
+
+        activation_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        description: {
+          type: DataTypes.STRING,
+          allowNull: true,
         },
 
         /*

@@ -1,3 +1,5 @@
+import { AttractionRoundStatusTypes } from "../../../models/postgresql/attraction-round-model/enums";
+
 export const ClientAttractionDTO = (
   data: AttractionModelI,
   promotion: ActivePromotionForAttractionDTO | null = null,
@@ -65,7 +67,11 @@ export const AttractionLastRoundDTO = (
 ): AttractionLastRoundResponseDTO => {
   const totalSeats = Number(data.attraction.seats || 0);
   const occupiedSeats = Number(data.lastRound?.people_count || 0);
-  const availableSeats = Math.max(totalSeats - occupiedSeats, 0);
+  const isOpenRound =
+    data.lastRound?.status === AttractionRoundStatusTypes.OPEN;
+  const availableSeats = isOpenRound
+    ? Math.max(totalSeats - occupiedSeats, 0)
+    : totalSeats;
   const originalPrice = data.promotion
     ? Number(data.promotion.original_price)
     : Number(data.attraction.price || 0);
@@ -102,13 +108,13 @@ export const AttractionLastRoundDTO = (
       ? {
           id: Number(data.lastRound.id),
           round_number: Number(data.lastRound.round_number || 0),
+          status: data.lastRound.status,
           total_seats: totalSeats,
           occupied_seats: occupiedSeats,
           available_seats: availableSeats,
         }
       : null,
 
-    // Round mavjud bo‘lmasa barcha o‘rinlar bo‘sh hisoblanadi
-    available_seats: data.lastRound ? availableSeats : totalSeats,
+    available_seats: availableSeats,
   };
 };

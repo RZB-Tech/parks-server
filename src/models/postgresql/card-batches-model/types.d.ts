@@ -9,6 +9,7 @@ declare interface CardBatchModelI {
   blocked_cards: number;
   lost_cards: number;
   tethered_cards: number;
+  returned_cards: number;
   imported_by: number | null;
   imported_at: Date;
 }

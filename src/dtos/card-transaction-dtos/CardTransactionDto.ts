@@ -3,6 +3,8 @@ export const CardLastTransactionDTO = (data: CardTransactionModelI) => {
     id: Number(data.id),
     type: data.type,
     amount: Number(data.amount || 0),
+    activation_amount: Number(data.activation_amount || 0),
+    description: data.description ?? null,
     balance_before: Number(data.balance_before || 0),
     balance_after: Number(data.balance_after || 0),
     payment_type: data.payment_type,
@@ -27,6 +29,8 @@ export const CardTransactionDTO = (
     payment_card_type: data.payment_card_type ?? null,
     payment_service_type: data.payment_service ?? null,
     amount: Number(data.amount || 0),
+    activation_amount: Number(data.activation_amount || 0),
+    description: data.description ?? null,
     balance_before: Number(data.balance_before || 0),
     balance_after: Number(data.balance_after || 0),
     status: data.status,
@@ -81,6 +85,8 @@ export const CardTransactionHistoryDTO = (
     payment_service_type: data.payment_service ?? null,
 
     amount: Number(data.amount || 0),
+    activation_amount: Number(data.activation_amount || 0),
+    description: data.description ?? null,
     balance_before: Number(data.balance_before || 0),
     balance_after: Number(data.balance_after || 0),
 

@@ -12,7 +12,9 @@ export const CashboxXReportDTO = (
     zreport: data.zreport !== null ? Number(data.zreport) : null,
     report_date: data.report_date,
     status: data.status,
+    description: data.description ?? null,
     opened_at: data.opened_at,
+    stopped_at: data.stopped_at ?? null,
     closed_at: data.closed_at ?? null,
     total_amount: Number(data.total_amount || 0),
     cash_amount: Number(data.cash_amount || 0),
@@ -24,6 +26,9 @@ export const CashboxXReportDTO = (
     payme_amount: Number(data.payme_amount || 0),
     click_amount: Number(data.click_amount || 0),
     activated_cards_count: Number(data.activated_cards_count || 0),
+    activated_cards_amount: Number(data.activated_cards_amount || 0),
+    returned_cards_count: Number(data.returned_cards_count || 0),
+    returned_cards_amount: Number(data.returned_cards_amount || 0),
     relationed_cards_count: Number(data.relationed_cards_count || 0),
     transactions_count: Number(data.transactions_count || 0),
     xreports_count:
@@ -91,6 +96,9 @@ export const ZReportDTO = (
     payme_amount: Number(data.payme_amount || 0),
     click_amount: Number(data.click_amount || 0),
     activated_cards_count: Number(data.activated_cards_count || 0),
+    activated_cards_amount: Number(data.activated_cards_amount || 0),
+    returned_cards_count: Number(data.returned_cards_count || 0),
+    returned_cards_amount: Number(data.returned_cards_amount || 0),
     relationed_cards_count: Number(data.relationed_cards_count || 0),
     transactions_count: Number(data.transactions_count || 0),
     xreports_count:
@@ -115,6 +123,9 @@ export const emptyAccountingZReport = (): AccountingZReportAmountDTO => {
     click_amount: 0,
 
     activated_cards_count: 0,
+    activated_cards_amount: 0,
+    returned_cards_count: 0,
+    returned_cards_amount: 0,
     relationed_cards_count: 0,
     transactions_count: 0,
     xreports_count: 0,
@@ -137,6 +148,11 @@ export const addAccountingZReportAmount = (
   target.click_amount += Number(report.click_amount || 0);
 
   target.activated_cards_count += Number(report.activated_cards_count || 0);
+  target.activated_cards_amount += Number(
+    report.activated_cards_amount || 0,
+  );
+  target.returned_cards_count += Number(report.returned_cards_count || 0);
+  target.returned_cards_amount += Number(report.returned_cards_amount || 0);
   target.relationed_cards_count += Number(report.relationed_cards_count || 0);
   target.transactions_count += Number(report.transactions_count || 0);
   target.xreports_count += Number(report.xreports_count || 0);

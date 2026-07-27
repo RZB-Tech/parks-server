@@ -16,6 +16,7 @@ export class CardBatchModel
   public blocked_cards!: number;
   public lost_cards!: number;
   public tethered_cards!: number;
+  public returned_cards!: number;
   public imported_by!: number | null;
   public imported_at!: Date;
 
@@ -74,6 +75,11 @@ export class CardBatchModel
           defaultValue: 0,
         },
         tethered_cards: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        returned_cards: {
           type: DataTypes.INTEGER,
           allowNull: false,
           defaultValue: 0,

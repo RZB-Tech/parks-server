@@ -18,6 +18,7 @@ declare interface CardStatsDto {
   lost: number;
   frozen: number;
   tethered: number;
+  returned: number;
 }
 
 declare interface CardTransactionResponseDTO {
@@ -29,6 +30,8 @@ declare interface CardTransactionResponseDTO {
   payment_card_type: PaymentCardType | null;
   payment_service_type: PaymentServiceType | null;
   amount: number;
+  activation_amount: number;
+  description: string | null;
   balance_before: number;
   balance_after: number;
   status: string;
@@ -63,6 +66,8 @@ declare interface CardTransactionHistoryResponseDTO {
   payment_service_type: PaymentServiceType | null;
 
   amount: number;
+  activation_amount: number;
+  description: string | null;
   balance_before: number;
   balance_after: number;
 

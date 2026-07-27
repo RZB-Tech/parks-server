@@ -49,6 +49,7 @@ export const CardStatsDTO = (data: CardBatchModelI): CardStatsDto => {
     lost: Number(data.lost_cards || 0),
     frozen: Number(data.frozen_cards || 0),
     tethered: Number(data.tethered_cards || 0),
+    returned: Number(data.returned_cards || 0),
   };
 };
 

@@ -28,6 +28,7 @@ export const getReportTopUpIncrementData = (
   body: CardTopUpTransactionData,
   amount: number,
   isCardActivated: boolean,
+  activationAmount: number,
 ): Record<string, number> => {
   const incrementData: Record<string, number> = {
     total_amount: amount,
@@ -68,6 +69,7 @@ export const getReportTopUpIncrementData = (
 
   if (isCardActivated) {
     incrementData.activated_cards_count = 1;
+    incrementData.activated_cards_amount = activationAmount;
   }
 
   return incrementData;

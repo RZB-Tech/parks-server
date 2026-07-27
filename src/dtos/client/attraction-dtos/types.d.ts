@@ -63,6 +63,7 @@ declare interface AttractionLastRoundResponseDTO {
   round: {
     id: number;
     round_number: number;
+    status: AttractionRoundStatusTypes;
     total_seats: number;
     occupied_seats: number;
     available_seats: number;

@@ -4,6 +4,7 @@ export enum CardStatusTypes {
   BLOCKED = "blocked",
   LOST = "lost",
   FROZEN = "frozen",
+  RETURNED = "returned",
 }
 
 export enum CardType {

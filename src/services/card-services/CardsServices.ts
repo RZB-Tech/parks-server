@@ -344,6 +344,7 @@ export const GetCardStatsService = async (query: GetCardsQuery) => {
     lost: 0,
     frozen: 0,
     tethered: 0,
+    returned: 0,
 
     totalBalance,
 
@@ -365,6 +366,7 @@ export const GetCardStatsService = async (query: GetCardsQuery) => {
     stats.lost += Number(batch.lost_cards || 0);
     stats.frozen += Number(batch.frozen_cards || 0);
     stats.tethered += Number(batch.tethered_cards || 0);
+    stats.returned += Number(batch.returned_cards || 0);
 
     const type = String(batch.type);
 
@@ -566,6 +568,7 @@ const CARD_BATCH_COUNTER = {
   [CardStatusTypes.FROZEN]: "frozen_cards",
   [CardStatusTypes.BLOCKED]: "blocked_cards",
   [CardStatusTypes.LOST]: "lost_cards",
+  [CardStatusTypes.RETURNED]: "returned_cards",
 } as const;
 
 export const UpdateCardsService = async (

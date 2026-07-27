@@ -43,6 +43,7 @@ import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-r
 import { UserModel } from "../../plugins/db/postgresql/db";
 import { FindBestActivePromotionForAttractionService } from "../promotion-services/PromotionServices";
 import { UpsertPromotionReportService } from "../promotion-reports-services/PromotionReportsServices";
+import { CARD_ACTIVATION_AMOUNT } from "../../consts/card";
 
 export const CheckNfcCardService = async (
   operatorID: number,
@@ -202,6 +203,7 @@ export const CardTopUpTransactionService = async (
         CardStatusTypes.BLOCKED,
         CardStatusTypes.LOST,
         CardStatusTypes.FROZEN,
+        CardStatusTypes.RETURNED,
       ].includes(card.status)
     ) {
       throw BadRequest("Card is not available!");
@@ -226,9 +228,16 @@ export const CardTopUpTransactionService = async (
       );
     }
 
-    const balanceAfter = balanceBefore + amount;
     const isCardActivated = card.status === CardStatusTypes.INACTIVE;
     const isOrganizationCard = card.type === CardType.ORGANIZATION;
+    const activationAmount = isCardActivated ? CARD_ACTIVATION_AMOUNT : 0;
+
+    if (isCardActivated && amount < activationAmount) {
+      throw BadRequest("AMOUNT_IS_LESS_THAN_CARD_ACTIVATION_AMOUNT");
+    }
+
+    const topUpAmount = amount - activationAmount;
+    const balanceAfter = balanceBefore + topUpAmount;
 
     const cardTransaction = await CardTransactionModel.create(
       {
@@ -246,9 +255,10 @@ export const CardTopUpTransactionService = async (
           body.payment_type === PaymentType.ONLINE
             ? body.payment_service_type!
             : null,
-        amount,
+        amount: topUpAmount,
         balance_before: balanceBefore,
         balance_after: balanceAfter,
+        activation_amount: activationAmount,
         status: CardTransactionStatusTypes.SUCCESS,
         description: body.description?.trim() || null,
       },
@@ -281,6 +291,7 @@ export const CardTopUpTransactionService = async (
       body,
       amount,
       isCardActivated,
+      activationAmount,
     );
 
     await CashboxReportModel.increment(incrementData, {
@@ -320,6 +331,196 @@ export const CardTopUpTransactionService = async (
       card_data: card.get({
         plain: true,
       }),
+    });
+  });
+};
+
+export const CardRefundTransactionService = async (
+  operatorID: number,
+  body: CardRefundData,
+): Promise<CardTransactionResponseDTO> => {
+  const normalizedOperatorID = Number(operatorID);
+  const cardNumber = body?.card?.trim();
+
+  if (!Number.isInteger(normalizedOperatorID) || normalizedOperatorID <= 0) {
+    throw BadRequest("Operator is required!");
+  }
+
+  if (!cardNumber) {
+    throw BadRequest("Card number is invalid!");
+  }
+
+  const description = body?.description?.trim() || null;
+  const sequelize = CardTransactionModel.sequelize!;
+
+  return sequelize.transaction(async (dbTransaction) => {
+    const openXReport = await CashboxReportModel.findOne({
+      where: {
+        operator: normalizedOperatorID,
+        report_type: CashboxReportTypes.XREPORT,
+        status: CashboxReportStatusTypes.OPEN,
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!openXReport) {
+      throw BadRequest("Open X report required!");
+    }
+
+    if (!openXReport.zreport) {
+      throw BadRequest("Z report is required!");
+    }
+
+    const card = await CardModel.findOne({
+      where: {
+        card: cardNumber,
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!card) {
+      throw NotFound("Card not found!");
+    }
+
+    const cardID = Number(card.id);
+
+    if (card.type === CardType.VIRTUAL) {
+      throw BadRequest("Virtual card cannot be returned!");
+    }
+
+    if (card.status !== CardStatusTypes.ACTIVE) {
+      throw BadRequest("Only active card can be returned!");
+    }
+
+    const balanceRefundAmount = Number(card.balance || 0);
+
+    if (
+      !Number.isSafeInteger(balanceRefundAmount) ||
+      balanceRefundAmount < 0
+    ) {
+      throw BadRequest("Card balance is invalid!");
+    }
+
+    const [chargedActivationAmount, refundedActivationAmount] =
+      await Promise.all([
+        CardTransactionModel.sum("activation_amount", {
+          where: {
+            card: cardID,
+            type: CardTransactionType.TOPUP,
+            status: CardTransactionStatusTypes.SUCCESS,
+            activation_amount: {
+              [Op.gt]: 0,
+            },
+          },
+          transaction: dbTransaction,
+        }),
+        CardTransactionModel.sum("activation_amount", {
+          where: {
+            card: cardID,
+            type: CardTransactionType.REFUND,
+            status: CardTransactionStatusTypes.SUCCESS,
+            activation_amount: {
+              [Op.gt]: 0,
+            },
+          },
+          transaction: dbTransaction,
+        }),
+      ]);
+
+    const totalChargedActivationAmount = Number(chargedActivationAmount || 0);
+    const totalRefundedActivationAmount = Number(refundedActivationAmount || 0);
+
+    if (
+      !Number.isSafeInteger(totalChargedActivationAmount) ||
+      totalChargedActivationAmount < 0 ||
+      !Number.isSafeInteger(totalRefundedActivationAmount) ||
+      totalRefundedActivationAmount < 0 ||
+      totalRefundedActivationAmount > totalChargedActivationAmount
+    ) {
+      throw BadRequest("Card activation amount is invalid!");
+    }
+
+    const activationRefundAmount =
+      totalChargedActivationAmount - totalRefundedActivationAmount;
+
+    const refundAmount = balanceRefundAmount + activationRefundAmount;
+
+    if (!Number.isSafeInteger(refundAmount) || refundAmount < 0) {
+      throw BadRequest("Card refund amount is invalid!");
+    }
+
+    const refundTransaction = await CardTransactionModel.create(
+      {
+        card: cardID,
+        operator: normalizedOperatorID,
+        cashbox: Number(openXReport.cashbox),
+        xreport: Number(openXReport.id),
+        type: CardTransactionType.REFUND,
+        amount: refundAmount,
+        activation_amount: activationRefundAmount,
+        balance_before: balanceRefundAmount,
+        balance_after: 0,
+        payment_type: PaymentType.CASH,
+        payment_card_type: null,
+        payment_service: null,
+        status: CardTransactionStatusTypes.SUCCESS,
+        description,
+      },
+      {
+        transaction: dbTransaction,
+      },
+    );
+
+    await card.update(
+      {
+        balance: 0,
+        status: CardStatusTypes.RETURNED,
+        returned_at: new Date(),
+        user: null,
+      },
+      {
+        transaction: dbTransaction,
+      },
+    );
+
+    await CardBatchModel.increment(
+      {
+        active_cards: -1,
+        returned_cards: 1,
+      },
+      {
+        where: {
+          id: card.batch,
+        },
+        transaction: dbTransaction,
+      },
+    );
+
+    const reportIncrement = {
+      returned_cards_count: 1,
+      returned_cards_amount: refundAmount,
+      transactions_count: 1,
+    };
+
+    await CashboxReportModel.increment(reportIncrement, {
+      where: {
+        id: openXReport.id,
+      },
+      transaction: dbTransaction,
+    });
+
+    await CashboxReportModel.increment(reportIncrement, {
+      where: {
+        id: openXReport.zreport,
+      },
+      transaction: dbTransaction,
+    });
+
+    return CardTransactionDTO({
+      ...refundTransaction.get({ plain: true }),
+      card_data: card.get({ plain: true }),
     });
   });
 };

@@ -21,6 +21,9 @@ declare interface CashboxReportModelI {
   payme_amount: number;
   click_amount: number;
   activated_cards_count: number;
+  activated_cards_amount: number;
+  returned_cards_count: number;
+  returned_cards_amount: number;
   relationed_cards_count: number;
   transactions_count: number;
   xreports_count: number | null;

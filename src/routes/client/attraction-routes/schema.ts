@@ -1,4 +1,5 @@
 import { successAnswerTemplate } from "../../schemas";
+import { AttractionRoundStatusTypes } from "../../../models/postgresql/attraction-round-model/enums";
 
 const nullableStringSchema = {
   anyOf: [{ type: "string" }, { type: "null" }],
@@ -255,6 +256,10 @@ export const getClientAttractionRoundSchema = {
                 properties: {
                   id: { type: "integer" },
                   round_number: { type: "integer" },
+                  status: {
+                    type: "string",
+                    enum: Object.values(AttractionRoundStatusTypes),
+                  },
                   total_seats: { type: "integer" },
                   occupied_seats: { type: "integer" },
                   available_seats: { type: "integer" },

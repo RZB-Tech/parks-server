@@ -1,0 +1,1 @@
+export const CARD_ACTIVATION_AMOUNT = 12_000;

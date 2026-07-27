@@ -113,6 +113,18 @@ export const cashboxReportProperties = {
     type: "number",
   },
 
+  activated_cards_amount: {
+    type: "number",
+  },
+
+  returned_cards_count: {
+    type: "number",
+  },
+
+  returned_cards_amount: {
+    type: "number",
+  },
+
   relationed_cards_count: {
     type: "number",
   },
@@ -235,6 +247,18 @@ export const zReportProperties = {
     type: "number",
   },
 
+  activated_cards_amount: {
+    type: "number",
+  },
+
+  returned_cards_count: {
+    type: "number",
+  },
+
+  returned_cards_amount: {
+    type: "number",
+  },
+
   relationed_cards_count: {
     type: "number",
   },
@@ -350,6 +374,18 @@ export const accountingZReportAmountProperties = {
     type: "number",
   },
 
+  activated_cards_amount: {
+    type: "number",
+  },
+
+  returned_cards_count: {
+    type: "number",
+  },
+
+  returned_cards_amount: {
+    type: "number",
+  },
+
   relationed_cards_count: {
     type: "number",
   },
@@ -391,9 +427,34 @@ export const openReportSchema = {
 };
 
 export const cashboxReportsTodaySchema = {
-  summary: "Get operator today reports",
-  description: "Get current operator today's reports",
+  summary: "Get cashbox reports by date",
+  description:
+    "Gets cashbox reports for a YYYY-MM-DD date. Defaults to the current Tashkent date when omitted.",
   tags: ["Cashbox Reports route"],
+  params: {
+    type: "object",
+    required: ["cashboxID"],
+    additionalProperties: false,
+    properties: {
+      cashboxID: {
+        type: "integer",
+        minimum: 1,
+      },
+    },
+  },
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      date: {
+        type: "string",
+        format: "date",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description:
+          "Optional date in YYYY-MM-DD format. Time is not required.",
+      },
+    },
+  },
 
   response: {
     200: successAnswerTemplate({

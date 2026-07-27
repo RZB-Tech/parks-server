@@ -159,6 +159,7 @@ export const OpenCashboxReportService = async (
 export const GetTodayCashboxReportsService = async (
   operatorID: number,
   params: CashboxReportsParams,
+  query: GetCashboxReportsQuery = {},
 ) => {
   if (!operatorID) {
     throw BadRequest("Operator is required!");
@@ -166,45 +167,50 @@ export const GetTodayCashboxReportsService = async (
 
   const cashboxID = Number(params.cashboxID);
 
-  const { startDate, endDate } = getTashkentDayRangeUTC();
+  if (!Number.isInteger(cashboxID) || cashboxID <= 0) {
+    throw BadRequest("Cashbox ID is invalid!");
+  }
 
-  const zReport = await CashboxReportModel.findOne({
-    where: {
-      cashbox: cashboxID,
-      report_type: CashboxReportTypes.ZREPORT,
-      created_at: {
-        [Op.between]: [startDate, endDate],
-      },
-    },
-    include: [
-      {
-        model: EmployeeModel,
-        as: "operators",
-        required: false,
-        attributes: ["id", "firstname", "lastname", "file"],
-      },
-    ],
-    order: [["id", "DESC"]],
-  });
+  const { startDate, endDate } = getTashkentDayRangeUTC(query.date);
 
-  const xReports = await CashboxReportModel.findAll({
-    where: {
-      cashbox: cashboxID,
-      report_type: CashboxReportTypes.XREPORT,
-      created_at: {
-        [Op.between]: [startDate, endDate],
+  const [zReport, xReports] = await Promise.all([
+    CashboxReportModel.findOne({
+      where: {
+        cashbox: cashboxID,
+        report_type: CashboxReportTypes.ZREPORT,
+        created_at: {
+          [Op.between]: [startDate, endDate],
+        },
       },
-    },
-    include: [
-      {
-        model: EmployeeModel,
-        as: "operators",
-        required: false,
-        attributes: ["id", "firstname", "lastname", "file"],
+      include: [
+        {
+          model: EmployeeModel,
+          as: "operators",
+          required: false,
+          attributes: ["id", "firstname", "lastname", "file"],
+        },
+      ],
+      order: [["id", "DESC"]],
+    }),
+    CashboxReportModel.findAll({
+      where: {
+        cashbox: cashboxID,
+        report_type: CashboxReportTypes.XREPORT,
+        created_at: {
+          [Op.between]: [startDate, endDate],
+        },
       },
-    ],
-    order: [["id", "DESC"]],
-  });
+      include: [
+        {
+          model: EmployeeModel,
+          as: "operators",
+          required: false,
+          attributes: ["id", "firstname", "lastname", "file"],
+        },
+      ],
+      order: [["id", "DESC"]],
+    }),
+  ]);
 
   return CashboxReportsTodayDTO({
     zreport: zReport

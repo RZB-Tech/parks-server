@@ -28,6 +28,9 @@ export class CashboxReportModel
   public payme_amount!: number;
   public click_amount!: number;
   public activated_cards_count!: number;
+  public activated_cards_amount!: number;
+  public returned_cards_count!: number;
+  public returned_cards_amount!: number;
   public relationed_cards_count!: number;
   public transactions_count!: number;
   public xreports_count!: number | null;
@@ -161,6 +164,21 @@ export class CashboxReportModel
         },
         activated_cards_count: {
           type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        activated_cards_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        returned_cards_count: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        returned_cards_amount: {
+          type: DataTypes.BIGINT,
           allowNull: false,
           defaultValue: 0,
         },

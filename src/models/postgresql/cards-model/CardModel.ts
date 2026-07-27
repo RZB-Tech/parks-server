@@ -15,6 +15,7 @@ export class CardModel
   public balance!: number;
   public imported_at!: Date;
   public activated_at!: Date | null;
+  public returned_at!: Date | null;
 
   // timestamps
   public readonly created_at!: Date;
@@ -54,8 +55,9 @@ export class CardModel
             "active",
             "inactive",
             "blocked",
-            "lost",
-            "frozen",
+          "lost",
+          "frozen",
+          "returned",
           ),
           allowNull: false,
         },
@@ -73,6 +75,10 @@ export class CardModel
           allowNull: false,
         },
         activated_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
+        returned_at: {
           type: DataTypes.DATE,
           allowNull: true,
         },

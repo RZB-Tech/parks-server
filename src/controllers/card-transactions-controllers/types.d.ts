@@ -27,3 +27,8 @@ declare interface CardPaymentTransactionData {
   nfc: string;
   attractionID: number;
 }
+
+declare interface CardRefundData {
+  card: string;
+  description?: string | null;
+}

@@ -281,17 +281,7 @@ export const ClientAttractionPaymentService = async (
       let roundCreated = false;
 
       if (round && Number(round.people_count ?? 0) >= totalSeats) {
-        await round.update(
-          {
-            status: AttractionRoundStatusTypes.FINISHED,
-            finished_at: round.finished_at || new Date(),
-          },
-          {
-            transaction,
-          },
-        );
-
-        round = null;
+        throw BadRequest("ROUND_IS_FULL_WAIT_FOR_GO");
       }
 
       if (!round) {
@@ -508,8 +498,6 @@ export const ClientAttractionPaymentService = async (
 
       const nextPeopleCount = currentPeopleCount + membersCount;
 
-      const isRoundFull = nextPeopleCount >= totalSeats;
-
       /*
        * Round barcha paymentlarni hisoblaydi:
        * aksiyali ham, aksiyasiz ham.
@@ -538,11 +526,12 @@ export const ClientAttractionPaymentService = async (
 
           transactions: [...currentTransactions, Number(cardTransaction.id)],
 
-          status: isRoundFull
-            ? AttractionRoundStatusTypes.FINISHED
-            : AttractionRoundStatusTypes.OPEN,
-
-          finished_at: isRoundFull ? new Date() : null,
+          /*
+           * Round to‘lsa ham GO bosilguncha OPEN qoladi.
+           * Faqat operator GO endpointi roundni FINISHED qiladi.
+           */
+          status: AttractionRoundStatusTypes.OPEN,
+          finished_at: null,
         },
         {
           transaction,

@@ -4,6 +4,10 @@ declare interface CashboxReportsParams {
   cashboxID: number;
 }
 
+declare interface GetCashboxReportsQuery {
+  date?: string;
+}
+
 declare interface CloseCashboxReportData {
   status: CashboxReportStatusTypes;
   report_type: CashboxReportTypes;
