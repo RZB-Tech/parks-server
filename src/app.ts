@@ -39,6 +39,7 @@ import ClientCardTransactionsRouter from "./routes/client/card-transaction-route
 import NewsRouter from "./routes/news-routes/NewsRoutes";
 import ClientNewsRouter from "./routes/client/news-routes/NewsRoutes";
 import PromotionRouter from "./routes/promotion-routes/PromotionRoutes";
+import ClientPromotionsRouter from "./routes/client/promotion-routes/PromotionRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -91,6 +92,7 @@ export const build = async () => {
   app.register(ClientCashboxesRouter, { prefix: SERVER.CLIENT_PREFIX });
   app.register(ClientCardTransactionsRouter, { prefix: SERVER.CLIENT_PREFIX });
   app.register(ClientNewsRouter, { prefix: SERVER.CLIENT_PREFIX });
+  app.register(ClientPromotionsRouter, { prefix: SERVER.CLIENT_PREFIX });
 
   app.after();
   return app;

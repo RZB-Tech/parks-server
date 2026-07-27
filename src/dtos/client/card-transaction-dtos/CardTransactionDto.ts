@@ -20,6 +20,7 @@ export const ClientTransactionDTO = (
   transaction: CardTransactionModelI,
   card: CardsModelI,
   attraction: AttractionModelI | null,
+  round: AttractionRoundModelI | null,
 ): ClientTransactionResponseDTO => {
   const amount = Number(transaction.amount || 0);
 
@@ -35,6 +36,7 @@ export const ClientTransactionDTO = (
     balance_after: Number(transaction.balance_after || 0),
     payment_type: transaction.payment_type ?? null,
     status: transaction.status,
+    people_count: Number(transaction.people_count || 0),
     card: {
       id: Number(card.id),
       card: card.card,
@@ -45,6 +47,25 @@ export const ClientTransactionDTO = (
           id: Number(attraction.id),
           name: attraction.name,
           main_file: attraction.main_file ? Number(attraction.main_file) : null,
+        }
+      : null,
+    round: round
+      ? {
+          id: Number(round.id),
+          round_number: Number(round.round_number),
+        }
+      : null,
+    promotion: transaction.promotion
+      ? {
+          id: Number(transaction.promotion),
+          code: transaction.promotion_code,
+          name: transaction.promotion_name,
+          type: transaction.promotion_type,
+          discount_percent: Number(transaction.discount_percent || 0),
+          original_unit_price: Number(transaction.original_unit_price || 0),
+          sale_unit_price: Number(transaction.sale_unit_price || 0),
+          original_amount: Number(transaction.original_amount || 0),
+          discount_amount: Number(transaction.discount_amount || 0),
         }
       : null,
     created_at:

@@ -34,6 +34,23 @@ declare interface ClientTransactionAttractionDTO {
   main_file: number | null;
 }
 
+declare interface ClientTransactionRoundDTO {
+  id: number;
+  round_number: number;
+}
+
+declare interface ClientTransactionPromotionDTO {
+  id: number;
+  code: string | null;
+  name: string | null;
+  type: PromotionTypes | null;
+  discount_percent: number;
+  original_unit_price: number;
+  sale_unit_price: number;
+  original_amount: number;
+  discount_amount: number;
+}
+
 declare interface ClientTransactionResponseDTO {
   id: number;
 
@@ -48,9 +65,12 @@ declare interface ClientTransactionResponseDTO {
 
   payment_type: string | null;
   status: string;
+  people_count: number;
 
   card: ClientTransactionCardDTO;
   attraction: ClientTransactionAttractionDTO | null;
+  round: ClientTransactionRoundDTO | null;
+  promotion: ClientTransactionPromotionDTO | null;
 
   created_at: Date;
 }

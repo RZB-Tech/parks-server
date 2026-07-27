@@ -792,11 +792,33 @@ export const GetClientTransactionsService = async (
       })
     : [];
 
+  const transactionIDs = transactions.map((transaction) =>
+    Number(transaction.id),
+  );
+
+  const rounds = transactionIDs.length
+    ? await AttractionRoundModel.findAll({
+        where: {
+          transactions: {
+            [Op.overlap]: transactionIDs,
+          },
+        },
+      })
+    : [];
+
   const cardMap = new Map(userCards.map((card) => [Number(card.id), card]));
 
   const attractionMap = new Map(
     attractions.map((attraction) => [Number(attraction.id), attraction]),
   );
+
+  const transactionRoundMap = new Map<number, AttractionRoundModel>();
+
+  for (const round of rounds) {
+    for (const transactionID of round.transactions ?? []) {
+      transactionRoundMap.set(Number(transactionID), round);
+    }
+  }
 
   const transactionDTOs = transactions.map((transaction) => {
     const card = cardMap.get(Number(transaction.card));
@@ -810,7 +832,9 @@ export const GetClientTransactionsService = async (
     const attraction =
       attractionID > 0 ? (attractionMap.get(attractionID) ?? null) : null;
 
-    return ClientTransactionDTO(transaction, card, attraction);
+    const round = transactionRoundMap.get(Number(transaction.id)) ?? null;
+
+    return ClientTransactionDTO(transaction, card, attraction, round);
   });
 
   const total = Number(transactionResult.count || 0);

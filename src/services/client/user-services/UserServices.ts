@@ -36,3 +36,49 @@ export const GetMeService = async (telegramID: number) => {
 
   return UserDTO(user);
 };
+
+export const UpdateMeService = async (
+  telegramID: number,
+  body: UpdateMeData,
+) => {
+  if (!telegramID || !Number.isSafeInteger(telegramID)) {
+    throw BadRequest("TELEGRAM_USER_ID_INVALID");
+  }
+
+  const fullname =
+    typeof body.fullname === "string" ? body.fullname.trim() : "";
+
+  if (fullname.length < 2 || fullname.length > 255) {
+    throw BadRequest("FULLNAME_INVALID");
+  }
+
+  const user = await UserModel.findOne({
+    where: {
+      telegram_id: telegramID,
+    },
+  });
+
+  if (!user) {
+    throw BadRequest("USER_NOT_REGISTERED");
+  }
+
+  if (user.status === UserStatusTypes.BLOCKED) {
+    throw BadRequest("USER_BLOCKED");
+  }
+
+  if (
+    user.status === UserStatusTypes.PENDING ||
+    !user.phone_verified_at ||
+    !user.registered_at
+  ) {
+    throw BadRequest("USER_NOT_VERIFIED");
+  }
+
+  if (user.status !== UserStatusTypes.ACTIVE) {
+    throw BadRequest("USER_NOT_ACTIVE");
+  }
+
+  await user.update({ fullname });
+
+  return UserDTO(user);
+};

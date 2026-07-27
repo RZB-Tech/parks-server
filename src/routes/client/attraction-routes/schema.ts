@@ -18,6 +18,18 @@ export const getClientAttractionsSchema = {
       InitDataHeader: [],
     },
   ],
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      age: {
+        type: "integer",
+        minimum: 0,
+        description:
+          "Returns attractions whose age limit is greater than or equal to this value.",
+      },
+    },
+  },
   response: {
     200: successAnswerTemplate({
       attractions: {
@@ -118,6 +130,33 @@ export const getClientAttractionRoundSchema = {
             type: "number",
             description:
               "Current active promotion discount percent, or zero when no promotion is active.",
+          },
+          promotion: {
+            description:
+              "The promotion currently active for this attraction, or null when no promotion is active.",
+            anyOf: [
+              {
+                type: "object",
+                properties: {
+                  id: { type: "integer" },
+                  code: { type: "string" },
+                  name: { type: "string" },
+                  type: { type: "string" },
+                  discount_percent: { type: "number" },
+                  original_price: { type: "integer" },
+                  discounted_price: { type: "integer" },
+                  started_at: {
+                    type: "string",
+                    format: "date-time",
+                  },
+                  ended_at: {
+                    type: "string",
+                    format: "date-time",
+                  },
+                },
+              },
+              { type: "null" },
+            ],
           },
           main_file: nullableIntegerSchema,
           seats: { type: "integer" },

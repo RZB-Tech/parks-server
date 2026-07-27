@@ -20,3 +20,7 @@ declare interface ValidatedTelegramInitDataI {
   chat_type: string | null;
   signature: string | null;
 }
+
+declare interface UpdateMeData {
+  fullname: string;
+}

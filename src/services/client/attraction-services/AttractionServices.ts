@@ -18,6 +18,7 @@ import {
 
 export const GetClientAttractionsService = async (
   telegramID: number,
+  query: GetClientAttractionsQuery,
 ): Promise<ClientAttractionResponseDTO[]> => {
   const user = await UserModel.findOne({
     where: {
@@ -37,6 +38,12 @@ export const GetClientAttractionsService = async (
     throw BadRequest("USER_NOT_VERIFIED");
   }
 
+  const age = query.age === undefined ? undefined : Number(query.age);
+
+  if (age !== undefined && (!Number.isInteger(age) || age < 0)) {
+    throw BadRequest("INVALID_AGE");
+  }
+
   const attractions = await AttractionModel.findAll({
     where: {
       status: {
@@ -45,6 +52,11 @@ export const GetClientAttractionsService = async (
           AttractionStatusTypes.CLOSED,
         ],
       },
+      ...(age !== undefined && {
+        age_limit: {
+          [Op.gte]: age,
+        },
+      }),
     },
 
     order: [["name", "ASC"]],

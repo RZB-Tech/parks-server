@@ -1,5 +1,5 @@
 import { UserStatusTypes } from "../../../models/postgresql/client/user-model/enums";
-import { successAnswerTemplate } from "../../schemas";
+import { reqBodyWrapper, successAnswerTemplate } from "../../schemas";
 
 const nullableStringSchema = {
   anyOf: [
@@ -60,4 +60,28 @@ export const getMeSchema = {
       },
     }),
   },
+};
+
+export const updateMeSchema = {
+  tags: ["Clients|User"],
+  summary: "Update current user",
+  description: "Updates only the current user's fullname.",
+  security: [
+    {
+      InitDataHeader: [],
+    },
+  ],
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["fullname"],
+    additionalProperties: false,
+    properties: {
+      fullname: {
+        type: "string",
+        minLength: 2,
+        maxLength: 255,
+      },
+    },
+  }),
+  response: getMeSchema.response,
 };

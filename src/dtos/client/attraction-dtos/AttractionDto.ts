@@ -58,6 +58,19 @@ export const AttractionLastRoundDTO = (
     discount_percent: data.promotion
       ? Number(data.promotion.discount_percent)
       : 0,
+    promotion: data.promotion
+      ? {
+          id: Number(data.promotion.id),
+          code: data.promotion.code,
+          name: data.promotion.name,
+          type: data.promotion.type,
+          discount_percent: Number(data.promotion.discount_percent),
+          original_price: Number(data.promotion.original_price),
+          discounted_price: Number(data.promotion.discounted_price),
+          started_at: data.promotion.promotion_started_at,
+          ended_at: data.promotion.promotion_ended_at,
+        }
+      : null,
     main_file: data.attraction.main_file
       ? Number(data.attraction.main_file)
       : null,

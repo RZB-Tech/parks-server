@@ -31,6 +31,17 @@ declare interface AttractionLastRoundResponseDTO {
   original_price: number;
   price: number;
   discount_percent: number;
+  promotion: {
+    id: number;
+    code: string;
+    name: string;
+    type: PromotionTypes;
+    discount_percent: number;
+    original_price: number;
+    discounted_price: number;
+    started_at: Date;
+    ended_at: Date;
+  } | null;
   main_file: number | null;
   seats: number;
 

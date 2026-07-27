@@ -179,6 +179,12 @@ export const getClientTransactionsSchema = {
               anyOf: [{ type: "string" }, { type: "null" }],
             },
             status: { type: "string" },
+            people_count: {
+              type: "integer",
+              minimum: 0,
+              description:
+                "Number of people paid for in this attraction transaction.",
+            },
             card: {
               type: "object",
               properties: {
@@ -196,6 +202,43 @@ export const getClientTransactionsSchema = {
                     id: { type: "integer" },
                     name: { type: "string" },
                     main_file: nullableIntegerSchema,
+                  },
+                },
+                { type: "null" },
+              ],
+            },
+            round: {
+              anyOf: [
+                {
+                  type: "object",
+                  properties: {
+                    id: { type: "integer" },
+                    round_number: { type: "integer" },
+                  },
+                },
+                { type: "null" },
+              ],
+            },
+            promotion: {
+              anyOf: [
+                {
+                  type: "object",
+                  properties: {
+                    id: { type: "integer" },
+                    code: {
+                      anyOf: [{ type: "string" }, { type: "null" }],
+                    },
+                    name: {
+                      anyOf: [{ type: "string" }, { type: "null" }],
+                    },
+                    type: {
+                      anyOf: [{ type: "string" }, { type: "null" }],
+                    },
+                    discount_percent: { type: "number" },
+                    original_unit_price: { type: "number" },
+                    sale_unit_price: { type: "number" },
+                    original_amount: { type: "number" },
+                    discount_amount: { type: "number" },
                   },
                 },
                 { type: "null" },
