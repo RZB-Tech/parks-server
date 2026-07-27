@@ -10,6 +10,7 @@ import { AttractionStatusTypes } from "../../../models/postgresql/attraction-mod
 import {
   AttractionLastRoundDTO,
   ClientAttractionDTO,
+  ClientAttractionDetailsDTO,
 } from "../../../dtos/client/attraction-dtos/AttractionDto";
 import {
   FindBestActivePromotionForAttractionService,
@@ -72,6 +73,56 @@ export const GetClientAttractionsService = async (
       promotions.get(Number(attraction.id)) ?? null,
     ),
   );
+};
+
+export const GetClientAttractionService = async (
+  telegramID: number,
+  params: GetClientAttractionParams,
+): Promise<ClientAttractionDetailsResponseDTO> => {
+  const user = await UserModel.findOne({
+    where: {
+      telegram_id: telegramID,
+    },
+  });
+
+  if (!user) {
+    throw BadRequest("USER_NOT_REGISTERED");
+  }
+
+  if (
+    user.status !== UserStatusTypes.ACTIVE ||
+    !user.phone_verified_at ||
+    !user.registered_at
+  ) {
+    throw BadRequest("USER_NOT_VERIFIED");
+  }
+
+  const attractionID = Number(params.attractionID);
+
+  if (!Number.isInteger(attractionID) || attractionID <= 0) {
+    throw BadRequest("INVALID_ATTRACTION_ID");
+  }
+
+  const attraction = await AttractionModel.findOne({
+    where: {
+      id: attractionID,
+      status: {
+        [Op.notIn]: [
+          AttractionStatusTypes.MAINTENANCE,
+          AttractionStatusTypes.CLOSED,
+        ],
+      },
+    },
+  });
+
+  if (!attraction) {
+    throw NotFound("ATTRACTION_NOT_FOUND");
+  }
+
+  const promotion =
+    await FindBestActivePromotionForAttractionService(attractionID);
+
+  return ClientAttractionDetailsDTO(attraction, promotion);
 };
 
 export const GetAttractionRoundService = async (

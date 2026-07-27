@@ -85,6 +85,93 @@ export const getClientAttractionsSchema = {
     }),
   },
 };
+
+export const getClientAttractionSchema = {
+  tags: ["Clients|Attractions"],
+  summary: "Get one client attraction",
+  description:
+    "Returns one available attraction and its currently active promotion for the Telegram Mini App user.",
+  security: [
+    {
+      InitDataHeader: [],
+    },
+  ],
+  params: {
+    type: "object",
+    required: ["attractionID"],
+    additionalProperties: false,
+    properties: {
+      attractionID: {
+        type: "integer",
+        minimum: 1,
+      },
+    },
+  },
+  response: {
+    200: successAnswerTemplate({
+      attraction: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          status: { type: "string" },
+          dashboard_file: nullableIntegerSchema,
+          main_file: nullableIntegerSchema,
+          files: {
+            type: "array",
+            items: { type: "integer" },
+          },
+          sub_attraction_files: {
+            anyOf: [
+              {
+                type: "array",
+                items: { type: "integer" },
+              },
+              { type: "null" },
+            ],
+          },
+          latitude: nullableStringSchema,
+          longitude: nullableStringSchema,
+          original_price: { type: "integer" },
+          price: { type: "integer" },
+          discount_percent: { type: "number" },
+          duration: { type: "integer" },
+          seats: { type: "integer" },
+          age_limit: nullableIntegerSchema,
+          min_height: nullableIntegerSchema,
+          max_weight: nullableIntegerSchema,
+          description: nullableStringSchema,
+          promotion: {
+            anyOf: [
+              {
+                type: "object",
+                properties: {
+                  id: { type: "integer" },
+                  code: { type: "string" },
+                  name: { type: "string" },
+                  type: { type: "string" },
+                  discount_percent: { type: "number" },
+                  original_price: { type: "integer" },
+                  discounted_price: { type: "integer" },
+                  started_at: {
+                    type: "string",
+                    format: "date-time",
+                  },
+                  ended_at: {
+                    type: "string",
+                    format: "date-time",
+                  },
+                },
+              },
+              { type: "null" },
+            ],
+          },
+        },
+      },
+    }),
+  },
+};
+
 export const getClientAttractionRoundSchema = {
   tags: ["Clients|Attractions"],
   summary: "Get client attraction last round",

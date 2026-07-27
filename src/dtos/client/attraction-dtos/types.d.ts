@@ -25,6 +25,21 @@ declare interface ClientAttractionResponseDTO {
   description: string | null;
 }
 
+declare interface ClientAttractionDetailsResponseDTO
+  extends ClientAttractionResponseDTO {
+  promotion: {
+    id: number;
+    code: string;
+    name: string;
+    type: PromotionTypes;
+    discount_percent: number;
+    original_price: number;
+    discounted_price: number;
+    started_at: Date;
+    ended_at: Date;
+  } | null;
+}
+
 declare interface AttractionLastRoundResponseDTO {
   id: number;
   name: string;

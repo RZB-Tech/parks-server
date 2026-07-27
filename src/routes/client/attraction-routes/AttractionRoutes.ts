@@ -6,9 +6,11 @@ import {
 import { TelegramAuthMiddleware } from "../../../middlewares/telegram-auth-middlewar/TelegramAuthMiddleware";
 import {
   GetAttractionRoundController,
+  GetClientAttractionController,
   GetClientAttractionsController,
 } from "../../../controllers/client/attraction-controllers/AttractionController";
 import {
+  getClientAttractionSchema,
   getClientAttractionRoundSchema,
   getClientAttractionsSchema,
 } from "./schema";
@@ -24,6 +26,15 @@ const ClientAttractionsRouter: FastifyPluginAsync = async (
       preHandler: [TelegramAuthMiddleware],
     },
     GetClientAttractionsController,
+  );
+
+  fastify.get(
+    "/attractions/:attractionID",
+    {
+      schema: getClientAttractionSchema,
+      preHandler: [TelegramAuthMiddleware],
+    },
+    GetClientAttractionController,
   );
 
   fastify.get(

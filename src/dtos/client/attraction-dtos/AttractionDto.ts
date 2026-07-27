@@ -32,6 +32,28 @@ export const ClientAttractionDTO = (
   };
 };
 
+export const ClientAttractionDetailsDTO = (
+  data: AttractionModelI,
+  promotion: ActivePromotionForAttractionDTO | null,
+): ClientAttractionDetailsResponseDTO => {
+  return {
+    ...ClientAttractionDTO(data, promotion),
+    promotion: promotion
+      ? {
+          id: Number(promotion.id),
+          code: promotion.code,
+          name: promotion.name,
+          type: promotion.type,
+          discount_percent: Number(promotion.discount_percent),
+          original_price: Number(promotion.original_price),
+          discounted_price: Number(promotion.discounted_price),
+          started_at: promotion.promotion_started_at,
+          ended_at: promotion.promotion_ended_at,
+        }
+      : null,
+  };
+};
+
 interface AttractionLastRoundData {
   attraction: AttractionModelI;
   lastRound: AttractionRoundModelI | null;
