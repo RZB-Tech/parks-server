@@ -69,6 +69,12 @@ export const cardProperties = {
   activated_at: {
     oneOf: [{ type: "string" }, { type: "null" }],
   },
+  returned_at: {
+    oneOf: [{ type: "string" }, { type: "null" }],
+  },
+  return_description: {
+    oneOf: [{ type: "string" }, { type: "null" }],
+  },
 };
 
 export const sendCardRelationOtpSchema = {

@@ -14,6 +14,8 @@ export const CardDTO = (data: CardWithTransactionDto): CardResponseDTO => {
     status: data.status,
     imported_at: data.imported_at,
     activated_at: data.activated_at,
+    returned_at: data.returned_at ?? null,
+    return_description: data.return_description ?? null,
 
     user: user
       ? {

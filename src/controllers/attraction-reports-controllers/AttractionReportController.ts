@@ -6,6 +6,7 @@ import {
   RouteWithParams,
   RouteWithParamsAndData,
   RouteWithParamsAndHeaders,
+  RouteWithParamsAndQuery,
   RouteWithQuery,
 } from "../../types/routes";
 import {
@@ -53,11 +54,16 @@ export const CloseAttractionReportController = makeReplyingController(
 
 export const GetTodayAttractionReportsController = makeReplyingController(
   "attraction-reports",
-  async (request: FastifyRequest<RouteWithParams<AttractionReportParams>>) => {
+  async (
+    request: FastifyRequest<
+      RouteWithParamsAndQuery<AttractionReportParams, GetAttractionReportsQuery>
+    >,
+  ) => {
     const employeeID = request.employee?.id;
     const params = request.params;
+    const query = request.query;
 
-    return GetTodayAttractionReportsService(Number(employeeID), params);
+    return GetTodayAttractionReportsService(Number(employeeID), params, query);
   },
 );
 

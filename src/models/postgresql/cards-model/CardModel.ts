@@ -16,6 +16,7 @@ export class CardModel
   public imported_at!: Date;
   public activated_at!: Date | null;
   public returned_at!: Date | null;
+  public return_description!: string | null;
 
   // timestamps
   public readonly created_at!: Date;
@@ -80,6 +81,10 @@ export class CardModel
         },
         returned_at: {
           type: DataTypes.DATE,
+          allowNull: true,
+        },
+        return_description: {
+          type: DataTypes.TEXT,
           allowNull: true,
         },
       },

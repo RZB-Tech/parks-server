@@ -665,6 +665,7 @@ export const UpdateAttractionReportStatusService = async (
 export const GetTodayAttractionReportsService = async (
   operatorID: number,
   params: AttractionReportParams,
+  query: GetAttractionReportsQuery = {},
 ) => {
   const normalizedOperatorID = Number(operatorID);
 
@@ -678,7 +679,7 @@ export const GetTodayAttractionReportsService = async (
     throw BadRequest("Attraction ID is invalid!");
   }
 
-  const { start, end } = getTodayRange();
+  const { start, end } = getDateRange(query.date);
 
   const [zReport, xReports] = await Promise.all([
     AttractionReportModel.findOne({

@@ -15,6 +15,8 @@ declare interface CardResponseDTO {
   status: CardStatusTypes;
   imported_at: Date;
   activated_at: Date | null;
+  returned_at: Date | null;
+  return_description: string | null;
 
   user: CardUserDto | null;
 

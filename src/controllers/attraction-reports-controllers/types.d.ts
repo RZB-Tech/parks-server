@@ -8,6 +8,10 @@ declare interface AttractionReportHeaders {
   "device-id": string;
 }
 
+declare interface GetAttractionReportsQuery {
+  date?: string;
+}
+
 declare interface UpdateAttractionReportStatusData {
   status:
     | AttractionReportStatusTypes.STOPPED

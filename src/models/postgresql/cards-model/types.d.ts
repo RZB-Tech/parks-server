@@ -10,4 +10,5 @@ declare interface CardsModelI {
   imported_at: DATE;
   activated_at: DATE | null;
   returned_at: DATE | null;
+  return_description: string | null;
 }

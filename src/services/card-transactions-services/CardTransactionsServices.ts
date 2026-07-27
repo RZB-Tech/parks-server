@@ -478,6 +478,7 @@ export const CardRefundTransactionService = async (
         balance: 0,
         status: CardStatusTypes.RETURNED,
         returned_at: new Date(),
+        return_description: description,
         user: null,
       },
       {

@@ -425,9 +425,9 @@ export const attractionReportsTodayProperties = {
 };
 
 export const getTodayAttractionReportsSchema = {
-  summary: "Get today attraction reports",
+  summary: "Get attraction reports by date",
   description:
-    "Get today's Z report and X reports with promotion statistics for selected attraction.",
+    "Gets the selected attraction's Z report and X reports for a YYYY-MM-DD date. Defaults to the current Tashkent date when omitted.",
   tags: ["Attraction reports route"],
   headers: authorizationHeaders,
   params: {
@@ -439,6 +439,19 @@ export const getTodayAttractionReportsSchema = {
         type: "number",
         minimum: 1,
         description: "Attraction ID",
+      },
+    },
+  },
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      date: {
+        type: "string",
+        format: "date",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description:
+          "Optional date in YYYY-MM-DD format. Time is not required.",
       },
     },
   },

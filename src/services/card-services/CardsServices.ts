@@ -712,6 +712,8 @@ export const UpdateCardsService = async (
           ...(newStatus === CardStatusTypes.ACTIVE
             ? {
                 activated_at: new Date(),
+                returned_at: null,
+                return_description: null,
               }
             : {}),
         },
