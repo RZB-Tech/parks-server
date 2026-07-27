@@ -364,12 +364,12 @@ export const CreatePromotionService = async (body: CreatePromotionData) => {
   const startTime = normalizePromotionTime(body.start_time, "start_time");
   const endTime = normalizePromotionTime(body.end_time, "end_time");
 
-  if (startTime >= endTime) {
-    throw BadRequest("PROMOTION_END_TIME_MUST_BE_AFTER_START_TIME");
-  }
-
   let startsAt: Date | null = null;
   let endsAt: Date | null = null;
+  let oneTimeStartDate: string | null = null;
+  let oneTimeEndDate: string | null = null;
+  let oneTimeStartTime: string | null = null;
+  let oneTimeEndTime: string | null = null;
   let regularStartTime: string | null = null;
   let regularEndTime: string | null = null;
   let weekdays: number[] | null = null;
@@ -386,6 +386,11 @@ export const CreatePromotionService = async (body: CreatePromotionData) => {
     const startDate = validatePromotionDate(body.start_date, "start_date");
     const endDate = validatePromotionDate(body.end_date, "end_date");
 
+    oneTimeStartDate = startDate;
+    oneTimeEndDate = endDate;
+    oneTimeStartTime = startTime;
+    oneTimeEndTime = endTime;
+
     startsAt = tashkentDateTimeToUTC(startDate, startTime);
     endsAt = tashkentDateTimeToUTC(endDate, endTime);
 
@@ -399,6 +404,10 @@ export const CreatePromotionService = async (body: CreatePromotionData) => {
   }
 
   if (body.type === PromotionTypes.REGULAR) {
+    if (startTime >= endTime) {
+      throw BadRequest("PROMOTION_END_TIME_MUST_BE_AFTER_START_TIME");
+    }
+
     regularStartTime = startTime;
     regularEndTime = endTime;
 
@@ -446,19 +455,19 @@ export const CreatePromotionService = async (body: CreatePromotionData) => {
             type: body.type,
             starts_at: startsAt,
             ends_at: endsAt,
-            start_date: null,
-            end_date: null,
-            start_time: regularStartTime,
-            end_time: regularEndTime,
+            start_date: oneTimeStartDate,
+            end_date: oneTimeEndDate,
+            start_time: oneTimeStartTime ?? regularStartTime,
+            end_time: oneTimeEndTime ?? regularEndTime,
             weekdays,
           }),
           discount_percent: discountPercent,
           starts_at: startsAt,
           ends_at: endsAt,
-          start_date: null,
-          end_date: null,
-          start_time: regularStartTime,
-          end_time: regularEndTime,
+          start_date: oneTimeStartDate,
+          end_date: oneTimeEndDate,
+          start_time: oneTimeStartTime ?? regularStartTime,
+          end_time: oneTimeEndTime ?? regularEndTime,
           weekdays,
           file: fileID,
         },

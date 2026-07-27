@@ -539,14 +539,25 @@ export const preparePromotionSchedule = (
       throw BadRequest("ONE_TIME_PROMOTION_SCHEDULE_IS_REQUIRED");
     }
 
+    const normalizedStartDate = validatePromotionDate(
+      startDate,
+      "start_date",
+    );
+    const normalizedEndDate = validatePromotionDate(endDate, "end_date");
+    const normalizedStartTime = normalizePromotionTime(
+      startTime,
+      "start_time",
+    );
+    const normalizedEndTime = normalizePromotionTime(endTime, "end_time");
+
     const startsAt = tashkentDateTimeToUTC(
-      validatePromotionDate(startDate, "start_date"),
-      normalizePromotionTime(startTime, "start_time"),
+      normalizedStartDate,
+      normalizedStartTime,
     );
 
     const endsAt = tashkentDateTimeToUTC(
-      validatePromotionDate(endDate, "end_date"),
-      normalizePromotionTime(endTime, "end_time"),
+      normalizedEndDate,
+      normalizedEndTime,
     );
 
     if (endsAt.getTime() <= startsAt.getTime()) {
@@ -557,11 +568,11 @@ export const preparePromotionSchedule = (
       starts_at: startsAt,
       ends_at: endsAt,
 
-      start_date: null,
-      end_date: null,
+      start_date: normalizedStartDate,
+      end_date: normalizedEndDate,
 
-      start_time: null,
-      end_time: null,
+      start_time: normalizedStartTime,
+      end_time: normalizedEndTime,
 
       weekdays: null,
     };
