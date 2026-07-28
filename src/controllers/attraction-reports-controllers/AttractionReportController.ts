@@ -68,14 +68,19 @@ export const GetTodayAttractionReportsController = makeReplyingController(
 );
 
 export const GetAttractionZReportsController = makeReplyingController(
-  ["stats", "totals", "attractions"],
+  ["promotion_codes", "stats", "totals", "attractions"],
   async (
     request: FastifyRequest<RouteWithQuery<GetAttractionZReportsQuery>>,
   ) => {
     const query = request.query;
     const result = await GetAttractionZReportsService(query);
 
-    return [result.stats, result.totals, result.attractions];
+    return [
+      result.promotion_codes,
+      result.stats,
+      result.totals,
+      result.attractions,
+    ];
   },
 );
 

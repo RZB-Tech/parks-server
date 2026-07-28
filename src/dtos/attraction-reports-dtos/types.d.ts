@@ -194,20 +194,20 @@ declare interface AccountingAttractionDTO {
   description: string | null;
 }
 
-declare interface AccountingAttractionReportDTO {
-  attraction: AccountingAttractionDTO;
-  zreport: AttractionZReportTotalsDTO;
-  promotion_totals: PromotionReportTotalsDTO;
-  promotion_reports: PromotionReportResponseDTO[];
-}
-
 declare interface AccountingAttractionReportsResponseDTO {
   start_date: Date;
   end_date: Date;
   promotion_code: string | null;
+  promotion_codes: string[];
+  stats: {
+    total: number;
+    open: number;
+    stopped: number;
+    waiting: number;
+    confirmed: number;
+  };
   totals: AttractionZReportTotalsDTO;
-  promotion_totals: PromotionReportTotalsDTO;
-  attractions: AccountingAttractionReportDTO[];
+  attractions: AttractionZReportAttractionResponseDTO[];
 }
 
 declare interface GetAccountingAttractionReportsQuery {

@@ -909,7 +909,7 @@ export const GetAttractionZReportsService = async (
   query: GetAttractionZReportsQuery,
 ) => {
   const { start, end } = getDateRange(query.date);
-  const promotionCodes = [
+  const requestedPromotionCodes = [
     ...new Set(
       (Array.isArray(query.promotion_codes)
         ? query.promotion_codes
@@ -956,10 +956,10 @@ export const GetAttractionZReportsService = async (
           zreport: {
             [Op.in]: zReportIDs,
           },
-          ...(promotionCodes.length
-            ? {
-                promotion_code: {
-                  [Op.in]: promotionCodes,
+            ...(requestedPromotionCodes.length
+              ? {
+                  promotion_code: {
+                    [Op.in]: requestedPromotionCodes,
                 },
               }
             : {}),
@@ -1079,7 +1079,7 @@ export const GetAttractionZReportsService = async (
     );
   }
 
-  if (promotionCodes.length) {
+  if (requestedPromotionCodes.length) {
     const matchedZReportIDs = new Set(
       promotionReports.map((report) => Number(report.zreport)),
     );
@@ -1133,6 +1133,16 @@ export const GetAttractionZReportsService = async (
   const filteredZReportIDs = new Set(
     allReportsPlain.map((report) => Number(report.id)),
   );
+  const usedPromotionCodes = [
+    ...new Set(
+      promotionReports
+        .filter((report) =>
+          filteredZReportIDs.has(Number(report.zreport)),
+        )
+        .map((report) => report.promotion_code?.trim())
+        .filter((code): code is string => Boolean(code)),
+    ),
+  ].sort((first, second) => first.localeCompare(second));
 
   for (const report of promotionReports) {
     const plain = report as PromotionReportPlain;
@@ -1147,6 +1157,7 @@ export const GetAttractionZReportsService = async (
   }
 
   return {
+    promotion_codes: usedPromotionCodes,
     stats,
     totals,
 

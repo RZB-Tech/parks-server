@@ -340,8 +340,6 @@ export const AccountingAttractionReportsDTO = (data: {
 }): AccountingAttractionReportsResponseDTO => {
   const totals = emptyAttractionZReportsTotals();
 
-  const promotionTotals = emptyPromotionReportTotals();
-
   const reportsByAttraction = new Map<number, AttractionReportModelI[]>();
 
   const promotionReportsByAttraction = new Map<
@@ -383,33 +381,53 @@ export const AccountingAttractionReportsDTO = (data: {
     currentReports.push(report);
 
     promotionReportsByAttraction.set(attractionID, currentReports);
-
-    addPromotionReportTotals(promotionTotals, report);
   }
 
-  const attractions: AccountingAttractionReportDTO[] = data.attractions.map(
-    (attraction) => {
-      const attractionID = Number(attraction.id);
+  const attractions: AttractionZReportAttractionResponseDTO[] =
+    data.attractions.map(
+      (attraction) => {
+        const attractionID = Number(attraction.id);
+        const totalReports = emptyAttractionZReportsTotals();
+        const attractionReports = reportsByAttraction.get(attractionID) ?? [];
+        const attractionPromotionReports =
+          promotionReportsByAttraction.get(attractionID) ?? [];
 
-      const zreport = emptyAttractionZReportsTotals();
+        for (const report of attractionReports) {
+          addAttractionZReportsTotals(totalReports, report);
+        }
 
-      const attractionPromotionTotals = emptyPromotionReportTotals();
+        for (const promotionReport of attractionPromotionReports) {
+          totalReports.total_rounds += Number(
+            promotionReport.rounds_count || 0,
+          );
+          totalReports.total_people += Number(
+            promotionReport.total_people || 0,
+          );
+          totalReports.total_offline += Number(
+            promotionReport.total_offline || 0,
+          );
+          totalReports.total_online += Number(
+            promotionReport.total_online || 0,
+          );
+          totalReports.total_virtual += Number(
+            promotionReport.total_virtual || 0,
+          );
+          totalReports.total_classic += Number(
+            promotionReport.total_classic || 0,
+          );
+          totalReports.total_vip += Number(promotionReport.total_vip || 0);
+          totalReports.total_organization += Number(
+            promotionReport.total_organization || 0,
+          );
+          totalReports.paid_amount += Number(
+            promotionReport.paid_amount || 0,
+          );
+          totalReports.total_amount += Number(
+            promotionReport.total_amount || 0,
+          );
+        }
 
-      const attractionReports = reportsByAttraction.get(attractionID) ?? [];
-
-      const attractionPromotionReports =
-        promotionReportsByAttraction.get(attractionID) ?? [];
-
-      for (const report of attractionReports) {
-        addAttractionZReportsTotals(zreport, report);
-      }
-
-      for (const report of attractionPromotionReports) {
-        addPromotionReportTotals(attractionPromotionTotals, report);
-      }
-
-      return {
-        attraction: {
+        return {
           id: attractionID,
 
           name: attraction.name,
@@ -442,26 +460,49 @@ export const AccountingAttractionReportsDTO = (data: {
           max_weight: Number(attraction.max_weight || 0),
 
           description: attraction.description ?? null,
-        },
 
-        zreport,
+          zreports: attractionReports.map((report) => {
+            const {
+              promotion_reports: _promotionReports,
+              ...zreport
+            } = AttractionReportDTO(report);
 
-        promotion_totals: attractionPromotionTotals,
+            return zreport;
+          }),
 
-        promotion_reports: attractionPromotionReports.map(PromotionReportDTO),
-      };
-    },
-  );
+          promotion_reports:
+            attractionPromotionReports.map(PromotionReportDTO),
+
+          total_reports: totalReports,
+        };
+      },
+    );
+
+  const stats = {
+    total: data.reports.length,
+    open: 0,
+    stopped: 0,
+    waiting: 0,
+    confirmed: data.reports.length,
+  };
+  const promotionCodes = [
+    ...new Set(
+      data.promotion_reports
+        .map((report) => report.promotion_code?.trim())
+        .filter((code): code is string => Boolean(code)),
+    ),
+  ].sort((first, second) => first.localeCompare(second));
 
   return {
     start_date: data.start_date,
     end_date: data.end_date,
 
     promotion_code: data.promotion_code,
+    promotion_codes: promotionCodes,
+
+    stats,
 
     totals,
-
-    promotion_totals: promotionTotals,
 
     attractions,
   };

@@ -659,6 +659,13 @@ export const getAttractionZReportsSchema = {
 
   response: {
     200: successAnswerTemplate({
+      promotion_codes: {
+        type: "array",
+        items: {
+          type: "string",
+        },
+      },
+
       stats: {
         type: "object",
         additionalProperties: false,
@@ -959,24 +966,25 @@ export const getAccountingAttractionReportsSchema = {
             format: "date-time",
           },
 
-          promotion_code: nullableString,
+          // promotion_code: nullableString,
 
-          /*
-           * Barcha selected CONFIRMED Z-reportlar totalsi.
-           */
+          promotion_codes: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+
+          stats: {
+            type: "object",
+            additionalProperties: false,
+            properties: attractionZReportsStatsProperties,
+          },
+
           totals: {
             type: "object",
             additionalProperties: false,
-            properties: accountingAttractionZReportProperties,
-          },
-
-          /*
-           * Filterdan o‘tgan promotion reportlar totalsi.
-           */
-          promotion_totals: {
-            type: "object",
-            additionalProperties: false,
-            properties: promotionReportTotalsProperties,
+            properties: attractionZReportsTotalsProperties,
           },
 
           attractions: {
@@ -985,7 +993,7 @@ export const getAccountingAttractionReportsSchema = {
             items: {
               type: "object",
               additionalProperties: false,
-              properties: accountingAttractionReportProperties,
+              properties: attractionWithZReportsProperties,
             },
           },
         },
