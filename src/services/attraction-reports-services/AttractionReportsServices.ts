@@ -1030,7 +1030,7 @@ export const GetAttractionZReportsService = async (
           typeof report.promotion_code === "string" &&
           requestedPromotionCodes.includes(report.promotion_code),
       )
-    : allPromotionReports;
+    : [];
 
   let attractions = await AttractionModel.findAll({
     where: search
@@ -1115,9 +1115,7 @@ export const GetAttractionZReportsService = async (
   for (const report of allReportsPlain) {
     stats.total += 1;
 
-    if (!requestedPromotionCodes.length) {
-      addAttractionZReportsTotals(totals, report);
-    }
+    addAttractionZReportsTotals(totals, report);
 
     if (report.status === AttractionReportStatusTypes.OPEN) {
       stats.open += 1;
@@ -1197,7 +1195,7 @@ export const GetAttractionZReportsService = async (
       return AttractionZReportAttractionDTO({
         ...plain,
         reports,
-      }, requestedPromotionCodes.length > 0);
+      });
     }),
   };
 };
@@ -1448,7 +1446,7 @@ export const GetAccountingAttractionReportsService = async (
           typeof report.promotion_code === "string" &&
           requestedPromotionCodes.includes(report.promotion_code),
       )
-    : allPromotionReports;
+    : [];
 
   const promotionReportsPlain =
     promotionReports as unknown as PromotionReportPlain[];
@@ -1503,7 +1501,6 @@ export const GetAccountingAttractionReportsService = async (
 
     promotion_code: promotionCode || null,
     promotion_codes: availablePromotionCodes,
-    promotion_only: requestedPromotionCodes.length > 0,
 
     attractions: attractions.map(
       (attraction) =>
