@@ -46,7 +46,7 @@ export const cardLastTransactionProperties = {
   activation_amount: {
     type: "number",
     description:
-      "Card activation fee deducted from the received amount on the first top-up.",
+      "Card activation fee charged separately from the top-up amount on the first top-up.",
   },
 
   description: nullableString,
@@ -409,7 +409,7 @@ export const cardTopUpTransactionSchema = {
         type: "number",
         minimum: 1,
         description:
-          "Total received amount. For an inactive card, the backend deducts the configured activation fee and credits the remainder to the balance.",
+          "Net amount credited to the card balance. For an inactive card, the backend adds the configured activation fee separately.",
       },
 
       payment_type: {

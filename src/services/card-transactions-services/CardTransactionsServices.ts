@@ -231,12 +231,8 @@ export const CardTopUpTransactionService = async (
     const isCardActivated = card.status === CardStatusTypes.INACTIVE;
     const isOrganizationCard = card.type === CardType.ORGANIZATION;
     const activationAmount = isCardActivated ? CARD_ACTIVATION_AMOUNT : 0;
-
-    if (isCardActivated && amount < activationAmount) {
-      throw BadRequest("AMOUNT_IS_LESS_THAN_CARD_ACTIVATION_AMOUNT");
-    }
-
-    const topUpAmount = amount - activationAmount;
+    const topUpAmount = amount;
+    const totalReceivedAmount = topUpAmount + activationAmount;
     const balanceAfter = balanceBefore + topUpAmount;
 
     const cardTransaction = await CardTransactionModel.create(
@@ -289,7 +285,7 @@ export const CardTopUpTransactionService = async (
 
     const incrementData = getReportTopUpIncrementData(
       body,
-      amount,
+      totalReceivedAmount,
       isCardActivated,
       activationAmount,
     );
