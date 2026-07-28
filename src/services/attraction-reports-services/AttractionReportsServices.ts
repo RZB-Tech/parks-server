@@ -932,7 +932,7 @@ export const GetAttractionZReportsService = async (
             "original_unit_price",
             "sale_unit_price",
 
-            [fn("SUM", col("transactions_count")), "transactions_count"],
+            [fn("SUM", col("rounds_count")), "rounds_count"],
 
             [fn("SUM", col("total_people")), "total_people"],
 
@@ -1234,7 +1234,7 @@ export const GetAccountingAttractionReportsService = async (
           "original_unit_price",
           "sale_unit_price",
 
-          [fn("SUM", col("transactions_count")), "transactions_count"],
+          [fn("SUM", col("rounds_count")), "rounds_count"],
 
           [fn("SUM", col("total_people")), "total_people"],
 
