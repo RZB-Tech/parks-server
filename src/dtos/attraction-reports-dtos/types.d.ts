@@ -163,7 +163,7 @@ declare interface AttractionZReportAttractionResponseDTO {
 
   description: string | null;
 
-  zreports: AttractionReportResponseDTO[];
+  zreports: Array<Omit<AttractionReportResponseDTO, "promotion_reports">>;
 
   promotion_reports: PromotionReportResponseDTO[];
 

@@ -306,6 +306,11 @@ export const attractionReportSchema = {
   properties: attractionReportProperties,
 };
 
+const {
+  promotion_reports: _promotionReports,
+  ...attractionZReportProperties
+} = attractionReportProperties;
+
 export const openAttractionReportSchema = {
   summary: "Open attraction report",
 
@@ -593,7 +598,11 @@ export const attractionWithZReportsProperties = {
   zreports: {
     type: "array",
 
-    items: attractionReportSchema,
+    items: {
+      type: "object",
+      additionalProperties: false,
+      properties: attractionZReportProperties,
+    },
   },
 
   promotion_reports: {

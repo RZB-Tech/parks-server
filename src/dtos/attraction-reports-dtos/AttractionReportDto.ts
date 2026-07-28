@@ -306,7 +306,14 @@ export const AttractionZReportAttractionDTO = (
 
     description: data.description ?? null,
 
-    zreports: reports.map(AttractionReportDTO),
+    zreports: reports.map((report) => {
+      const {
+        promotion_reports: _promotionReports,
+        ...zreport
+      } = AttractionReportDTO(report);
+
+      return zreport;
+    }),
 
     promotion_reports: promotionReports.map(PromotionReportDTO),
 
