@@ -909,6 +909,20 @@ export const GetAttractionZReportsService = async (
   query: GetAttractionZReportsQuery,
 ) => {
   const { start, end } = getDateRange(query.date);
+  const promotionCodes = [
+    ...new Set(
+      (Array.isArray(query.promotion_codes)
+        ? query.promotion_codes
+        : query.promotion_codes
+          ? [query.promotion_codes]
+          : []
+      )
+        .flatMap((code) => code.split(","))
+        .map((code) => code.trim())
+        .filter(Boolean),
+    ),
+  ];
+  const search = query.search?.trim() ?? "";
 
   const baseReportWhere = {
     report_type: AttractionReportTypes.ZREPORT,
@@ -927,58 +941,32 @@ export const GetAttractionZReportsService = async (
     ],
   });
 
-  const allReportsPlain = allReports.map(
+  let allReportsPlain = allReports.map(
     (report) =>
       report.get({
         plain: true,
       }) as AttractionReportModelI,
   );
 
-  const totals = emptyAttractionZReportsTotals();
-
-  const stats = {
-    total: 0,
-    open: 0,
-    stopped: 0,
-    waiting: 0,
-    confirmed: 0,
-  };
-
-  for (const report of allReportsPlain) {
-    stats.total += 1;
-
-    addAttractionZReportsTotals(totals, report);
-
-    if (report.status === AttractionReportStatusTypes.OPEN) {
-      stats.open += 1;
-    }
-
-    if (report.status === AttractionReportStatusTypes.STOPPED) {
-      stats.stopped += 1;
-    }
-
-    if (report.status === AttractionReportStatusTypes.CLOSED) {
-      stats.waiting += 1;
-    }
-
-    if (report.status === AttractionReportStatusTypes.CONFIRMED) {
-      stats.confirmed += 1;
-    }
-  }
-
   const zReportIDs = allReportsPlain.map((report) => Number(report.id));
 
-  const [promotionReports, attractions] = await Promise.all([
-    zReportIDs.length
-      ? PromotionReportModel.findAll({
-          where: {
-            zreport: {
-              [Op.in]: zReportIDs,
-            },
+  const promotionReports = zReportIDs.length
+    ? await PromotionReportModel.findAll({
+        where: {
+          zreport: {
+            [Op.in]: zReportIDs,
           },
+          ...(promotionCodes.length
+            ? {
+                promotion_code: {
+                  [Op.in]: promotionCodes,
+                },
+              }
+            : {}),
+        },
 
-          attributes: [
-            "zreport",
+        attributes: [
+          "zreport",
 
             "promotion",
             "promotion_key",
@@ -1039,43 +1027,112 @@ export const GetAttractionZReportsService = async (
             ["discount_percent", "DESC"],
           ],
 
-          raw: true,
-        })
-      : Promise.resolve([]),
+        raw: true,
+      })
+    : [];
 
-    AttractionModel.findAll({
-      order: [["id", "DESC"]],
+  let attractions = await AttractionModel.findAll({
+    where: search
+      ? {
+          name: {
+            [Op.iLike]: `%${search}%`,
+          },
+        }
+      : undefined,
+    order: [["id", "DESC"]],
 
-      include: [
-        {
-          model: AttractionReportModel,
+    include: [
+      {
+        model: AttractionReportModel,
 
-          as: "reports",
+        as: "reports",
 
-          required: false,
-          separate: true,
+        required: false,
+        separate: true,
 
-          where: baseReportWhere,
+        where: baseReportWhere,
 
-          include: [
-            {
-              model: EmployeeModel,
+        include: [
+          {
+            model: EmployeeModel,
 
-              as: "operators",
+            as: "operators",
 
-              required: false,
+            required: false,
 
-              attributes: ["id", "firstname", "lastname", "file"],
-            },
-          ],
+            attributes: ["id", "firstname", "lastname", "file"],
+          },
+        ],
 
-          order: [["id", "DESC"]],
-        },
-      ],
-    }),
-  ]);
+        order: [["id", "DESC"]],
+      },
+    ],
+  });
+
+  if (search) {
+    const searchedAttractionIDs = new Set(
+      attractions.map((attraction) => Number(attraction.id)),
+    );
+
+    allReportsPlain = allReportsPlain.filter((report) =>
+      searchedAttractionIDs.has(Number(report.attraction)),
+    );
+  }
+
+  if (promotionCodes.length) {
+    const matchedZReportIDs = new Set(
+      promotionReports.map((report) => Number(report.zreport)),
+    );
+
+    allReportsPlain = allReportsPlain.filter((report) =>
+      matchedZReportIDs.has(Number(report.id)),
+    );
+
+    const matchedAttractionIDs = new Set(
+      allReportsPlain.map((report) => Number(report.attraction)),
+    );
+
+    attractions = attractions.filter((attraction) =>
+      matchedAttractionIDs.has(Number(attraction.id)),
+    );
+  }
+
+  const totals = emptyAttractionZReportsTotals();
+
+  const stats = {
+    total: 0,
+    open: 0,
+    stopped: 0,
+    waiting: 0,
+    confirmed: 0,
+  };
+
+  for (const report of allReportsPlain) {
+    stats.total += 1;
+
+    addAttractionZReportsTotals(totals, report);
+
+    if (report.status === AttractionReportStatusTypes.OPEN) {
+      stats.open += 1;
+    }
+
+    if (report.status === AttractionReportStatusTypes.STOPPED) {
+      stats.stopped += 1;
+    }
+
+    if (report.status === AttractionReportStatusTypes.CLOSED) {
+      stats.waiting += 1;
+    }
+
+    if (report.status === AttractionReportStatusTypes.CONFIRMED) {
+      stats.confirmed += 1;
+    }
+  }
 
   const promotionReportsByZReport = new Map<number, PromotionReportPlain[]>();
+  const filteredZReportIDs = new Set(
+    allReportsPlain.map((report) => Number(report.id)),
+  );
 
   for (const report of promotionReports) {
     const plain = report as PromotionReportPlain;
@@ -1099,11 +1156,13 @@ export const GetAttractionZReportsService = async (
       }) as AttractionWithZReportsPlain;
 
       const reports = Array.isArray(plain.reports)
-        ? plain.reports.map((report) => ({
-            ...report,
-            promotion_reports:
-              promotionReportsByZReport.get(Number(report.id)) ?? [],
-          }))
+        ? plain.reports
+            .filter((report) => filteredZReportIDs.has(Number(report.id)))
+            .map((report) => ({
+              ...report,
+              promotion_reports:
+                promotionReportsByZReport.get(Number(report.id)) ?? [],
+            }))
         : [];
 
       return AttractionZReportAttractionDTO({

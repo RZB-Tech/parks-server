@@ -637,6 +637,23 @@ export const getAttractionZReportsSchema = {
         format: "date",
         description: "Date format: YYYY-MM-DD",
       },
+
+      promotion_codes: {
+        type: "array",
+        items: {
+          type: "string",
+          minLength: 1,
+          maxLength: 100,
+        },
+        description:
+          "Filter by promotion codes. Repeat the query parameter for multiple codes.",
+      },
+
+      search: {
+        type: "string",
+        minLength: 1,
+        description: "Case-insensitive search by attraction name",
+      },
     },
   },
 

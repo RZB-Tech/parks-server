@@ -22,6 +22,8 @@ declare interface UpdateAttractionReportStatusData {
 
 declare interface GetAttractionZReportsQuery {
   date?: string;
+  promotion_codes?: string[] | string;
+  search?: string;
 }
 
 declare interface ConfirmAttractionZReportItemData {
