@@ -47,6 +47,8 @@ export const PromotionReportDTO = (data: PromotionReportPlain) => {
 
     discount_amount: Number(data.discount_amount || 0),
 
+    total_amount: Number(data.total_amount || 0),
+
     paid_amount: Number(data.paid_amount || 0),
   };
 };

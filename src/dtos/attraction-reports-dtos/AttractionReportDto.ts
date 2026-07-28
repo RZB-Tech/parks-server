@@ -179,6 +179,7 @@ export const emptyPromotionReportTotals = (): PromotionReportTotalsDTO => {
 
     original_amount: 0,
     discount_amount: 0,
+    total_amount: 0,
     paid_amount: 0,
   };
 };
@@ -208,6 +209,7 @@ export const addPromotionReportTotals = (
 
   target.original_amount += Number(report.original_amount || 0);
   target.discount_amount += Number(report.discount_amount || 0);
+  target.total_amount += Number(report.total_amount || 0);
   target.paid_amount += Number(report.paid_amount || 0);
 };
 
@@ -231,7 +233,7 @@ export const combineAttractionZReportTotals = (
       promotionReport.total_organization || 0,
     );
     totals.paid_amount += Number(promotionReport.paid_amount || 0);
-    totals.total_amount += Number(promotionReport.original_amount || 0);
+    totals.total_amount += Number(promotionReport.total_amount || 0);
   }
 
   return totals;

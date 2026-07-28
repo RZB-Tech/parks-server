@@ -46,6 +46,7 @@ declare interface UpsertPromotionReportData {
 
   original_amount: number;
   discount_amount: number;
+  total_amount: number;
   paid_amount: number;
 }
 
@@ -86,6 +87,7 @@ declare interface PromotionReportPlain {
 
   original_amount: number | string;
   discount_amount: number | string;
+  total_amount: number | string;
   paid_amount: number | string;
 
   createdAt?: Date;

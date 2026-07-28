@@ -53,6 +53,7 @@ export const UpsertPromotionReportService = async (
 
         original_amount,
         discount_amount,
+        total_amount,
         paid_amount,
 
         created_at,
@@ -94,6 +95,7 @@ export const UpsertPromotionReportService = async (
 
         :originalAmount,
         :discountAmount,
+        :totalAmount,
         :paidAmount,
 
         NOW(),
@@ -152,6 +154,10 @@ export const UpsertPromotionReportService = async (
           promotion_reports.discount_amount +
           EXCLUDED.discount_amount,
 
+        total_amount =
+          promotion_reports.total_amount +
+          EXCLUDED.total_amount,
+
         paid_amount =
           promotion_reports.paid_amount +
           EXCLUDED.paid_amount,
@@ -201,6 +207,8 @@ export const UpsertPromotionReportService = async (
         originalAmount: data.original_amount,
 
         discountAmount: data.discount_amount,
+
+        totalAmount: data.total_amount,
 
         paidAmount: data.paid_amount,
       },

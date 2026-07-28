@@ -597,7 +597,11 @@ export const CloseCurrentAttractionRoundService = async (
           paymentData.cards.type === CardType.VIP ? paymentPeople : 0;
         standardTotals.total_organization +=
           paymentData.cards.type === CardType.ORGANIZATION ? paymentPeople : 0;
-        standardTotals.paid_amount += Number(paymentData.amount || 0);
+        standardTotals.paid_amount +=
+          paymentData.cards.type === CardType.CLASSIC ||
+          paymentData.cards.type === CardType.VIRTUAL
+            ? Number(paymentData.amount || 0)
+            : 0;
         standardTotals.total_amount +=
           Number(paymentData.sale_unit_price || 0) * paymentPeople;
       }

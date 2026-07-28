@@ -798,6 +798,9 @@ export const CardPaymentTransactionService = async (
       balanceAfter = balanceBefore - chargedAmount;
     }
 
+    const reportPaidAmount =
+      isClassicCard || card.type === CardType.VIRTUAL ? chargedAmount : 0;
+
     /*
      * Balance tekshirilgandan keyin round olinadi.
      * Shunda yetarli balans bo‘lmasa yangi round bekorga yaratilmaydi.
@@ -888,7 +891,8 @@ export const CardPaymentTransactionService = async (
           total_offline: peopleCount,
           original_amount: originalAmount,
           discount_amount: discountAmount,
-          paid_amount: chargedAmount,
+          total_amount: saleAmount,
+          paid_amount: reportPaidAmount,
         },
         transaction,
       );
@@ -909,7 +913,7 @@ export const CardPaymentTransactionService = async (
         organization_count:
           Number(round.organization_count || 0) +
           (isOrganizationCard ? peopleCount : 0),
-        paid_amount: Number(round.paid_amount || 0) + chargedAmount,
+        paid_amount: Number(round.paid_amount || 0) + reportPaidAmount,
         total_amount: Number(round.total_amount || 0) + saleAmount,
       },
       {
@@ -929,7 +933,8 @@ export const CardPaymentTransactionService = async (
           total_organization:
             Number(report.total_organization || 0) +
             (isOrganizationCard ? peopleCount : 0),
-          paid_amount: Number(report.paid_amount || 0) + chargedAmount,
+          paid_amount:
+            Number(report.paid_amount || 0) + reportPaidAmount,
           total_amount: Number(report.total_amount || 0) + saleAmount,
         },
         { transaction },

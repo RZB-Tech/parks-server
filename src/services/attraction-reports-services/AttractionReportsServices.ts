@@ -836,6 +836,7 @@ export const GetTodayAttractionReportsService = async (
             [fn("SUM", col("total_offline")), "total_offline"],
             [fn("SUM", col("original_amount")), "original_amount"],
             [fn("SUM", col("discount_amount")), "discount_amount"],
+            [fn("SUM", col("total_amount")), "total_amount"],
             [fn("SUM", col("paid_amount")), "paid_amount"],
           ],
 
@@ -1010,6 +1011,8 @@ export const GetAttractionZReportsService = async (
             [fn("SUM", col("original_amount")), "original_amount"],
 
             [fn("SUM", col("discount_amount")), "discount_amount"],
+
+            [fn("SUM", col("total_amount")), "total_amount"],
 
             [fn("SUM", col("paid_amount")), "paid_amount"],
           ],
@@ -1312,6 +1315,8 @@ export const GetAccountingAttractionReportsService = async (
           [fn("SUM", col("original_amount")), "original_amount"],
 
           [fn("SUM", col("discount_amount")), "discount_amount"],
+
+          [fn("SUM", col("total_amount")), "total_amount"],
 
           [fn("SUM", col("paid_amount")), "paid_amount"],
         ],

@@ -256,6 +256,8 @@ export const ClientAttractionPaymentService = async (
         Number.isFinite(rawBalance) && rawBalance >= 0 ? rawBalance : 0;
 
       const chargedAmount = isVIP ? 0 : calculatedTotalAmount;
+      const reportPaidAmount =
+        isClassic || isVirtual ? chargedAmount : 0;
 
       if (!isVIP && balanceBefore < chargedAmount) {
         throw BadRequest("INSUFFICIENT_CARD_BALANCE");
@@ -401,7 +403,8 @@ export const ClientAttractionPaymentService = async (
 
             original_amount: originalAmount,
             discount_amount: discountAmount,
-            paid_amount: chargedAmount,
+            total_amount: saleAmount,
+            paid_amount: reportPaidAmount,
           },
           transaction,
         );
@@ -442,7 +445,7 @@ export const ClientAttractionPaymentService = async (
             Number(round.organization_count ?? 0) +
             (isOrganization ? membersCount : 0),
 
-          paid_amount: Number(round.paid_amount ?? 0) + chargedAmount,
+          paid_amount: Number(round.paid_amount ?? 0) + reportPaidAmount,
 
           total_amount: Number(round.total_amount ?? 0) + saleAmount,
 
@@ -485,7 +488,8 @@ export const ClientAttractionPaymentService = async (
               Number(report.total_organization ?? 0) +
               (isOrganization ? membersCount : 0),
 
-            paid_amount: Number(report.paid_amount ?? 0) + chargedAmount,
+            paid_amount:
+              Number(report.paid_amount ?? 0) + reportPaidAmount,
 
             total_amount: Number(report.total_amount ?? 0) + saleAmount,
           },

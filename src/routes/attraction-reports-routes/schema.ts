@@ -160,6 +160,10 @@ export const promotionReportProperties = {
     type: "number",
   },
 
+  total_amount: {
+    type: "number",
+  },
+
   paid_amount: {
     type: "number",
   },
@@ -834,6 +838,10 @@ export const promotionReportTotalsProperties = {
   },
 
   discount_amount: {
+    type: "number",
+  },
+
+  total_amount: {
     type: "number",
   },
 

@@ -35,6 +35,7 @@ declare interface PromotionReportModelI {
 
   original_amount: number;
   discount_amount: number;
+  total_amount: number;
   paid_amount: number;
 
   createdAt?: Date;

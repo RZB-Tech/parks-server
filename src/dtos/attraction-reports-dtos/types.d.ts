@@ -132,6 +132,7 @@ declare interface PromotionReportTotalsDTO {
 
   original_amount: number;
   discount_amount: number;
+  total_amount: number;
   paid_amount: number;
 }
 

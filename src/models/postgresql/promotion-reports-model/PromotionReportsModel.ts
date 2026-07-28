@@ -57,6 +57,7 @@ export class PromotionReportModel
    */
   public original_amount!: number;
   public discount_amount!: number;
+  public total_amount!: number;
   public paid_amount!: number;
 
   public readonly createdAt!: Date;
@@ -207,6 +208,12 @@ export class PromotionReportModel
         },
 
         discount_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        total_amount: {
           type: DataTypes.BIGINT,
           allowNull: false,
           defaultValue: 0,
