@@ -1230,9 +1230,27 @@ export const ConfirmAttractionZReportsService = async (
 
   return await sequelize.transaction(async (dbTransaction) => {
     const { startDate, endDate } = getTashkentDayRangeUTC();
+    const bodyZReportIDs = body.zreports.map((report) => Number(report.id));
 
-    const todayZReports = await AttractionReportModel.findAll({
+    const uniqueBodyIDs = new Set(bodyZReportIDs);
+
+    if (
+      bodyZReportIDs.some(
+        (reportID) => !Number.isInteger(reportID) || reportID <= 0,
+      )
+    ) {
+      throw BadRequest("Invalid Z report ids sent!");
+    }
+
+    if (uniqueBodyIDs.size !== bodyZReportIDs.length) {
+      throw BadRequest("Duplicate Z report ids are not allowed!");
+    }
+
+    const selectedZReports = await AttractionReportModel.findAll({
       where: {
+        id: {
+          [Op.in]: bodyZReportIDs,
+        },
         report_type: AttractionReportTypes.ZREPORT,
         createdAt: {
           [Op.between]: [startDate, endDate],
@@ -1242,68 +1260,49 @@ export const ConfirmAttractionZReportsService = async (
       lock: dbTransaction.LOCK.UPDATE,
     });
 
-    if (todayZReports.length === 0) {
-      throw BadRequest("Today Z reports not found!");
-    }
-
-    const todayZReportIDs = todayZReports.map((report) => Number(report.id));
-    const bodyZReportIDs = body.zreports.map((report) => Number(report.id));
-
-    const uniqueBodyIDs = new Set(bodyZReportIDs);
-
-    if (uniqueBodyIDs.size !== bodyZReportIDs.length) {
-      throw BadRequest("Duplicate Z report ids are not allowed!");
-    }
-
-    if (todayZReportIDs.length !== bodyZReportIDs.length) {
-      throw BadRequest("All today Z reports must be sent!");
-    }
-
-    const missingIDs = todayZReportIDs.filter((id) => !uniqueBodyIDs.has(id));
-
-    if (missingIDs.length > 0) {
-      throw BadRequest("Some today Z reports are missing!");
-    }
-
-    const todayIDSet = new Set(todayZReportIDs);
-
-    const invalidIDs = bodyZReportIDs.filter((id) => !todayIDSet.has(id));
-
-    if (invalidIDs.length > 0) {
+    if (selectedZReports.length !== uniqueBodyIDs.size) {
       throw BadRequest("Invalid Z report ids sent!");
     }
 
-    for (const zReport of todayZReports) {
+    for (const zReport of selectedZReports) {
       if (
         [
           AttractionReportStatusTypes.OPEN,
           AttractionReportStatusTypes.STOPPED,
         ].includes(zReport.status)
       ) {
-        throw BadRequest("All Z reports must be closed first!");
+        throw BadRequest("Z report must be closed first!");
       }
 
       if (zReport.status === AttractionReportStatusTypes.CONFIRMED) {
-        throw BadRequest("Some Z reports are already confirmed!");
+        throw BadRequest("Z report is already confirmed!");
+      }
+
+      if (zReport.status !== AttractionReportStatusTypes.CLOSED) {
+        throw BadRequest("Invalid Z report status!");
       }
     }
 
-    for (const item of body.zreports) {
-      await AttractionReportModel.update(
-        {
-          status: item.status,
-          confirmed_by: operatorID,
-          confirmed_at: new Date(),
-        },
-        {
-          where: {
-            id: Number(item.id),
-            report_type: AttractionReportTypes.ZREPORT,
-            status: AttractionReportStatusTypes.CLOSED,
+    const [updatedReportsCount] = await AttractionReportModel.update(
+      {
+        status: AttractionReportStatusTypes.CONFIRMED,
+        confirmed_by: operatorID,
+        confirmed_at: new Date(),
+      },
+      {
+        where: {
+          id: {
+            [Op.in]: bodyZReportIDs,
           },
-          transaction: dbTransaction,
+          report_type: AttractionReportTypes.ZREPORT,
+          status: AttractionReportStatusTypes.CLOSED,
         },
-      );
+        transaction: dbTransaction,
+      },
+    );
+
+    if (updatedReportsCount !== uniqueBodyIDs.size) {
+      throw Conflict("Some Z report statuses were changed. Try again!");
     }
 
     return true;
