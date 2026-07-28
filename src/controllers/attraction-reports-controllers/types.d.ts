@@ -42,4 +42,5 @@ declare type GetAccountingAttractionReportsQuery = {
   start_date?: string;
   end_date?: string;
   promotion_code?: string;
+  promotion_codes?: string[] | string;
 };

@@ -946,6 +946,17 @@ export const getAccountingAttractionReportsSchema = {
         maxLength: 100,
         description: "Filter promotion statistics by exact promotion code",
       },
+
+      promotion_codes: {
+        type: "array",
+        items: {
+          type: "string",
+          minLength: 1,
+          maxLength: 100,
+        },
+        description:
+          "Filter by promotion codes. Repeat the query parameter for multiple codes.",
+      },
     },
   },
 

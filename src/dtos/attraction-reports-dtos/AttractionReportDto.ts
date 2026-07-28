@@ -213,27 +213,35 @@ export const addPromotionReportTotals = (
   target.paid_amount += Number(report.paid_amount || 0);
 };
 
+export const addPromotionToAttractionZReportsTotals = (
+  target: AttractionZReportTotalsDTO,
+  report: PromotionReportPlain,
+) => {
+  target.total_rounds += Number(report.rounds_count || 0);
+  target.total_people += Number(report.total_people || 0);
+  target.total_offline += Number(report.total_offline || 0);
+  target.total_online += Number(report.total_online || 0);
+  target.total_virtual += Number(report.total_virtual || 0);
+  target.total_classic += Number(report.total_classic || 0);
+  target.total_vip += Number(report.total_vip || 0);
+  target.total_organization += Number(report.total_organization || 0);
+  target.paid_amount += Number(report.paid_amount || 0);
+  target.total_amount += Number(report.total_amount || 0);
+};
+
 export const combineAttractionZReportTotals = (
   report: AttractionReportModelI,
   promotionReports: PromotionReportPlain[],
+  promotionOnly = false,
 ): AttractionZReportTotalsDTO => {
   const totals = emptyAttractionZReportsTotals();
 
-  addAttractionZReportsTotals(totals, report);
+  if (!promotionOnly) {
+    addAttractionZReportsTotals(totals, report);
+  }
 
   for (const promotionReport of promotionReports) {
-    totals.total_rounds += Number(promotionReport.rounds_count || 0);
-    totals.total_people += Number(promotionReport.total_people || 0);
-    totals.total_offline += Number(promotionReport.total_offline || 0);
-    totals.total_online += Number(promotionReport.total_online || 0);
-    totals.total_virtual += Number(promotionReport.total_virtual || 0);
-    totals.total_classic += Number(promotionReport.total_classic || 0);
-    totals.total_vip += Number(promotionReport.total_vip || 0);
-    totals.total_organization += Number(
-      promotionReport.total_organization || 0,
-    );
-    totals.paid_amount += Number(promotionReport.paid_amount || 0);
-    totals.total_amount += Number(promotionReport.total_amount || 0);
+    addPromotionToAttractionZReportsTotals(totals, promotionReport);
   }
 
   return totals;
@@ -247,6 +255,7 @@ export const combineAttractionZReportTotals = (
 
 export const AttractionZReportAttractionDTO = (
   data: AttractionWithZReportsPlain,
+  promotionOnly = false,
 ): AttractionZReportAttractionResponseDTO => {
   const reports = Array.isArray(data.reports) ? data.reports : [];
   const promotionReports = reports.flatMap((report) =>
@@ -261,6 +270,7 @@ export const AttractionZReportAttractionDTO = (
     const reportTotals = combineAttractionZReportTotals(
       report,
       reportPromotionReports,
+      promotionOnly,
     );
 
     totalReports.total_rounds += reportTotals.total_rounds;
@@ -332,6 +342,8 @@ export const AccountingAttractionReportsDTO = (data: {
   end_date: Date;
 
   promotion_code: string | null;
+  promotion_codes: string[];
+  promotion_only: boolean;
 
   attractions: AttractionModelI[];
   reports: AttractionReportModelI[];
@@ -363,7 +375,9 @@ export const AccountingAttractionReportsDTO = (data: {
 
     reportsByAttraction.set(attractionID, currentReports);
 
-    addAttractionZReportsTotals(totals, report);
+    if (!data.promotion_only) {
+      addAttractionZReportsTotals(totals, report);
+    }
   }
 
   /*
@@ -381,6 +395,10 @@ export const AccountingAttractionReportsDTO = (data: {
     currentReports.push(report);
 
     promotionReportsByAttraction.set(attractionID, currentReports);
+
+    if (data.promotion_only) {
+      addPromotionToAttractionZReportsTotals(totals, report);
+    }
   }
 
   const attractions: AttractionZReportAttractionResponseDTO[] =
@@ -392,39 +410,17 @@ export const AccountingAttractionReportsDTO = (data: {
         const attractionPromotionReports =
           promotionReportsByAttraction.get(attractionID) ?? [];
 
+      if (!data.promotion_only) {
         for (const report of attractionReports) {
           addAttractionZReportsTotals(totalReports, report);
         }
+      }
 
-        for (const promotionReport of attractionPromotionReports) {
-          totalReports.total_rounds += Number(
-            promotionReport.rounds_count || 0,
-          );
-          totalReports.total_people += Number(
-            promotionReport.total_people || 0,
-          );
-          totalReports.total_offline += Number(
-            promotionReport.total_offline || 0,
-          );
-          totalReports.total_online += Number(
-            promotionReport.total_online || 0,
-          );
-          totalReports.total_virtual += Number(
-            promotionReport.total_virtual || 0,
-          );
-          totalReports.total_classic += Number(
-            promotionReport.total_classic || 0,
-          );
-          totalReports.total_vip += Number(promotionReport.total_vip || 0);
-          totalReports.total_organization += Number(
-            promotionReport.total_organization || 0,
-          );
-          totalReports.paid_amount += Number(
-            promotionReport.paid_amount || 0,
-          );
-          totalReports.total_amount += Number(
-            promotionReport.total_amount || 0,
-          );
+      for (const promotionReport of attractionPromotionReports) {
+        addPromotionToAttractionZReportsTotals(
+          totalReports,
+          promotionReport,
+        );
         }
 
         return {
@@ -485,20 +481,12 @@ export const AccountingAttractionReportsDTO = (data: {
     waiting: 0,
     confirmed: data.reports.length,
   };
-  const promotionCodes = [
-    ...new Set(
-      data.promotion_reports
-        .map((report) => report.promotion_code?.trim())
-        .filter((code): code is string => Boolean(code)),
-    ),
-  ].sort((first, second) => first.localeCompare(second));
-
   return {
     start_date: data.start_date,
     end_date: data.end_date,
 
     promotion_code: data.promotion_code,
-    promotion_codes: promotionCodes,
+    promotion_codes: data.promotion_codes,
 
     stats,
 

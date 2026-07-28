@@ -13,6 +13,7 @@ import { AttractionRoundModel } from "../../models/postgresql/attraction-round-m
 import {
   AccountingAttractionReportsDTO,
   addAttractionZReportsTotals,
+  addPromotionToAttractionZReportsTotals,
   AttractionReportDTO,
   AttractionReportsTodayDTO,
   AttractionZReportAttractionDTO,
@@ -950,19 +951,12 @@ export const GetAttractionZReportsService = async (
 
   const zReportIDs = allReportsPlain.map((report) => Number(report.id));
 
-  const promotionReports = zReportIDs.length
+  const allPromotionReports = zReportIDs.length
     ? await PromotionReportModel.findAll({
         where: {
           zreport: {
             [Op.in]: zReportIDs,
           },
-            ...(requestedPromotionCodes.length
-              ? {
-                  promotion_code: {
-                    [Op.in]: requestedPromotionCodes,
-                },
-              }
-            : {}),
         },
 
         attributes: [
@@ -1030,6 +1024,13 @@ export const GetAttractionZReportsService = async (
         raw: true,
       })
     : [];
+  const promotionReports = requestedPromotionCodes.length
+    ? allPromotionReports.filter(
+        (report) =>
+          typeof report.promotion_code === "string" &&
+          requestedPromotionCodes.includes(report.promotion_code),
+      )
+    : allPromotionReports;
 
   let attractions = await AttractionModel.findAll({
     where: search
@@ -1079,6 +1080,10 @@ export const GetAttractionZReportsService = async (
     );
   }
 
+  const promotionCodeScopeZReportIDs = new Set(
+    allReportsPlain.map((report) => Number(report.id)),
+  );
+
   if (requestedPromotionCodes.length) {
     const matchedZReportIDs = new Set(
       promotionReports.map((report) => Number(report.zreport)),
@@ -1110,7 +1115,9 @@ export const GetAttractionZReportsService = async (
   for (const report of allReportsPlain) {
     stats.total += 1;
 
-    addAttractionZReportsTotals(totals, report);
+    if (!requestedPromotionCodes.length) {
+      addAttractionZReportsTotals(totals, report);
+    }
 
     if (report.status === AttractionReportStatusTypes.OPEN) {
       stats.open += 1;
@@ -1135,14 +1142,25 @@ export const GetAttractionZReportsService = async (
   );
   const usedPromotionCodes = [
     ...new Set(
-      promotionReports
+      allPromotionReports
         .filter((report) =>
-          filteredZReportIDs.has(Number(report.zreport)),
+          promotionCodeScopeZReportIDs.has(Number(report.zreport)),
         )
         .map((report) => report.promotion_code?.trim())
         .filter((code): code is string => Boolean(code)),
     ),
   ].sort((first, second) => first.localeCompare(second));
+
+  if (requestedPromotionCodes.length) {
+    for (const report of promotionReports) {
+      if (filteredZReportIDs.has(Number(report.zreport))) {
+        addPromotionToAttractionZReportsTotals(
+          totals,
+          report as PromotionReportPlain,
+        );
+      }
+    }
+  }
 
   for (const report of promotionReports) {
     const plain = report as PromotionReportPlain;
@@ -1179,7 +1197,7 @@ export const GetAttractionZReportsService = async (
       return AttractionZReportAttractionDTO({
         ...plain,
         reports,
-      });
+      }, requestedPromotionCodes.length > 0);
     }),
   };
 };
@@ -1300,6 +1318,21 @@ export const GetAccountingAttractionReportsService = async (
 
   const promotionCode =
     typeof query.promotion_code === "string" ? query.promotion_code.trim() : "";
+  const requestedPromotionCodes = [
+    ...new Set(
+      [
+        ...(Array.isArray(query.promotion_codes)
+          ? query.promotion_codes
+          : query.promotion_codes
+            ? [query.promotion_codes]
+            : []),
+        ...(promotionCode ? [promotionCode] : []),
+      ]
+        .flatMap((code) => code.split(","))
+        .map((code) => code.trim())
+        .filter(Boolean),
+    ),
+  ];
 
   /*
    * Faqat CONFIRMED ZReportlar.
@@ -1337,18 +1370,12 @@ export const GetAccountingAttractionReportsService = async (
    * Yuborilmasa barcha aksiyalar va aksiyasiz
    * paymentlar ham olinadi.
    */
-  const promotionReports = zreportIDs.length
+  const allPromotionReports = zreportIDs.length
     ? await PromotionReportModel.findAll({
         where: {
           zreport: {
             [Op.in]: zreportIDs,
           },
-
-          ...(promotionCode
-            ? {
-                promotion_code: promotionCode,
-              }
-            : {}),
         },
 
         attributes: [
@@ -1416,9 +1443,23 @@ export const GetAccountingAttractionReportsService = async (
         raw: true,
       })
     : [];
+  const promotionReports = requestedPromotionCodes.length
+    ? allPromotionReports.filter(
+        (report) =>
+          typeof report.promotion_code === "string" &&
+          requestedPromotionCodes.includes(report.promotion_code),
+      )
+    : allPromotionReports;
 
   const promotionReportsPlain =
     promotionReports as unknown as PromotionReportPlain[];
+  const availablePromotionCodes = [
+    ...new Set(
+      allPromotionReports
+        .map((report) => report.promotion_code?.trim())
+        .filter((code): code is string => Boolean(code)),
+    ),
+  ].sort((first, second) => first.localeCompare(second));
 
   /*
    * promotion_code filter bo‘lsa faqat shu aksiya
@@ -1427,7 +1468,7 @@ export const GetAccountingAttractionReportsService = async (
    * Filter bo‘lmasa confirmed ZReport mavjud
    * attractionlar qaytadi.
    */
-  const attractionIDs = promotionCode
+  const attractionIDs = requestedPromotionCodes.length
     ? [
         ...new Set(
           promotionReportsPlain.map((report) => Number(report.attraction)),
@@ -1462,6 +1503,8 @@ export const GetAccountingAttractionReportsService = async (
     end_date: end,
 
     promotion_code: promotionCode || null,
+    promotion_codes: availablePromotionCodes,
+    promotion_only: requestedPromotionCodes.length > 0,
 
     attractions: attractions.map(
       (attraction) =>
