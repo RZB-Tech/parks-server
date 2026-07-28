@@ -338,16 +338,26 @@ export const CardTopUpTransactionService = async (
 export const CardRefundTransactionService = async (
   operatorID: number,
   body: CardRefundData,
-): Promise<CardTransactionResponseDTO> => {
+) => {
   const normalizedOperatorID = Number(operatorID);
-  const cardNumber = body?.card?.trim();
+  const oldCardNumber = body?.old_card?.trim();
+  const newCardNumber = body?.new_card?.trim();
+  const confirmedAmount = Number(body?.amount);
 
   if (!Number.isInteger(normalizedOperatorID) || normalizedOperatorID <= 0) {
     throw BadRequest("Operator is required!");
   }
 
-  if (!cardNumber) {
-    throw BadRequest("Card number is invalid!");
+  if (!oldCardNumber || !newCardNumber) {
+    throw BadRequest("Old card and new card are required!");
+  }
+
+  if (oldCardNumber === newCardNumber) {
+    throw BadRequest("Old card and new card must be different!");
+  }
+
+  if (!Number.isSafeInteger(confirmedAmount) || confirmedAmount < 0) {
+    throw BadRequest("Card return amount is invalid!");
   }
 
   const description = body?.description?.trim() || null;
@@ -372,112 +382,69 @@ export const CardRefundTransactionService = async (
       throw BadRequest("Z report is required!");
     }
 
-    const card = await CardModel.findOne({
+    const cards = await CardModel.findAll({
       where: {
-        card: cardNumber,
+        card: {
+          [Op.in]: [oldCardNumber, newCardNumber],
+        },
       },
+      order: [["id", "ASC"]],
       transaction: dbTransaction,
       lock: dbTransaction.LOCK.UPDATE,
     });
 
-    if (!card) {
-      throw NotFound("Card not found!");
+    const oldCard = cards.find((card) => card.card === oldCardNumber);
+    const newCard = cards.find((card) => card.card === newCardNumber);
+
+    if (!oldCard) {
+      throw NotFound("Old card not found!");
     }
 
-    const cardID = Number(card.id);
-
-    if (card.type === CardType.VIRTUAL) {
-      throw BadRequest("Virtual card cannot be returned!");
+    if (!newCard) {
+      throw NotFound("New card not found!");
     }
-
-    if (card.status !== CardStatusTypes.ACTIVE) {
-      throw BadRequest("Only active card can be returned!");
-    }
-
-    const balanceRefundAmount = Number(card.balance || 0);
 
     if (
-      !Number.isSafeInteger(balanceRefundAmount) ||
-      balanceRefundAmount < 0
+      oldCard.type === CardType.VIRTUAL ||
+      newCard.type === CardType.VIRTUAL
     ) {
-      throw BadRequest("Card balance is invalid!");
+      throw BadRequest("Virtual cards cannot be returned or replaced!");
     }
 
-    const [chargedActivationAmount, refundedActivationAmount] =
-      await Promise.all([
-        CardTransactionModel.sum("activation_amount", {
-          where: {
-            card: cardID,
-            type: CardTransactionType.TOPUP,
-            status: CardTransactionStatusTypes.SUCCESS,
-            activation_amount: {
-              [Op.gt]: 0,
-            },
-          },
-          transaction: dbTransaction,
-        }),
-        CardTransactionModel.sum("activation_amount", {
-          where: {
-            card: cardID,
-            type: CardTransactionType.REFUND,
-            status: CardTransactionStatusTypes.SUCCESS,
-            activation_amount: {
-              [Op.gt]: 0,
-            },
-          },
-          transaction: dbTransaction,
-        }),
-      ]);
-
-    const totalChargedActivationAmount = Number(chargedActivationAmount || 0);
-    const totalRefundedActivationAmount = Number(refundedActivationAmount || 0);
-
-    if (
-      !Number.isSafeInteger(totalChargedActivationAmount) ||
-      totalChargedActivationAmount < 0 ||
-      !Number.isSafeInteger(totalRefundedActivationAmount) ||
-      totalRefundedActivationAmount < 0 ||
-      totalRefundedActivationAmount > totalChargedActivationAmount
-    ) {
-      throw BadRequest("Card activation amount is invalid!");
+    if (oldCard.status !== CardStatusTypes.ACTIVE) {
+      throw BadRequest("Old card must be active!");
     }
 
-    const activationRefundAmount =
-      totalChargedActivationAmount - totalRefundedActivationAmount;
-
-    const refundAmount = balanceRefundAmount + activationRefundAmount;
-
-    if (!Number.isSafeInteger(refundAmount) || refundAmount < 0) {
-      throw BadRequest("Card refund amount is invalid!");
+    if (newCard.status !== CardStatusTypes.INACTIVE) {
+      throw BadRequest("New card must be inactive!");
     }
 
-    const refundTransaction = await CardTransactionModel.create(
-      {
-        card: cardID,
-        operator: normalizedOperatorID,
-        cashbox: Number(openXReport.cashbox),
-        xreport: Number(openXReport.id),
-        type: CardTransactionType.REFUND,
-        amount: refundAmount,
-        activation_amount: activationRefundAmount,
-        balance_before: balanceRefundAmount,
-        balance_after: 0,
-        payment_type: PaymentType.CASH,
-        payment_card_type: null,
-        payment_service: null,
-        status: CardTransactionStatusTypes.SUCCESS,
-        description,
-      },
-      {
-        transaction: dbTransaction,
-      },
-    );
+    if (Number(newCard.balance || 0) !== 0) {
+      throw BadRequest("New card balance must be zero!");
+    }
 
-    await card.update(
+    if (oldCard.type !== newCard.type) {
+      throw BadRequest("Old card and new card types must match!");
+    }
+
+    const transferAmount = Number(oldCard.balance || 0);
+
+    if (!Number.isSafeInteger(transferAmount) || transferAmount < 0) {
+      throw BadRequest("Old card balance is invalid!");
+    }
+
+    if (confirmedAmount !== transferAmount) {
+      throw BadRequest("CARD_RETURN_AMOUNT_MISMATCH");
+    }
+
+    const oldUserID = oldCard.user ? Number(oldCard.user) : null;
+    const returnedAt = new Date();
+
+    await oldCard.update(
       {
         balance: 0,
         status: CardStatusTypes.RETURNED,
-        returned_at: new Date(),
+        returned_at: returnedAt,
         return_description: description,
         user: null,
       },
@@ -486,23 +453,64 @@ export const CardRefundTransactionService = async (
       },
     );
 
-    await CardBatchModel.increment(
+    await newCard.update(
       {
-        active_cards: -1,
-        returned_cards: 1,
+        balance: transferAmount,
+        status: CardStatusTypes.ACTIVE,
+        activated_at: returnedAt,
+        returned_at: null,
+        return_description: null,
+        user: oldUserID,
       },
       {
-        where: {
-          id: card.batch,
-        },
         transaction: dbTransaction,
       },
     );
 
+    if (Number(oldCard.batch) === Number(newCard.batch)) {
+      await CardBatchModel.increment(
+        {
+          inactive_cards: -1,
+          returned_cards: 1,
+        },
+        {
+          where: {
+            id: oldCard.batch,
+          },
+          transaction: dbTransaction,
+        },
+      );
+    } else {
+      await CardBatchModel.increment(
+        {
+          active_cards: -1,
+          returned_cards: 1,
+        },
+        {
+          where: {
+            id: oldCard.batch,
+          },
+          transaction: dbTransaction,
+        },
+      );
+
+      await CardBatchModel.increment(
+        {
+          inactive_cards: -1,
+          active_cards: 1,
+        },
+        {
+          where: {
+            id: newCard.batch,
+          },
+          transaction: dbTransaction,
+        },
+      );
+    }
+
     const reportIncrement = {
       returned_cards_count: 1,
-      returned_cards_amount: refundAmount,
-      transactions_count: 1,
+      returned_cards_amount: transferAmount,
     };
 
     await CashboxReportModel.increment(reportIncrement, {
@@ -519,10 +527,23 @@ export const CardRefundTransactionService = async (
       transaction: dbTransaction,
     });
 
-    return CardTransactionDTO({
-      ...refundTransaction.get({ plain: true }),
-      card_data: card.get({ plain: true }),
-    });
+    return {
+      old_card: {
+        id: Number(oldCard.id),
+        card: oldCard.card,
+        status: oldCard.status,
+        balance: Number(oldCard.balance),
+        returned_at: oldCard.returned_at,
+        return_description: oldCard.return_description,
+      },
+      new_card: {
+        id: Number(newCard.id),
+        card: newCard.card,
+        status: newCard.status,
+        balance: Number(newCard.balance),
+      },
+      amount: transferAmount,
+    };
   });
 };
 

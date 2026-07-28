@@ -433,9 +433,9 @@ export const cardTopUpTransactionSchema = {
 };
 
 export const cardRefundTransactionSchema = {
-  summary: "Return card and refund its amounts",
+  summary: "Return and replace card",
   description:
-    "Returns an active physical card and refunds its current balance together with the activation fee snapshot.",
+    "Marks the old card as returned and transfers its full balance to a free replacement card.",
   tags: ["Card Transactions route"],
   headers: {
     type: "object",
@@ -450,22 +450,55 @@ export const cardRefundTransactionSchema = {
   },
   body: reqBodyWrapper({
     type: "object",
-    required: ["card"],
+    required: ["old_card", "new_card", "amount"],
     additionalProperties: false,
     properties: {
-      card: {
+      old_card: {
         type: "string",
         minLength: 1,
-        description: "Physical card number",
+        description: "Active physical card number to return",
+      },
+      new_card: {
+        type: "string",
+        minLength: 1,
+        description: "Inactive physical replacement card number",
+      },
+      amount: {
+        type: "integer",
+        minimum: 0,
+        description:
+          "Confirmation amount that must equal the old card balance",
       },
       description: nullableString,
     },
   }),
   response: {
     200: successAnswerTemplate({
-      transaction: {
+      return: {
         type: "object",
-        properties: cardTransactionProperties,
+        properties: {
+          old_card: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              card: { type: "string" },
+              status: { type: "string" },
+              balance: { type: "number" },
+              returned_at: { type: "string" },
+              return_description: nullableString,
+            },
+          },
+          new_card: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              card: { type: "string" },
+              status: { type: "string" },
+              balance: { type: "number" },
+            },
+          },
+          amount: { type: "number" },
+        },
       },
     }),
   },

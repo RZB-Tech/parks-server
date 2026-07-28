@@ -591,6 +591,22 @@ export const attractionWithZReportsProperties = {
 
     items: attractionReportSchema,
   },
+
+  promotion_reports: {
+    type: "array",
+
+    items: {
+      type: "object",
+      additionalProperties: false,
+      properties: promotionReportProperties,
+    },
+  },
+
+  total_reports: {
+    type: "object",
+    additionalProperties: false,
+    properties: attractionZReportsTotalsProperties,
+  },
 };
 
 export const getAttractionZReportsSchema = {

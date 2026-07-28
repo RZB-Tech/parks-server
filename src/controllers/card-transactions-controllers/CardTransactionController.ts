@@ -6,7 +6,13 @@ import {
   RouteWithParamsAndQuery,
 } from "../../types/routes";
 import { Unauthorized } from "../../exceptions";
-import { CheckNfcCardService, CardTopUpTransactionService, GetCardTransactionsService, CardPaymentTransactionService, CardRefundTransactionService } from "../../services/card-transactions-services/CardTransactionsServices";
+import {
+  CheckNfcCardService,
+  CardTopUpTransactionService,
+  GetCardTransactionsService,
+  CardPaymentTransactionService,
+  CardRefundTransactionService,
+} from "../../services/card-transactions-services/CardTransactionsServices";
 
 export const CheckNfcCardController = makeReplyingController(
   "card",
@@ -31,18 +37,14 @@ export const CardTopUpTransactionController = makeReplyingController(
 );
 
 export const CardRefundTransactionController = makeReplyingController(
-  "transaction",
+  "return",
   async (request: FastifyRequest) => {
     const operatorID = request.employee?.id;
-    const body = request.body as ReqData<CardRefundData> | undefined;
+    const body = request.body as ReqData<CardRefundData>;
 
-    return CardRefundTransactionService(
-      Number(operatorID),
-      body?.data ?? { card: "" },
-    );
+    return CardRefundTransactionService(Number(operatorID), body.data);
   },
 );
-
 
 export const GetCashboxCardTransactionsController = makeReplyingController(
   ["cashbox-transactions", "pagination"],
@@ -54,7 +56,11 @@ export const GetCashboxCardTransactionsController = makeReplyingController(
     const operatorID = request.employee?.id;
     const params = request.params;
     const query = request.query;
-    const result = await GetCardTransactionsService(Number(operatorID),params,query);
+    const result = await GetCardTransactionsService(
+      Number(operatorID),
+      params,
+      query,
+    );
 
     return [
       result.transactions,
@@ -67,7 +73,6 @@ export const GetCashboxCardTransactionsController = makeReplyingController(
     ];
   },
 );
-
 
 export const CardPaymentTransactionController = makeReplyingController(
   "payment",

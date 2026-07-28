@@ -3,10 +3,16 @@ import { BadRequest, NotFound } from "../../../exceptions";
 import { UserStatusTypes } from "../../../models/postgresql/client/user-model/enums";
 import {
   AttractionModel,
+  AttractionReportModel,
   AttractionRoundModel,
   UserModel,
 } from "../../../plugins/db/postgresql/db";
-import { AttractionStatusTypes } from "../../../models/postgresql/attraction-model/enums";
+import {
+  AttractionReportTypes,
+  AttractionStatusTypes,
+} from "../../../models/postgresql/attraction-model/enums";
+import { AttractionReportStatusTypes } from "../../../models/postgresql/attraction-report-model/enums";
+import { AttractionRoundStatusTypes } from "../../../models/postgresql/attraction-round-model/enums";
 import {
   AttractionLastRoundDTO,
   ClientAttractionDTO,
@@ -169,18 +175,67 @@ export const GetAttractionRoundService = async (
     throw BadRequest("ATTRACTION_NOT_FOUND");
   }
 
-  const [lastRound, promotion] = await Promise.all([
-    AttractionRoundModel.findOne({
+  const [currentZReport, promotion] = await Promise.all([
+    AttractionReportModel.findOne({
       where: {
         attraction: attractionID,
+        report_type: AttractionReportTypes.ZREPORT,
+        status: {
+          [Op.in]: [
+            AttractionReportStatusTypes.OPEN,
+            AttractionReportStatusTypes.STOPPED,
+          ],
+        },
       },
       order: [
-        ["round_number", "DESC"],
+        ["opened_at", "DESC"],
         ["id", "DESC"],
       ],
     }),
     FindBestActivePromotionForAttractionService(attractionID),
   ]);
+
+  let lastRound: AttractionRoundModel | null = null;
+
+  if (currentZReport) {
+    /*
+     * Clientga oldingi operatorning yopilgan X-report roundini
+     * qaytarmaymiz. Payment service kabi eng yangi OPEN X-report
+     * ichidagi round olinadi.
+     */
+    const currentXReport = await AttractionReportModel.findOne({
+      where: {
+        attraction: attractionID,
+        report_type: AttractionReportTypes.XREPORT,
+        zreport: Number(currentZReport.id),
+        status: AttractionReportStatusTypes.OPEN,
+      },
+      attributes: ["id"],
+      order: [
+        ["opened_at", "DESC"],
+        ["id", "DESC"],
+      ],
+    });
+
+    if (currentXReport) {
+      lastRound = await AttractionRoundModel.findOne({
+        where: {
+          attraction: attractionID,
+          report: Number(currentXReport.id),
+          status: {
+            [Op.in]: [
+              AttractionRoundStatusTypes.OPEN,
+              AttractionRoundStatusTypes.FINISHED,
+            ],
+          },
+        },
+        order: [
+          ["round_number", "DESC"],
+          ["id", "DESC"],
+        ],
+      });
+    }
+  }
 
   return AttractionLastRoundDTO({
     attraction,

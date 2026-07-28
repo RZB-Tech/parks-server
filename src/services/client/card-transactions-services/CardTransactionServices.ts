@@ -31,6 +31,7 @@ import {
 import { getTashkentMonthRangeUTC } from "../../../utils/date";
 import { FindBestActivePromotionForAttractionService } from "../../promotion-services/PromotionServices";
 import { UpsertPromotionReportService } from "../../promotion-reports-services/PromotionReportsServices";
+import { GetOrCreateOpenAttractionRoundService } from "../../attraction-reports-services/AttractionReportsServices";
 
 export const ClientAttractionPaymentService = async (
   telegramID: number,
@@ -264,75 +265,31 @@ export const ClientAttractionPaymentService = async (
         ? balanceBefore
         : balanceBefore - chargedAmount;
 
-      let round = await AttractionRoundModel.findOne({
+      const currentRound = await GetOrCreateOpenAttractionRoundService(
+        report,
+        attractionID,
+        reportOperatorID,
+        transaction,
+      );
+
+      const round = await AttractionRoundModel.findOne({
         where: {
+          id: Number(currentRound.id),
           attraction: attractionID,
           report: xreportID,
+          operator: reportOperatorID,
           status: AttractionRoundStatusTypes.OPEN,
         },
-        order: [
-          ["round_number", "DESC"],
-          ["id", "DESC"],
-        ],
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
 
-      let roundCreated = false;
+      if (!round) {
+        throw BadRequest("ATTRACTION_ROUND_NOT_FOUND");
+      }
 
       if (round && Number(round.people_count ?? 0) >= totalSeats) {
         throw BadRequest("ROUND_IS_FULL_WAIT_FOR_GO");
-      }
-
-      if (!round) {
-        const lastRound = await AttractionRoundModel.findOne({
-          where: {
-            attraction: attractionID,
-          },
-          attributes: ["id", "round_number"],
-          order: [
-            ["round_number", "DESC"],
-            ["id", "DESC"],
-          ],
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        });
-
-        const nextRoundNumber = Number(lastRound?.round_number ?? 0) + 1;
-
-        round = await AttractionRoundModel.create(
-          {
-            report: xreportID,
-            attraction: attractionID,
-            operator: reportOperatorID,
-
-            round_number: nextRoundNumber,
-            status: AttractionRoundStatusTypes.OPEN,
-
-            people_count: 0,
-
-            offline_count: 0,
-            online_count: 0,
-
-            classic_count: 0,
-            virtual_count: 0,
-            vip_count: 0,
-            organization_count: 0,
-
-            paid_amount: 0,
-            total_amount: 0,
-
-            transactions: [],
-
-            started_at: new Date(),
-            finished_at: null,
-          },
-          {
-            transaction,
-          },
-        );
-
-        roundCreated = true;
       }
 
       const currentPeopleCount = Number(round.people_count ?? 0);
@@ -351,41 +308,6 @@ export const ClientAttractionPaymentService = async (
                 Number.isInteger(transactionID) && transactionID > 0,
             )
         : [];
-
-      /*
-       * XReport total_rounds faqat aksiyasiz roundlarni sanaydi.
-       *
-       * Round oldin faqat aksiyali paymentlardan iborat bo‘lib,
-       * keyin aksiyasiz payment kelsa ham shu roundni bir marta
-       * hisoblash kerak.
-       */
-      let shouldIncrementStandardRound = false;
-
-      if (!hasPromotion) {
-        if (roundCreated || currentTransactions.length === 0) {
-          shouldIncrementStandardRound = true;
-        } else {
-          const existingStandardPayment = await CardTransactionModel.findOne({
-            where: {
-              id: {
-                [Op.in]: currentTransactions,
-              },
-
-              type: CardTransactionType.PAYMENT,
-
-              status: CardTransactionStatusTypes.SUCCESS,
-
-              promotion: null,
-            },
-
-            attributes: ["id"],
-
-            transaction,
-          });
-
-          shouldIncrementStandardRound = existingStandardPayment === null;
-        }
-      }
 
       const cardTransaction = await CardTransactionModel.create(
         {
@@ -544,10 +466,6 @@ export const ClientAttractionPaymentService = async (
       if (!hasPromotion) {
         await report.update(
           {
-            total_rounds:
-              Number(report.total_rounds ?? 0) +
-              (shouldIncrementStandardRound ? 1 : 0),
-
             total_people: Number(report.total_people ?? 0) + membersCount,
 
             total_online: Number(report.total_online ?? 0) + membersCount,

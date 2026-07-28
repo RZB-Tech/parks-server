@@ -211,6 +211,32 @@ export const addPromotionReportTotals = (
   target.paid_amount += Number(report.paid_amount || 0);
 };
 
+export const combineAttractionZReportTotals = (
+  report: AttractionReportModelI,
+  promotionReports: PromotionReportPlain[],
+): AttractionZReportTotalsDTO => {
+  const totals = emptyAttractionZReportsTotals();
+
+  addAttractionZReportsTotals(totals, report);
+
+  for (const promotionReport of promotionReports) {
+    totals.total_rounds += Number(promotionReport.rounds_count || 0);
+    totals.total_people += Number(promotionReport.total_people || 0);
+    totals.total_offline += Number(promotionReport.total_offline || 0);
+    totals.total_online += Number(promotionReport.total_online || 0);
+    totals.total_virtual += Number(promotionReport.total_virtual || 0);
+    totals.total_classic += Number(promotionReport.total_classic || 0);
+    totals.total_vip += Number(promotionReport.total_vip || 0);
+    totals.total_organization += Number(
+      promotionReport.total_organization || 0,
+    );
+    totals.paid_amount += Number(promotionReport.paid_amount || 0);
+    totals.total_amount += Number(promotionReport.original_amount || 0);
+  }
+
+  return totals;
+};
+
 /*
 |--------------------------------------------------------------------------
 | ATTRACTION WITH ZREPORTS
@@ -220,6 +246,33 @@ export const addPromotionReportTotals = (
 export const AttractionZReportAttractionDTO = (
   data: AttractionWithZReportsPlain,
 ): AttractionZReportAttractionResponseDTO => {
+  const reports = Array.isArray(data.reports) ? data.reports : [];
+  const promotionReports = reports.flatMap((report) =>
+    Array.isArray(report.promotion_reports) ? report.promotion_reports : [],
+  );
+  const totalReports = emptyAttractionZReportsTotals();
+
+  for (const report of reports) {
+    const reportPromotionReports = Array.isArray(report.promotion_reports)
+      ? report.promotion_reports
+      : [];
+    const reportTotals = combineAttractionZReportTotals(
+      report,
+      reportPromotionReports,
+    );
+
+    totalReports.total_rounds += reportTotals.total_rounds;
+    totalReports.total_people += reportTotals.total_people;
+    totalReports.total_offline += reportTotals.total_offline;
+    totalReports.total_online += reportTotals.total_online;
+    totalReports.total_virtual += reportTotals.total_virtual;
+    totalReports.total_classic += reportTotals.total_classic;
+    totalReports.total_vip += reportTotals.total_vip;
+    totalReports.total_organization += reportTotals.total_organization;
+    totalReports.paid_amount += reportTotals.paid_amount;
+    totalReports.total_amount += reportTotals.total_amount;
+  }
+
   return {
     id: Number(data.id),
 
@@ -251,9 +304,11 @@ export const AttractionZReportAttractionDTO = (
 
     description: data.description ?? null,
 
-    zreports: Array.isArray(data.reports)
-      ? data.reports.map(AttractionReportDTO)
-      : [],
+    zreports: reports.map(AttractionReportDTO),
+
+    promotion_reports: promotionReports.map(PromotionReportDTO),
+
+    total_reports: totalReports,
   };
 };
 

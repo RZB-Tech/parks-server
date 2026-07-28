@@ -269,15 +269,74 @@ export const GetOrCreateOpenAttractionRoundService = async (
     return openRound;
   }
 
-  const lastRound = await AttractionRoundModel.findOne({
+  const zreportID = Number(report.zreport);
+
+  if (!Number.isInteger(zreportID) || zreportID <= 0) {
+    throw BadRequest("Open Z report required!");
+  }
+
+  /*
+   * Bitta Z-report ichida bir nechta operator bir vaqtda round
+   * ochishi mumkin. Z-reportni lock qilish round_number ketma-ketligini
+   * shu kun uchun atomik saqlaydi.
+   */
+  const zReport = await AttractionReportModel.findOne({
+    where: {
+      id: zreportID,
+      attraction: attractionID,
+      report_type: AttractionReportTypes.ZREPORT,
+      status: AttractionReportStatusTypes.OPEN,
+    },
+    attributes: ["id"],
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  if (!zReport) {
+    throw BadRequest("Open Z report required!");
+  }
+
+  /*
+   * Bir xil operator/clientdan parallel request kelgan bo‘lsa,
+   * Z-report lock olingandan keyin OPEN roundni qayta tekshiramiz.
+   */
+  const lockedOpenRound = await AttractionRoundModel.findOne({
     where: {
       report: Number(report.id),
       attraction: attractionID,
       operator: operatorID,
+      status: AttractionRoundStatusTypes.OPEN,
     },
     order: [["round_number", "DESC"]],
     transaction,
     lock: transaction.LOCK.UPDATE,
+  });
+
+  if (lockedOpenRound !== null) {
+    return lockedOpenRound;
+  }
+
+  const zReportXReports = await AttractionReportModel.findAll({
+    where: {
+      attraction: attractionID,
+      report_type: AttractionReportTypes.XREPORT,
+      zreport: zreportID,
+    },
+    attributes: ["id"],
+    transaction,
+  });
+
+  const zReportXReportIDs = zReportXReports.map((item) => Number(item.id));
+
+  const lastRound = await AttractionRoundModel.findOne({
+    where: {
+      attraction: attractionID,
+      report: {
+        [Op.in]: zReportXReportIDs,
+      },
+    },
+    order: [["round_number", "DESC"]],
+    transaction,
   });
 
   const nextRoundNumber =

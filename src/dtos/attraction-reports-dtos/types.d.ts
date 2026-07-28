@@ -163,6 +163,10 @@ declare interface AttractionZReportAttractionResponseDTO {
   description: string | null;
 
   zreports: AttractionReportResponseDTO[];
+
+  promotion_reports: PromotionReportResponseDTO[];
+
+  total_reports: AttractionZReportTotalsDTO;
 }
 
 declare interface AccountingAttractionDTO {

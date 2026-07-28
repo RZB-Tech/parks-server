@@ -22,9 +22,10 @@ import { CardModel } from "../../models/postgresql/cards-model/CardModel";
 import {
   CardTransactionStatusTypes,
   CardTransactionType,
+  PaymentType,
 } from "../../models/postgresql/card-transactions-model/enums";
-import { FindBestActivePromotionForAttractionService } from "../promotion-services/PromotionServices";
 import { PromotionReportModel } from "../../models/postgresql/promotion-reports-model/PromotionReportsModel";
+import { CardType } from "../../models/postgresql/cards-model/enums";
 
 export const GetCurrentAttractionRoundService = async (
   operatorID: number,
@@ -495,12 +496,6 @@ export const CloseCurrentAttractionRoundService = async (
         throw BadRequest("Round has no people!");
       }
 
-      const activePromotion =
-        await FindBestActivePromotionForAttractionService(
-          attractionID,
-          transaction,
-        );
-
       const duration = Number(operatorAttractionData.attractions.duration || 0);
 
       const startedAt = new Date(round.started_at);
@@ -520,23 +515,120 @@ export const CloseCurrentAttractionRoundService = async (
         },
       );
 
-      let promotionRoundIncremented = false;
+      const roundTransactionIDs = Array.isArray(round.transactions)
+        ? round.transactions
+            .map(Number)
+            .filter(
+              (transactionID) =>
+                Number.isInteger(transactionID) && transactionID > 0,
+            )
+        : [];
 
-      if (activePromotion) {
-        const promotionKey = [
-          "promotion",
-          activePromotion.id,
-          activePromotion.discount_percent,
-          activePromotion.original_price,
-          activePromotion.discounted_price,
-        ].join(":");
+      const roundTransactions = roundTransactionIDs.length
+        ? await CardTransactionModel.findAll({
+            where: {
+              id: {
+                [Op.in]: roundTransactionIDs,
+              },
+              attraction: attractionID,
+              xreport: Number(xReport.id),
+              type: CardTransactionType.PAYMENT,
+              status: CardTransactionStatusTypes.SUCCESS,
+            },
+            include: [
+              {
+                model: CardModel,
+                as: "cards",
+                required: true,
+                attributes: ["type"],
+              },
+            ],
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+          })
+        : [];
 
+      const standardTotals = {
+        total_people: 0,
+        total_offline: 0,
+        total_online: 0,
+        total_virtual: 0,
+        total_classic: 0,
+        total_vip: 0,
+        total_organization: 0,
+        paid_amount: 0,
+        total_amount: 0,
+      };
+
+      const promotionKeys = new Set<string>();
+
+      for (const payment of roundTransactions) {
+        const paymentData = payment.get({
+          plain: true,
+        }) as CardTransactionModelI & {
+          cards: Pick<CardsModelI, "type">;
+        };
+
+        if (paymentData.promotion !== null) {
+          promotionKeys.add(
+            [
+              "promotion",
+              Number(paymentData.promotion),
+              Number(paymentData.discount_percent || 0),
+              Number(paymentData.original_unit_price || 0),
+              Number(paymentData.sale_unit_price || 0),
+            ].join(":"),
+          );
+          continue;
+        }
+
+        const paymentPeople = Number(paymentData.people_count || 0);
+
+        standardTotals.total_people += paymentPeople;
+        standardTotals.total_online +=
+          paymentData.payment_type === PaymentType.ONLINE ? paymentPeople : 0;
+        standardTotals.total_offline +=
+          paymentData.payment_type === PaymentType.ONLINE ? 0 : paymentPeople;
+        standardTotals.total_virtual +=
+          paymentData.cards.type === CardType.VIRTUAL ? paymentPeople : 0;
+        standardTotals.total_classic +=
+          paymentData.cards.type === CardType.CLASSIC ? paymentPeople : 0;
+        standardTotals.total_vip +=
+          paymentData.cards.type === CardType.VIP ? paymentPeople : 0;
+        standardTotals.total_organization +=
+          paymentData.cards.type === CardType.ORGANIZATION ? paymentPeople : 0;
+        standardTotals.paid_amount += Number(paymentData.amount || 0);
+        standardTotals.total_amount +=
+          Number(paymentData.sale_unit_price || 0) * paymentPeople;
+      }
+
+      if (standardTotals.total_people > 0) {
+        await xReport.increment(
+          {
+            total_rounds: 1,
+          },
+          {
+            transaction,
+          },
+        );
+
+        await zReport.increment(
+          {
+            total_rounds: 1,
+            ...standardTotals,
+          },
+          {
+            transaction,
+          },
+        );
+      }
+
+      for (const promotionKey of promotionKeys) {
         const promotionReport = await PromotionReportModel.findOne({
           where: {
             attraction: attractionID,
             xreport: Number(xReport.id),
             zreport: Number(zReport.id),
-            promotion: activePromotion.id,
             promotion_key: promotionKey,
           },
           transaction,
@@ -552,36 +644,8 @@ export const CloseCurrentAttractionRoundService = async (
               transaction,
             },
           );
-
-          promotionRoundIncremented = true;
         }
       }
-
-      if (!promotionRoundIncremented) {
-        await xReport.increment(
-          {
-            total_rounds: 1,
-          },
-          {
-            transaction,
-          },
-        );
-      }
-
-      const reportIncrementData = {
-        total_rounds: 1,
-        total_people: Number(round.people_count || 0),
-        total_offline: Number(round.offline_count || 0),
-        total_online: Number(round.online_count || 0),
-        total_vip: Number(round.vip_count || 0),
-        total_organization: Number(round.organization_count || 0),
-        paid_amount: Number(round.paid_amount || 0),
-        total_amount: Number(round.total_amount || 0),
-      };
-
-      await zReport.increment(reportIncrementData, {
-        transaction,
-      });
 
       const roundData = round.get({
         plain: true,

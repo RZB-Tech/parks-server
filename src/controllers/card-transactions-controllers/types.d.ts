@@ -29,6 +29,8 @@ declare interface CardPaymentTransactionData {
 }
 
 declare interface CardRefundData {
-  card: string;
+  old_card: string;
+  new_card: string;
+  amount: number;
   description?: string | null;
 }
