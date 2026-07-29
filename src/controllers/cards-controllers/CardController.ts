@@ -34,9 +34,10 @@ export const VerifyCardRelationOtpController = makeReplyingController(
   async (
     request: FastifyRequest<RouteWithData<ReqData<VerifyCardRelationOtpData>>>,
   ) => {
+    const operatorID = Number(request.employee?.id);
     const body = request.body.data;
 
-    return await VerifyCardRelationOtpService(body);
+    return await VerifyCardRelationOtpService(operatorID, body);
   },
 );
 

@@ -23,6 +23,11 @@ import {
 import { SmsTypes } from "../../models/postgresql/client/smslog-model/enums";
 import { OtpTypes } from "../../models/postgresql/client/otp-model/enums";
 import { CardTransactionStatusTypes } from "../../models/postgresql/card-transactions-model/enums";
+import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
+import {
+  CashboxReportStatusTypes,
+  CashboxReportTypes,
+} from "../../models/postgresql/cashbox-report-model/enums";
 
 export const SendCardRelationOtpService = async (
   body: SendCardRelationOtpData,
@@ -141,8 +146,15 @@ export const SendCardRelationOtpService = async (
 };
 
 export const VerifyCardRelationOtpService = async (
+  operatorID: number,
   body: VerifyCardRelationOtpData,
 ): Promise<CardResponseDTO> => {
+  const parsedOperatorID = Number(operatorID);
+
+  if (!Number.isInteger(parsedOperatorID) || parsedOperatorID <= 0) {
+    throw BadRequest("Operator is required!");
+  }
+
   const nfc = body.nfc?.trim();
 
   if (!nfc) {
@@ -210,6 +222,39 @@ export const VerifyCardRelationOtpService = async (
       throw BadRequest("Card is already attached to this user!");
     }
 
+    const openXReport = await CashboxReportModel.findOne({
+      where: {
+        operator: parsedOperatorID,
+        report_type: CashboxReportTypes.XREPORT,
+        status: CashboxReportStatusTypes.OPEN,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!openXReport) {
+      throw BadRequest("Open cashbox X report required!");
+    }
+
+    if (!openXReport.zreport) {
+      throw BadRequest("Cashbox Z report is required!");
+    }
+
+    const openZReport = await CashboxReportModel.findOne({
+      where: {
+        id: Number(openXReport.zreport),
+        cashbox: Number(openXReport.cashbox),
+        report_type: CashboxReportTypes.ZREPORT,
+        status: CashboxReportStatusTypes.OPEN,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!openZReport) {
+      throw BadRequest("Open cashbox Z report required!");
+    }
+
     const verifyResult = await VerifyOtpService(
       {
         phone_number: phoneNumber,
@@ -238,6 +283,24 @@ export const VerifyCardRelationOtpService = async (
     await card.update(
       {
         user: Number(user.id),
+      },
+      {
+        transaction,
+      },
+    );
+
+    await openXReport.increment(
+      {
+        relationed_cards_count: 1,
+      },
+      {
+        transaction,
+      },
+    );
+
+    await openZReport.increment(
+      {
+        relationed_cards_count: 1,
       },
       {
         transaction,
