@@ -13,7 +13,10 @@ import {
   RoleModel,
   sequelize,
 } from "../../plugins/db/postgresql/db";
-import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
+import {
+  CashboxStatusTypes,
+  CashboxTypes,
+} from "../../models/postgresql/cashbox-model/enums";
 import { CashboxReportStatusTypes } from "../../models/postgresql/cashbox-report-model/enums";
 
 export const GetCashboxService = async (
@@ -250,6 +253,8 @@ export const CreateCashboxesService = async (
     name: body.name,
     place: body.place,
     status: CashboxOperatorStatusTypes.INACTIVE,
+    type: CashboxTypes.PHYSICAL,
+    system_key: null,
     description: body.description,
     latitude: body.latitude,
     longitude: body.longitude,
@@ -278,6 +283,10 @@ export const UpdateCashboxesService = async (
 
     if (!cashbox) {
       throw NotFound("Cashbox not found!");
+    }
+
+    if (cashbox.type === CashboxTypes.VIRTUAL) {
+      throw BadRequest("VIRTUAL_CASHBOX_OPERATION_NOT_ALLOWED");
     }
 
     if (body.name !== undefined && body.name !== cashbox.name) {
@@ -395,6 +404,10 @@ export const DeleteCashboxesService = async (body: DeleteCashboxesData) => {
 
     if (cashboxes.length !== cashboxIDs.length) {
       throw NotFound("Cashbox not found!");
+    }
+
+    if (cashboxes.some((cashbox) => cashbox.type === CashboxTypes.VIRTUAL)) {
+      throw BadRequest("VIRTUAL_CASHBOX_OPERATION_NOT_ALLOWED");
     }
 
     const activeCashbox = cashboxes.find(

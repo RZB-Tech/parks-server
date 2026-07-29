@@ -10,6 +10,7 @@ declare interface CashboxResnponseDTO {
   name: string;
   place: string;
   status: string;
+  type: import("../../models/postgresql/cashbox-model/enums").CashboxTypes;
   description: string;
   main_file: number;
   dashboard_file: number;
@@ -19,10 +20,11 @@ declare interface CashboxResnponseDTO {
 
 declare interface CashboxWithOperatorResponseDTO {
   id: number;
-  device: number;
+  device: number | null;
   name: string;
   place: string;
   status: string;
+  type: import("../../models/postgresql/cashbox-model/enums").CashboxTypes;
   description: string;
   main_file: number;
   dashboard_file: number;

@@ -3,10 +3,11 @@ export const CashboxWithOperatorsDTO = (
 ): CashboxWithOperatorResponseDTO => {
   return {
     id: Number(data.id),
-    device: Number(data.device),
+    device: data.device !== null ? Number(data.device) : null,
     name: data.name,
     place: data.place,
     status: data.status,
+    type: data.type,
     description: data.description,
     main_file: data.main_file,
     dashboard_file: data.dashboard_file,
@@ -35,6 +36,7 @@ export const CashboxDTO = (data: CashboxModelI): CashboxResnponseDTO => {
     name: data.name,
     place: data.place,
     status: data.status,
+    type: data.type,
     description: data.description,
     main_file: data.main_file,
     dashboard_file: data.dashboard_file,

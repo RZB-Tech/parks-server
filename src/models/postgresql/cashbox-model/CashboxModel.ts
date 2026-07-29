@@ -6,11 +6,13 @@ export class CashboxModel
   implements CashboxModelI
 {
   public id!: number;
-  public device!: number;
+  public device!: number | null;
   public name!: string;
   public place!: string;
   public description!: string;
   public status!: import("./enums").CashboxStatusTypes;
+  public type!: import("./enums").CashboxTypes;
+  public system_key!: string | null;
   public main_file!: number;
   public dashboard_file!: number;
   public latitude!: string | null;
@@ -56,6 +58,16 @@ export class CashboxModel
             "closed",
           ),
           allowNull: false,
+        },
+        type: {
+          type: DataTypes.ENUM("physical", "virtual"),
+          allowNull: false,
+          defaultValue: "physical",
+        },
+        system_key: {
+          type: DataTypes.STRING(100),
+          allowNull: true,
+          unique: true,
         },
         main_file: {
           type: DataTypes.BIGINT,

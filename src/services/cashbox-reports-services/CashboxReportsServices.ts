@@ -27,7 +27,10 @@ import {
   CashboxWithZReportsPlain,
 } from "../../dtos/cashbox-reports-dtos/types";
 import { CashboxModel } from "../../models/postgresql/cashbox-model/CashboxModel";
-import { CashboxStatusTypes } from "../../models/postgresql/cashbox-model/enums";
+import {
+  CashboxStatusTypes,
+  CashboxTypes,
+} from "../../models/postgresql/cashbox-model/enums";
 
 export const OpenCashboxReportService = async (
   operatorID: number,
@@ -41,6 +44,19 @@ export const OpenCashboxReportService = async (
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
+    const cashbox = await CashboxModel.findByPk(cashboxID, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!cashbox) {
+      throw NotFound("Cashbox not found!");
+    }
+
+    if (cashbox.type === CashboxTypes.VIRTUAL) {
+      throw BadRequest("VIRTUAL_CASHBOX_OPERATION_NOT_ALLOWED");
+    }
+
     const { startDate, endDate } = getTashkentDayRangeUTC();
 
     const openedXReport = await CashboxReportModel.findOne({

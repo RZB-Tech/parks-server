@@ -17,6 +17,7 @@ declare interface CashboxReportResponseDTO extends Omit<
   "operator"
 > {
   operator: CashboxReportOperatorDTO | null;
+  net_amount: number;
 }
 
 type ZReportCashboxPlain = {
@@ -38,6 +39,7 @@ export interface AccountingCashboxDTO {
   place: string;
   status: CashboxModelI["status"];
   description: string | null;
+  type: CashboxModelI["type"];
 }
 
 export interface AccountingZReportAmountDTO {
@@ -51,6 +53,12 @@ export interface AccountingZReportAmountDTO {
   uzum_amount: number;
   payme_amount: number;
   click_amount: number;
+  refunded_amount: number;
+  refund_transactions_count: number;
+  payme_refunded_amount: number;
+  uzum_refunded_amount: number;
+  click_refunded_amount: number;
+  net_amount: number;
 
   activated_cards_count: number;
   activated_cards_amount: number;

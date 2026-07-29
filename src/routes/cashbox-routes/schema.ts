@@ -1,4 +1,5 @@
 import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
+import { CashboxTypes } from "../../models/postgresql/cashbox-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
 
 export const cashboxProperties = {
@@ -25,6 +26,10 @@ export const cashboxProperties = {
     type: "string",
     description: "Cashbox status",
     enum: Object.values(CashboxOperatorStatusTypes),
+  },
+  type: {
+    type: "string",
+    enum: Object.values(CashboxTypes),
   },
   description: {
     type: "string",

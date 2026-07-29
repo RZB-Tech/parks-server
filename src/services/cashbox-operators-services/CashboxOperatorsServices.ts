@@ -2,6 +2,7 @@ import { CashboxOperatorDTO } from "../../dtos/cashbox-operators-dtos/CashboxOpe
 import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
 import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
+import { CashboxTypes } from "../../models/postgresql/cashbox-model/enums";
 import {
   CashboxModel,
   CashboxOperatorModel,
@@ -17,6 +18,10 @@ export const CreateCashboxOperatorsService = async (
 
   if (findCashbox === null) {
     throw NotFound("Cashbox not found!");
+  }
+
+  if (findCashbox.type === CashboxTypes.VIRTUAL) {
+    throw BadRequest("VIRTUAL_CASHBOX_OPERATION_NOT_ALLOWED");
   }
 
   const employee = await EmployeeModel.findByPk(body.operator);

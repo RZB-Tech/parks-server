@@ -20,6 +20,8 @@ import { NewsModel } from "../../../models/postgresql/news-model/NewsModel";
 import { PromotionModel } from "../../../models/postgresql/promotion-model/PromotionModel";
 import { PromotionAttractionModel } from "../../../models/postgresql/promotion-attraction-model/PromotionAttractionModel";
 import { PromotionReportModel } from "../../../models/postgresql/promotion-reports-model/PromotionReportsModel";
+import { PaymentOrderModel } from "../../../models/postgresql/payment-orders-model/PaymentOrderModel";
+import { PaymeTransactionModel } from "../../../models/postgresql/payme-transactions-model/PaymeTransactionModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -56,6 +58,8 @@ const models = {
   PromotionModel,
   PromotionAttractionModel,
   PromotionReportModel,
+  PaymentOrderModel,
+  PaymeTransactionModel,
 };
 
 export type ModelsType = typeof models;
@@ -94,4 +98,6 @@ export {
   PromotionModel,
   PromotionAttractionModel,
   PromotionReportModel,
+  PaymentOrderModel,
+  PaymeTransactionModel,
 };

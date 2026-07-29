@@ -108,6 +108,12 @@ export const cashboxReportProperties = {
   click_amount: {
     type: "number",
   },
+  refunded_amount: { type: "number" },
+  refund_transactions_count: { type: "number" },
+  payme_refunded_amount: { type: "number" },
+  uzum_refunded_amount: { type: "number" },
+  click_refunded_amount: { type: "number" },
+  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -242,6 +248,12 @@ export const zReportProperties = {
   click_amount: {
     type: "number",
   },
+  refunded_amount: { type: "number" },
+  refund_transactions_count: { type: "number" },
+  payme_refunded_amount: { type: "number" },
+  uzum_refunded_amount: { type: "number" },
+  click_refunded_amount: { type: "number" },
+  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -369,6 +381,12 @@ export const accountingZReportAmountProperties = {
   click_amount: {
     type: "number",
   },
+  refunded_amount: { type: "number" },
+  refund_transactions_count: { type: "number" },
+  payme_refunded_amount: { type: "number" },
+  uzum_refunded_amount: { type: "number" },
+  click_refunded_amount: { type: "number" },
+  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -656,6 +674,11 @@ export const accountingCashboxProperties = {
 
   status: {
     type: "string",
+  },
+
+  type: {
+    type: "string",
+    enum: ["physical", "virtual"],
   },
 
   description: {

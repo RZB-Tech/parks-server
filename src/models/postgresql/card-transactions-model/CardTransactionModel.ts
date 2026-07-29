@@ -23,6 +23,7 @@ export class CardTransactionModel
   public cashbox!: number | null;
   public attraction!: number | null;
   public xreport!: number | null;
+  public cashbox_report!: number | null;
 
   public type!: CardTransactionType;
 
@@ -99,6 +100,10 @@ export class CardTransactionModel
         },
 
         xreport: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+        },
+        cashbox_report: {
           type: DataTypes.BIGINT,
           allowNull: true,
         },
@@ -277,6 +282,11 @@ export class CardTransactionModel
     CardTransactionModel.belongsTo(models.AttractionReportModel, {
       foreignKey: "xreport",
       as: "xreports",
+    });
+
+    CardTransactionModel.belongsTo(models.CashboxReportModel, {
+      foreignKey: "cashbox_report",
+      as: "cashbox_reports",
     });
 
     CardTransactionModel.belongsTo(models.PromotionModel, {

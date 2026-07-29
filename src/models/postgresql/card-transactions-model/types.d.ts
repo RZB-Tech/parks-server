@@ -7,6 +7,7 @@ declare interface CardTransactionModelI {
   cashbox: number | null;
   attraction: number | null;
   xreport: number | null;
+  cashbox_report: number | null;
 
   type: CardTransactionType;
 

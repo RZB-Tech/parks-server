@@ -20,6 +20,11 @@ declare interface CashboxReportModelI {
   uzum_amount: number;
   payme_amount: number;
   click_amount: number;
+  refunded_amount: number;
+  refund_transactions_count: number;
+  payme_refunded_amount: number;
+  uzum_refunded_amount: number;
+  click_refunded_amount: number;
   activated_cards_count: number;
   activated_cards_amount: number;
   returned_cards_count: number;

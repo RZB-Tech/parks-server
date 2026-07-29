@@ -27,6 +27,11 @@ export class CashboxReportModel
   public uzum_amount!: number;
   public payme_amount!: number;
   public click_amount!: number;
+  public refunded_amount!: number;
+  public refund_transactions_count!: number;
+  public payme_refunded_amount!: number;
+  public uzum_refunded_amount!: number;
+  public click_refunded_amount!: number;
   public activated_cards_count!: number;
   public activated_cards_amount!: number;
   public returned_cards_count!: number;
@@ -162,6 +167,31 @@ export class CashboxReportModel
           allowNull: false,
           defaultValue: 0,
         },
+        refunded_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        refund_transactions_count: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        payme_refunded_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        uzum_refunded_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+        click_refunded_amount: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
         activated_cards_count: {
           type: DataTypes.INTEGER,
           allowNull: false,
@@ -206,6 +236,12 @@ export class CashboxReportModel
         tableName: "cashbox_reports",
         timestamps: true,
         paranoid: true,
+        indexes: [
+          {
+            unique: true,
+            fields: ["cashbox", "report_type", "report_date"],
+          },
+        ],
       },
     );
   }

@@ -5,3 +5,8 @@ export enum CashboxStatusTypes {
   MAINTENANCE = "maintenance",
   CLOSED = "closed",
 }
+
+export enum CashboxTypes {
+  PHYSICAL = "physical",
+  VIRTUAL = "virtual",
+}
