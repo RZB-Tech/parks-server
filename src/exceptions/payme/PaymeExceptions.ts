@@ -67,7 +67,7 @@ export const PaymeErrors = {
   }),
 
   cannotPerform: (): PaymeRpcError => ({
-    code: -31008,
+    code: -31099,
     message: localizedMessage(
       "Bu buyurtma uchun to'lovni amalga oshirib bo'lmaydi",
       "Невозможно выполнить платеж для этого заказа",
