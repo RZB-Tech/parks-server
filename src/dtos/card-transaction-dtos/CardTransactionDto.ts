@@ -154,10 +154,12 @@ export const CardPaymentSuccessDTO = (
 
 export const CardPaymentFailedDTO = (
   message: string,
+  balance?: number,
 ): CardPaymentResponseDTO => {
   return {
     paid: false,
     message,
+    ...(balance !== undefined ? { balance } : {}),
     transaction: null,
   };
 };

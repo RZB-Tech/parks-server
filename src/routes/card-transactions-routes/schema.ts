@@ -576,6 +576,12 @@ export const cardPaymentResponseProperties = {
     type: "string",
   },
 
+  balance: {
+    type: "number",
+    description:
+      "Current card balance. Returned when the payment fails because the balance is insufficient.",
+  },
+
   transaction: {
     oneOf: [
       {

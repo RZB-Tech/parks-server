@@ -119,5 +119,6 @@ declare interface CardPaymentTransactionDTO {
 declare interface CardPaymentResponseDTO {
   paid: boolean;
   message: string;
+  balance?: number;
   transaction: CardPaymentTransactionDTO | null;
 }

@@ -787,7 +787,7 @@ export const CardPaymentTransactionService = async (
       }
 
       if (balanceBefore < saleAmount) {
-        return CardPaymentFailedDTO("Not enough balance!");
+        return CardPaymentFailedDTO("Not enough balance!", balanceBefore);
       }
 
       chargedAmount = saleAmount;
