@@ -178,6 +178,9 @@ export const getClientTransactionsSchema = {
             payment_type: {
               anyOf: [{ type: "string" }, { type: "null" }],
             },
+            payment_service: {
+              anyOf: [{ type: "string" }, { type: "null" }],
+            },
             status: { type: "string" },
             people_count: {
               type: "integer",

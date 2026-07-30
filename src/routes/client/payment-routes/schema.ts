@@ -46,3 +46,10 @@ export const createClientPaymeOrderSchema = {
     }),
   },
 };
+
+export const createClientClickOrderSchema = {
+  ...createClientPaymeOrderSchema,
+  summary: "Create Click card top-up order",
+  description:
+    "Creates or reuses a pending card top-up order and returns the Click checkout URL.",
+};

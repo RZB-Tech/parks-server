@@ -2,11 +2,11 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import {
   PaymeErrorResponse,
   PaymeErrors,
-} from "../../exceptions/payme/PaymeExceptions";
+} from "../../../exceptions/payme/PaymeExceptions";
 import {
   DispatchPaymeMethodService,
   IsPaymeRpcRequest,
-} from "../../services/payment-services/payme/PaymeServices";
+} from "../../../services/payment-services/payme/PaymeServices";
 
 const getRequestID = (body: unknown): PaymeRpcID => {
   if (!body || typeof body !== "object" || Array.isArray(body)) {

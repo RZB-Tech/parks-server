@@ -57,13 +57,13 @@ export const build = async () => {
     secret: process.env.COOKIE_SECRET,
   });
 
-  // app.addContentTypeParser(
-  //   "application/x-www-form-urlencoded",
-  //   { parseAs: "string" },
-  //   (req, body, done) => {
-  //     done(null, Object.fromEntries(new URLSearchParams(body as string)));
-  //   },
-  // );
+  app.addContentTypeParser(
+    "application/x-www-form-urlencoded",
+    { parseAs: "string" },
+    (_request, body, done) => {
+      done(null, Object.fromEntries(new URLSearchParams(body as string)));
+    },
+  );
 
   // connecting to db's
   app.register(postgreSQLPlugin);

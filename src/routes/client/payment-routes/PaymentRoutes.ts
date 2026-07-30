@@ -3,10 +3,16 @@ import {
   FastifyPluginAsync,
   FastifyPluginOptions,
 } from "fastify";
-import { CreateClientPaymeOrderController } from "../../../controllers/client/payment-controllers/PaymentController";
+import {
+  CreateClientClickOrderController,
+  CreateClientPaymeOrderController,
+} from "../../../controllers/client/payment-controllers/PaymentController";
 import { TelegramAuthMiddleware } from "../../../middlewares/telegram-auth-middlewar/TelegramAuthMiddleware";
 import { ReqData, RouteWithData } from "../../../types/routes";
-import { createClientPaymeOrderSchema } from "./schema";
+import {
+  createClientClickOrderSchema,
+  createClientPaymeOrderSchema,
+} from "./schema";
 
 const ClientPaymentsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -19,6 +25,15 @@ const ClientPaymentsRouter: FastifyPluginAsync = async (
       preHandler: [TelegramAuthMiddleware],
     },
     CreateClientPaymeOrderController,
+  );
+
+  fastify.post<RouteWithData<ReqData<CreateClientClickOrderData>>>(
+    "/payments/click",
+    {
+      schema: createClientClickOrderSchema,
+      preHandler: [TelegramAuthMiddleware],
+    },
+    CreateClientClickOrderController,
   );
 };
 

@@ -1,6 +1,9 @@
 import { FastifyRequest } from "fastify";
 import { Unauthorized } from "../../../exceptions";
-import { CreateClientPaymeOrderService } from "../../../services/client/payment-services/PaymentServices";
+import {
+  CreateClientClickOrderService,
+  CreateClientPaymeOrderService,
+} from "../../../services/client/payment-services/PaymentServices";
 import { RouteWithData, ReqData } from "../../../types/routes";
 import { makeReplyingController } from "../../../utils/controllerHelpers";
 
@@ -14,6 +17,20 @@ export const CreateClientPaymeOrderController = makeReplyingController(
     }
 
     return CreateClientPaymeOrderService(
+      Number(telegramUser.id),
+      request.body.data,
+    );
+  },
+);
+
+export const CreateClientClickOrderController = makeReplyingController(
+  "payment",
+  async (
+    request: FastifyRequest<RouteWithData<ReqData<CreateClientClickOrderData>>>,
+  ) => {
+    const telegramUser = request.telegram_user;
+    if (!telegramUser) throw Unauthorized("TELEGRAM_USER_NOT_FOUND");
+    return CreateClientClickOrderService(
       Number(telegramUser.id),
       request.body.data,
     );

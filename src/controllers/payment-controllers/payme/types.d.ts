@@ -1,3 +1,4 @@
+// Payme Merchant API JSON-RPC types.
 declare type PaymeRpcID = number | null;
 
 declare type PaymeLocalizedMessage = {

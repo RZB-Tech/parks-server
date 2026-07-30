@@ -35,6 +35,7 @@ export const ClientTransactionDTO = (
     balance_before: Number(transaction.balance_before || 0),
     balance_after: Number(transaction.balance_after || 0),
     payment_type: transaction.payment_type ?? null,
+    payment_service: transaction.payment_service ?? null,
     status: transaction.status,
     people_count: Number(transaction.people_count || 0),
     card: {

@@ -64,6 +64,7 @@ declare interface ClientTransactionResponseDTO {
   balance_after: number;
 
   payment_type: string | null;
+  payment_service: string | null;
   status: string;
   people_count: number;
 

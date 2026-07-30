@@ -123,5 +123,9 @@ export class PaymentOrderModel
       foreignKey: "payment_order",
       as: "payme_transaction",
     });
+    PaymentOrderModel.hasOne(models.ClickTransactionModel, {
+      foreignKey: "payment_order",
+      as: "click_transaction",
+    });
   }
 }
