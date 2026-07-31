@@ -1,4 +1,4 @@
-import { Op, Transaction } from "sequelize";
+import { Op, QueryTypes, Transaction } from "sequelize";
 import { BadRequest, NotFound } from "../../exceptions";
 import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
 import {
@@ -772,19 +772,28 @@ export const GetAccountingCashboxReportsService = async (
 };
 
 export const GetNotConfirmedZReportDatesService = async () => {
-  const reports = await CashboxReportModel.findAll({
-    where: {
-      report_type: CashboxReportTypes.ZREPORT,
-      status: {
-        [Op.ne]: CashboxReportStatusTypes.CONFIRMED,
+  const sequelize = CashboxReportModel.sequelize!;
+  const reports = await sequelize.query<{ report_date: string }>(
+    `
+      SELECT DISTINCT
+        DATE(report_date AT TIME ZONE 'Asia/Tashkent') AS report_date
+      FROM cashbox_reports
+      WHERE deleted_at IS NULL
+        AND report_type = :reportType
+        AND status != :confirmedStatus
+        AND report_date IS NOT NULL
+      ORDER BY report_date DESC
+    `,
+    {
+      replacements: {
+        reportType: CashboxReportTypes.ZREPORT,
+        confirmedStatus: CashboxReportStatusTypes.CONFIRMED,
       },
+      type: QueryTypes.SELECT,
     },
-    attributes: ["report_date"],
-    group: ["report_date"],
-    order: [["report_date", "DESC"]],
-  });
+  );
 
-  return reports.map((report) => report.get("report_date"));
+  return reports.map((report) => report.report_date);
 };
 
 export const AutoCloseUnclosedXReportsService = async () => {

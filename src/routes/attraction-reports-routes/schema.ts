@@ -646,7 +646,7 @@ export const getAttractionZReportsSchema = {
           maxLength: 100,
         },
         description:
-          "Filter by promotion codes. Repeat the query parameter for multiple codes.",
+          "Omit to return all base and promotion reports. Use basic for base Z-reports only, or pass promotion codes to return matching promotion reports with their Z-reports. Repeat the query parameter for multiple values.",
       },
 
       search: {

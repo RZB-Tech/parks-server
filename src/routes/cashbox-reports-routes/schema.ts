@@ -774,17 +774,14 @@ export const getNotConfirmedZReportDatesSchema = {
   tags: ["Cashbox Reports route"],
   summary: "Get not confirmed zreport dates",
   response: {
-    200: {
-      type: "object",
-      properties: {
-        dates: {
-          type: "array",
-          items: {
-            type: "string",
-            format: "date",
-          },
+    200: successAnswerTemplate({
+      dates: {
+        type: "array",
+        items: {
+          type: "string",
+          format: "date",
         },
       },
-    },
+    }),
   },
 };

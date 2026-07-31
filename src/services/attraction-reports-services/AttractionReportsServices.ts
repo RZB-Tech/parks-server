@@ -923,6 +923,14 @@ export const GetAttractionZReportsService = async (
         .filter(Boolean),
     ),
   ];
+  const basicSelected = requestedPromotionCodes.some(
+    (code) => code.toLowerCase() === "basic",
+  );
+  const selectedPromotionCodes = requestedPromotionCodes.filter(
+    (code) => code.toLowerCase() !== "basic",
+  );
+  const noPromotionFilter = requestedPromotionCodes.length === 0;
+  const includeBasicReports = noPromotionFilter || basicSelected;
   const search = query.search?.trim() ?? "";
 
   const baseReportWhere = {
@@ -1024,13 +1032,15 @@ export const GetAttractionZReportsService = async (
         raw: true,
       })
     : [];
-  const promotionReports = requestedPromotionCodes.length
-    ? allPromotionReports.filter(
-        (report) =>
-          typeof report.promotion_code === "string" &&
-          requestedPromotionCodes.includes(report.promotion_code),
-      )
-    : [];
+  const promotionReports = noPromotionFilter
+    ? allPromotionReports
+    : selectedPromotionCodes.length
+      ? allPromotionReports.filter(
+          (report) =>
+            typeof report.promotion_code === "string" &&
+            selectedPromotionCodes.includes(report.promotion_code),
+        )
+      : [];
 
   let attractions = await AttractionModel.findAll({
     where: search
@@ -1084,7 +1094,7 @@ export const GetAttractionZReportsService = async (
     allReportsPlain.map((report) => Number(report.id)),
   );
 
-  if (requestedPromotionCodes.length) {
+  if (!includeBasicReports && selectedPromotionCodes.length) {
     const matchedZReportIDs = new Set(
       promotionReports.map((report) => Number(report.zreport)),
     );
@@ -1139,24 +1149,29 @@ export const GetAttractionZReportsService = async (
     allReportsPlain.map((report) => Number(report.id)),
   );
   const usedPromotionCodes = [
+    "basic",
     ...new Set(
       allPromotionReports
         .filter((report) =>
           promotionCodeScopeZReportIDs.has(Number(report.zreport)),
         )
         .map((report) => report.promotion_code?.trim())
-        .filter((code): code is string => Boolean(code)),
+        .filter(
+          (code): code is string =>
+            Boolean(code) && code?.toLowerCase() !== "basic",
+        ),
     ),
-  ].sort((first, second) => first.localeCompare(second));
+  ];
+  const [basicPromotionCode, ...availablePromotionCodes] = usedPromotionCodes;
+  availablePromotionCodes.sort((first, second) => first.localeCompare(second));
+  const promotionCodes = [basicPromotionCode, ...availablePromotionCodes];
 
-  if (requestedPromotionCodes.length) {
-    for (const report of promotionReports) {
-      if (filteredZReportIDs.has(Number(report.zreport))) {
-        addPromotionToAttractionZReportsTotals(
-          totals,
-          report as PromotionReportPlain,
-        );
-      }
+  for (const report of promotionReports) {
+    if (filteredZReportIDs.has(Number(report.zreport))) {
+      addPromotionToAttractionZReportsTotals(
+        totals,
+        report as PromotionReportPlain,
+      );
     }
   }
 
@@ -1173,7 +1188,7 @@ export const GetAttractionZReportsService = async (
   }
 
   return {
-    promotion_codes: usedPromotionCodes,
+    promotion_codes: promotionCodes,
     stats,
     totals,
 
