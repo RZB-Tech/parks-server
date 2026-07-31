@@ -1,5 +1,5 @@
 import { Op, QueryTypes, Transaction } from "sequelize";
-import { BadRequest, NotFound } from "../../exceptions";
+import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
 import {
   CashboxReportStatusTypes,
@@ -656,55 +656,37 @@ export const ConfirmZReportsService = async (
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
-    const { startDate, endDate } = getTashkentDayRangeUTC();
-
-    const todayZReports = await CashboxReportModel.findAll({
-      where: {
-        report_type: CashboxReportTypes.ZREPORT,
-        created_at: {
-          [Op.between]: [startDate, endDate],
-        },
-      },
-      transaction: dbTransaction,
-      lock: dbTransaction.LOCK.UPDATE,
-    });
-
-    if (todayZReports.length === 0) {
-      throw BadRequest("Today Z reports not found!");
-    }
-
-    const todayZReportIDs = todayZReports.map((report) => Number(report.id));
     const bodyZReportIDs = body.zreports.map((report) => Number(report.id));
-
     const uniqueBodyIDs = new Set(bodyZReportIDs);
+
+    if (
+      bodyZReportIDs.some(
+        (reportID) => !Number.isInteger(reportID) || reportID <= 0,
+      )
+    ) {
+      throw BadRequest("Invalid Z report ids sent!");
+    }
 
     if (uniqueBodyIDs.size !== bodyZReportIDs.length) {
       throw BadRequest("Duplicate Z report ids are not allowed!");
     }
 
-    if (todayZReportIDs.length !== bodyZReportIDs.length) {
-      throw BadRequest("All today Z reports must be sent!");
-    }
+    const selectedZReports = await CashboxReportModel.findAll({
+      where: {
+        id: {
+          [Op.in]: bodyZReportIDs,
+        },
+        report_type: CashboxReportTypes.ZREPORT,
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
 
-    const missingIDs = todayZReportIDs.filter((id) => !uniqueBodyIDs.has(id));
-
-    if (missingIDs.length > 0) {
-      throw BadRequest("Some today Z reports are missing!");
-    }
-
-    const todayIDSet = new Set(todayZReportIDs);
-
-    const invalidIDs = bodyZReportIDs.filter((id) => !todayIDSet.has(id));
-
-    if (invalidIDs.length > 0) {
+    if (selectedZReports.length !== uniqueBodyIDs.size) {
       throw BadRequest("Invalid Z report ids sent!");
     }
 
-    for (const zReport of todayZReports) {
-      if (zReport.status === CashboxReportStatusTypes.OPEN) {
-        throw BadRequest("All Z reports must be closed first!");
-      }
-
+    for (const zReport of selectedZReports) {
       if (zReport.status === CashboxReportStatusTypes.CONFIRMED) {
         throw BadRequest("Some Z reports are already confirmed!");
       }
@@ -712,10 +694,14 @@ export const ConfirmZReportsService = async (
       if (zReport.status === CashboxReportStatusTypes.CANCELLED) {
         throw BadRequest("Some Z reports are already cancelled!");
       }
+
+      if (zReport.status !== CashboxReportStatusTypes.CLOSED) {
+        throw BadRequest("All Z reports must be closed first!");
+      }
     }
 
     for (const item of body.zreports) {
-      await CashboxReportModel.update(
+      const [updatedReportsCount] = await CashboxReportModel.update(
         {
           status: item.status,
           checked_by: operatorID,
@@ -730,6 +716,10 @@ export const ConfirmZReportsService = async (
           transaction: dbTransaction,
         },
       );
+
+      if (updatedReportsCount !== 1) {
+        throw Conflict("Z report status was changed. Try again!");
+      }
     }
 
     return true;

@@ -595,7 +595,7 @@ export const getZReportsSchema = {
 export const confirmZReportsSchema = {
   summary: "Confirm Z reports",
   description:
-    "Confirm or cancel all today's Z reports. All today Z report ids must be sent.",
+    "Confirm or cancel selected closed Z reports by their ids.",
   tags: ["Cashbox Reports route"],
 
   body: reqBodyWrapper({
