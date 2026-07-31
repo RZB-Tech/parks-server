@@ -1242,7 +1242,6 @@ export const ConfirmAttractionZReportsService = async (
   const sequelize = AttractionReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
-    const { startDate, endDate } = getTashkentDayRangeUTC();
     const bodyZReportIDs = body.zreports.map((report) => Number(report.id));
 
     const uniqueBodyIDs = new Set(bodyZReportIDs);
@@ -1265,9 +1264,6 @@ export const ConfirmAttractionZReportsService = async (
           [Op.in]: bodyZReportIDs,
         },
         report_type: AttractionReportTypes.ZREPORT,
-        createdAt: {
-          [Op.between]: [startDate, endDate],
-        },
       },
       transaction: dbTransaction,
       lock: dbTransaction.LOCK.UPDATE,
