@@ -9,7 +9,7 @@ export const TelegramWebhookController = async (
   try {
     await ProcessTelegramUpdate(request.body);
   } catch (error) {
-    request.log.error({ error }, "Telegram update processing failed");
+    request.log.error({ err: error }, "Telegram update processing failed");
   }
 
   return reply.code(200).send({ ok: true });

@@ -26,7 +26,7 @@ export const app = build();
       host: process.env.DEV_MODE === "1" ? "192.168.0.146" : serverHost,
     });
 
-    fastify.log.info({ actor: "qubnix-server" }, "Server started successfully");
+    fastify.log.info({ actor: "parks-server" }, "Server started successfully");
 
     if (process.env.TEMPORAL_WORKERS_ENABLED !== "false") {
       void runCashboxReportWorker();

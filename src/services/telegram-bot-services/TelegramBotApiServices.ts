@@ -1,10 +1,10 @@
 import axios from "axios";
 
 const GetBotToken = (): string => {
-  const token = process.env.BOT_TOKEN;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
 
   if (!token) {
-    throw new Error("BOT_TOKEN_NOT_CONFIGURED");
+    throw new Error("TELEGRAM_BOT_TOKEN_NOT_CONFIGURED");
   }
 
   return token;

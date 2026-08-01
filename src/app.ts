@@ -125,7 +125,7 @@ async function checkServerEnv(app: FastifyInstance) {
     process.exit(1);
   }
 
-  // if (!process.env.BOT_TOKEN) {
+  // if (!process.env.TELEGRAM_BOT_TOKEN) {
   //   app.log.fatal(
   //     "The environment variable responsible for bot token is not set",
   //   );
