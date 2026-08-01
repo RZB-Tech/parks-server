@@ -42,6 +42,7 @@ import PromotionRouter from "./routes/promotion-routes/PromotionRoutes";
 import ClientPromotionsRouter from "./routes/client/promotion-routes/PromotionRoutes";
 import PaymentsRouter from "./routes/payment-routes/PaymentsRoutes";
 import ClientPaymentsRouter from "./routes/client/payment-routes/PaymentRoutes";
+import TelegramBotRouter from "./routes/telegram-bot-routes/TelegramBotRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -86,6 +87,7 @@ export const build = async () => {
   app.register(NewsRouter, { prefix: SERVER.API_PREFIX });
   app.register(PromotionRouter, { prefix: SERVER.API_PREFIX });
   app.register(PaymentsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(TelegramBotRouter, { prefix: SERVER.API_PREFIX });
 
   // Client routes (Telegram Mini App)
   app.register(ClientAuthRouter, { prefix: SERVER.CLIENT_PREFIX });
