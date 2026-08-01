@@ -23,6 +23,7 @@ import { PromotionReportModel } from "../../../models/postgresql/promotion-repor
 import { PaymentOrderModel } from "../../../models/postgresql/payment-orders-model/PaymentOrderModel";
 import { PaymeTransactionModel } from "../../../models/postgresql/payme-transactions-model/PaymeTransactionModel";
 import { ClickTransactionModel } from "../../../models/postgresql/click-transactions-model/ClickTransactionModel";
+import { UzumTransactionModel } from "../../../models/postgresql/uzum-transactions-model/UzumTransactionModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -62,6 +63,7 @@ const models = {
   PaymentOrderModel,
   PaymeTransactionModel,
   ClickTransactionModel,
+  UzumTransactionModel,
 };
 
 export type ModelsType = typeof models;
@@ -103,4 +105,5 @@ export {
   PaymentOrderModel,
   PaymeTransactionModel,
   ClickTransactionModel,
+  UzumTransactionModel,
 };

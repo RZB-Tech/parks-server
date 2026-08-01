@@ -21,3 +21,15 @@ declare interface CreateClientClickOrderResponse {
   status: import("../../../models/postgresql/payment-orders-model/enums").PaymentOrderStatusTypes;
   checkout_url: string;
 }
+
+declare interface CreateClientUzumOrderData {
+  card: number;
+  amount: number;
+}
+
+declare interface CreateClientUzumOrderResponse {
+  order_id: string;
+  amount: number;
+  status: import("../../../models/postgresql/payment-orders-model/enums").PaymentOrderStatusTypes;
+  checkout_url: string;
+}

@@ -53,3 +53,10 @@ export const createClientClickOrderSchema = {
   description:
     "Creates or reuses a pending card top-up order and returns the Click checkout URL.",
 };
+
+export const createClientUzumOrderSchema = {
+  ...createClientPaymeOrderSchema,
+  summary: "Create Uzum card top-up order",
+  description:
+    "Registers a one-step Uzum Checkout payment and returns the redirect URL.",
+};
