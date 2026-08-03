@@ -54,21 +54,6 @@ export const ShowTelegramMenuButton = async (chatID: number) => {
   });
 };
 
-export const MiniAppKeyboard = () => {
-  const miniAppURL = process.env.TELEGRAM_MINI_APP_URL;
-
-  if (!miniAppURL) {
-    throw new Error("TELEGRAM_MINI_APP_URL_NOT_CONFIGURED");
-  }
-
-  return {
-    keyboard: [
-      [{ text: "Открыть Central Park 🎡", web_app: { url: miniAppURL } }],
-    ],
-    resize_keyboard: true,
-  };
-};
-
 export const ContactKeyboard = {
   keyboard: [[{ text: "Поделиться номером 📱", request_contact: true }]],
   resize_keyboard: true,

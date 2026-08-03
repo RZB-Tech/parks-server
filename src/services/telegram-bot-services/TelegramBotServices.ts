@@ -5,7 +5,6 @@ import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber"
 import {
   ContactKeyboard,
   HideTelegramMenuButton,
-  MiniAppKeyboard,
   RemoveKeyboard,
   SendTelegramMessage,
   ShowTelegramMenuButton,
@@ -62,7 +61,7 @@ const ParseDateOfBirth = (value?: string) => {
 
 const ShowMiniApp = async (chatID: number, text: string) => {
   await ShowTelegramMenuButton(chatID);
-  await SendTelegramMessage(chatID, text, MiniAppKeyboard());
+  await SendTelegramMessage(chatID, text, RemoveKeyboard);
 };
 
 const StartRegistration = async (message: TelegramMessage) => {
@@ -250,7 +249,7 @@ const ProcessRegistration = async (
   registrationStates.delete(telegramID);
   await ShowMiniApp(
     chatID,
-    `Готово, ${state.first_name}! 🎉\n\nДобро пожаловать в Central Park — ваш мир ярких эмоций уже открыт. Нажмите кнопку ниже и выбирайте развлечения!`,
+    `Готово, ${state.first_name}! 🎉\n\nДобро пожаловать в Central Park — ваш мир ярких эмоций уже открыт. Откройте приложение с помощью кнопки меню слева от поля ввода и выбирайте развлечения!`,
   );
 };
 
