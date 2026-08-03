@@ -121,6 +121,8 @@ export const cashboxReportProperties = {
 
   activated_cards_amount: {
     type: "number",
+    description:
+      "Activation-fee subtotal already included in total_amount and the selected payment channel amount.",
   },
 
   returned_cards_count: {
@@ -261,6 +263,8 @@ export const zReportProperties = {
 
   activated_cards_amount: {
     type: "number",
+    description:
+      "Activation-fee subtotal already included in total_amount and the selected payment channel amount.",
   },
 
   returned_cards_count: {
@@ -394,6 +398,8 @@ export const accountingZReportAmountProperties = {
 
   activated_cards_amount: {
     type: "number",
+    description:
+      "Activation-fee subtotal already included in total_amount and the selected payment channel amount.",
   },
 
   returned_cards_count: {

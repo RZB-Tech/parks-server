@@ -41,12 +41,14 @@ export const cardLastTransactionProperties = {
 
   amount: {
     type: "number",
+    description:
+      "Total amount paid. For the first top-up, includes the card activation fee.",
   },
 
   activation_amount: {
     type: "number",
     description:
-      "Card activation fee charged separately from the top-up amount on the first top-up.",
+      "Card activation fee included in amount on the first top-up.",
   },
 
   description: nullableString,
@@ -180,10 +182,14 @@ export const cardTransactionProperties = {
 
   amount: {
     type: "number",
+    description:
+      "Total amount paid. For the first top-up, includes the card activation fee.",
   },
 
   activation_amount: {
     type: "number",
+    description:
+      "Card activation fee included in amount on the first top-up.",
   },
 
   description: nullableString,
@@ -286,10 +292,14 @@ export const cardTransactionHistoryProperties = {
 
   amount: {
     type: "number",
+    description:
+      "Total amount paid. For the first top-up, includes the card activation fee.",
   },
 
   activation_amount: {
     type: "number",
+    description:
+      "Card activation fee included in amount on the first top-up.",
   },
 
   description: nullableString,

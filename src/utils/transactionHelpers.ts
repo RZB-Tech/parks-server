@@ -26,44 +26,47 @@ export const validateTopUpPaymentType = (body: CardTopUpTransactionData) => {
 };
 export const getReportTopUpIncrementData = (
   body: CardTopUpTransactionData,
-  topUpAmount: number,
+  creditedAmount: number,
   isCardActivated: boolean,
   activationAmount: number,
 ): Record<string, number> => {
+  const paidAmount =
+    creditedAmount + (isCardActivated ? activationAmount : 0);
+
   const incrementData: Record<string, number> = {
-    total_amount: topUpAmount,
+    total_amount: paidAmount,
     transactions_count: 1,
   };
 
   if (body.payment_type === PaymentType.CASH) {
-    incrementData.cash_amount = topUpAmount;
+    incrementData.cash_amount = paidAmount;
   }
 
   if (body.payment_type === PaymentType.CARD) {
-    incrementData.card_amount = topUpAmount;
+    incrementData.card_amount = paidAmount;
 
     if (body.payment_card_type === PaymentCardType.UZCARD) {
-      incrementData.uzcard_amount = topUpAmount;
+      incrementData.uzcard_amount = paidAmount;
     }
 
     if (body.payment_card_type === PaymentCardType.HUMO) {
-      incrementData.humo_amount = topUpAmount;
+      incrementData.humo_amount = paidAmount;
     }
   }
 
   if (body.payment_type === PaymentType.ONLINE) {
-    incrementData.online_amount = topUpAmount;
+    incrementData.online_amount = paidAmount;
 
     if (body.payment_service_type === PaymentServiceType.UZUM) {
-      incrementData.uzum_amount = topUpAmount;
+      incrementData.uzum_amount = paidAmount;
     }
 
     if (body.payment_service_type === PaymentServiceType.PAYME) {
-      incrementData.payme_amount = topUpAmount;
+      incrementData.payme_amount = paidAmount;
     }
 
     if (body.payment_service_type === PaymentServiceType.CLICK) {
-      incrementData.click_amount = topUpAmount;
+      incrementData.click_amount = paidAmount;
     }
   }
 
