@@ -6,18 +6,19 @@ import {
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 import { closeCurrentAttractionRoundSchema, getCurrentAttractionRoundSchema, getTodayAttractionRoundsSchema, getTodayRoundsSchema } from "./schema";
 import { CloseCurrentAttractionRoundController, GetCurrentAttractionRoundController, GetTodayAttractionRoundsController, GetTodayRoundsController } from "../../controllers/attraction-round-controllers/AttractionRoundController";
+import { RouteWithParams } from "../../types/routes";
 
 const AttractionRoundsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.get(
+  fastify.get<RouteWithParams<AttractionRoundParams>>(
     "/attractions/:attractionID/rounds/current",
     { schema: getCurrentAttractionRoundSchema, preHandler: [AuthMiddleware] },
     GetCurrentAttractionRoundController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithParams<AttractionRoundParams>>(
     "/attractions/:attractionID/rounds/today",
     { schema: getTodayAttractionRoundsSchema, preHandler: [AuthMiddleware] },
     GetTodayAttractionRoundsController,
@@ -29,7 +30,7 @@ const AttractionRoundsRouter: FastifyPluginAsync = async (
     GetTodayRoundsController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithParams<AttractionRoundParams>>(
     "/attractions/:attractionID/rounds/:roundID/close",
     { schema: closeCurrentAttractionRoundSchema, preHandler: [AuthMiddleware] },
     CloseCurrentAttractionRoundController,

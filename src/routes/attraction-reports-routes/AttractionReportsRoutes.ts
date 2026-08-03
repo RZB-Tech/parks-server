@@ -22,18 +22,26 @@ import {
   openAttractionReportSchema,
   updateAttractionReportStatusSchema,
 } from "./schema";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParamsAndData,
+  RouteWithParamsAndHeaders,
+  RouteWithParamsAndQuery,
+  RouteWithQuery,
+} from "../../types/routes";
 
 const AttractionReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.post(
+  fastify.post<RouteWithParamsAndHeaders<AttractionReportParams, AttractionReportHeaders>>(
     "/attractions/:attractionID/reports/open",
     { schema: openAttractionReportSchema, preHandler: [AuthMiddleware] },
     AttractionReportOpenController,
   );
 
-  fastify.put(
+  fastify.put<RouteWithParamsAndData<AttractionReportParams, ReqData<UpdateAttractionReportStatusData>>>(
     "/attractions/:attractionID/reports/:reportID/status",
     {
       schema: updateAttractionReportStatusSchema,
@@ -42,25 +50,25 @@ const AttractionReportsRouter: FastifyPluginAsync = async (
     CloseAttractionReportController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithParamsAndQuery<AttractionReportParams, GetAttractionReportsQuery>>(
     "/attractions/:attractionID/reports",
     { schema: getTodayAttractionReportsSchema, preHandler: [AuthMiddleware] },
     GetTodayAttractionReportsController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithQuery<GetAttractionZReportsQuery>>(
     "/attraction/zreports",
     { schema: getAttractionZReportsSchema, preHandler: [AuthMiddleware] },
     GetAttractionZReportsController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<ConfirmAttractionZReportsData>>>(
     "/attractions/zreports/confirmation",
     { schema: confirmAttractionZReportsSchema, preHandler: [AuthMiddleware] },
     ConfirmAttractionZReportsController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithQuery<GetAccountingAttractionReportsQuery>>(
     "/attractions/reports/accounting",
     { schema: getAccountingAttractionReportsSchema, preHandler: [AuthMiddleware] },
     GetAccountingAttractionReportsController,

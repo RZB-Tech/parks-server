@@ -9,18 +9,19 @@ import {
   VerifyRegistrationOtpController,
 } from "../../../controllers/client/auth-controller/AuthController";
 import { registerUserSchema, verifyRegistrationOtpSchema } from "./schema";
+import { ReqData, RouteWithData } from "../../../types/routes";
 
 const ClientAuthRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<AuthUserData>>>(
     "/register",
     { schema: registerUserSchema, preHandler: [TelegramAuthMiddleware] },
     RegisterUserController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<VerifyAuthOtpData>>>(
     "/register/verify",
     {
       schema: verifyRegistrationOtpSchema,

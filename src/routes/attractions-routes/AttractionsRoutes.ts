@@ -21,12 +21,18 @@ import {
 } from "./schema";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParamsAndData,
+  RouteWithQuery,
+} from "../../types/routes";
 
 const AttractionsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.get(
+  fastify.get<RouteWithQuery<GetAttractionQuery>>(
     "/attraction",
     { schema: getAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "operator"])] },
     GetAttractionController,
@@ -38,25 +44,25 @@ const AttractionsRouter: FastifyPluginAsync = async (
     GetAttractionStatsController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithQuery<GetAttractionsQuery>>(
     "/attractions",
     { schema: getAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "operator"])] },
     GetAttractionsController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<CreateAttractionData>>>(
     "/attractions",
     { schema: createAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
     CreateAttractionsController,
   );
 
-  fastify.put(
+  fastify.put<RouteWithParamsAndData<AttractionParams, ReqData<UpdateAttractionData>>>(
     "/attractions/:attractionID",
     { schema: updateAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
     UpdateAttractionsController,
   );
 
-  fastify.delete(
+  fastify.delete<RouteWithData<ReqData<DeleteAttractionsData>>>(
     "/attractions",
     { schema: deleteAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
     DeleteAttractionsController,

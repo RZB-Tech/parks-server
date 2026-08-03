@@ -7,12 +7,19 @@ import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware
 
 import { CashboxReportOpenController, CashboxReportsTodayController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetNotConfirmedZReportDatesController, GetZReportsController, StatusCashboxReportController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
 import { cashboxReportsTodaySchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getNotConfirmedZReportDatesSchema, getZReportsSchema, openReportSchema, statusCashboxReportSchema } from "./schema";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParams,
+  RouteWithParamsAndData,
+  RouteWithQuery,
+} from "../../types/routes";
 
 const CashboxReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.post(
+  fastify.post<RouteWithParams<CashboxReportsParams>>(
     "/cashboxes/:cashboxID/reports/open",
     { schema: openReportSchema, preHandler: [AuthMiddleware] },
     CashboxReportOpenController,
@@ -24,25 +31,25 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
     CashboxReportsTodayController,
   );
 
-  fastify.put(
+  fastify.put<RouteWithParamsAndData<CashboxReportsParams, ReqData<CloseCashboxReportData>>>(
     "/cashboxes/:cashboxID/reports/status",
     { schema: statusCashboxReportSchema, preHandler: [AuthMiddleware] },
     StatusCashboxReportController,
   );
 
-   fastify.get(
+   fastify.get<RouteWithQuery<GetZReportsQuery>>(
      "/cashbox/zreports",
      { schema: getZReportsSchema, preHandler: [AuthMiddleware] },
      GetZReportsController,
    );
 
-   fastify.post(
+   fastify.post<RouteWithData<ReqData<ConfirmZReportsData>>>(
      "/zreports/confirmation",
      { schema: confirmZReportsSchema, preHandler: [AuthMiddleware] },
      ConfirmZReportsController,
    );
-   
-   fastify.get(
+
+   fastify.get<RouteWithQuery<GetAccountingCashboxReportsQuery>>(
      "/accounting/cashbox-reports",
      {
        schema: getAccountingCashboxReportsSchema,

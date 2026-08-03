@@ -21,12 +21,18 @@ import {
 } from "./schema";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParamsAndData,
+  RouteWithQuery,
+} from "../../types/routes";
 
 const CashboxesRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.get(
+  fastify.get<RouteWithQuery<GetCashboxQuery>>(
     "/cashbox",
     { schema: getCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier', 'cashier'])] },
     GetCashboxController,
@@ -38,25 +44,25 @@ const CashboxesRouter: FastifyPluginAsync = async (
     GetCashboxStatsController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithQuery<GetCashboxesQuery>>(
     "/cashboxes",
     { schema: getCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier', 'cashier'])] },
     GetCashboxesController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<CreateCashboxData>>>(
     "/cashbox",
     { schema: createCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier'])] },
     CreateCashboxesController,
   );
 
-  fastify.put(
+  fastify.put<RouteWithParamsAndData<CashboxParams, ReqData<UpdateCashboxData>>>(
     "/cashbox/:cashboxID",
     { schema: updateCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier'])] },
     UpdateCashboxesController,
   );
 
-  fastify.delete(
+  fastify.delete<RouteWithData<ReqData<DeleteCashboxesData>>>(
     "/cashbox",
     { schema: deleteCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier'])] },
     DeleteCashboxesController,
