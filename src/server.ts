@@ -15,7 +15,9 @@ export const app = build();
 
     await fastify.ready();
 
-    const serverHost = getHostAddress();
+    const serverHost =
+      process.env.SERVER_HOST ||
+      (process.env.DEV_MODE === "1" ? "192.168.0.146" : getHostAddress());
 
     if (!serverHost) {
       throw new Error("Cannot determine host address");
@@ -23,7 +25,7 @@ export const app = build();
 
     await fastify.listen({
       port: +process.env.SERVER_PORT!,
-      host: process.env.DEV_MODE === "1" ? "192.168.0.146" : serverHost,
+      host: serverHost,
     });
 
     fastify.log.info({ actor: "qubnix-server" }, "Server started successfully");
