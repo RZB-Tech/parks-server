@@ -15,6 +15,7 @@ services:
       - app_logs:/app/logs
     networks:
       - internal
+      - parks-net
 
   # Registers Temporal schedules once per deploy. Idempotent (skips if a
   # schedule already exists), so it's safe to run on every `docker compose up`.
@@ -26,6 +27,7 @@ services:
       - app
     networks:
       - internal
+      - parks-net
     restart: "no"
 
   postgres:
@@ -47,6 +49,8 @@ services:
 
 networks:
   internal:
+  parks-net:
+    external: true
 
 volumes:
   pgdata:
