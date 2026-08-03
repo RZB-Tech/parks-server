@@ -238,7 +238,8 @@ export const CardTopUpTransactionService = async (
       {
         card: Number(card.id),
         operator: operatorID,
-        xreport: Number(openXReport.id),
+        xreport: null,
+        cashbox_report: Number(openXReport.id),
         cashbox: Number(openXReport.cashbox),
         type: CardTransactionType.TOPUP,
         payment_type: body.payment_type,
