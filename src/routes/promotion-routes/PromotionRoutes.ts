@@ -14,27 +14,27 @@ const PromotionRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/promotions",
-    { schema: getAllPromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
+    { schema: getAllPromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
     GetAllPromotionsController,
   );
   fastify.get(
     "/promotions/:promotionID",
-    { schema: getPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
+    { schema: getPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
     GetPromotionController,
   );
   fastify.post(
     "/promotion",
-    { schema: createPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
+    { schema: createPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
     CreatePromotionController,
   );
   fastify.put(
     "/promotion/:promotionID",
-    { schema: updatePromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
+    { schema: updatePromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
     UpdatePromotionController,
   );
   fastify.delete(
     "/promotions",
-    { schema: deletePromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
+    { schema: deletePromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
     DeletePromotionController,
   );
 };
