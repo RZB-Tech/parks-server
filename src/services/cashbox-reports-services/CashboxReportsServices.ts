@@ -796,8 +796,36 @@ export const AutoCloseUnclosedXReportsService = async () => {
       CashboxReportStatusTypes.STOPPED,
     ];
 
+    /*
+     * Virtual cashbox Z-reportlari online payments uchun kun davomida ishlaydi.
+     * Nightly auto-close faqat operator ishlatadigan physical cashboxlarga tegadi.
+     */
+    const physicalCashboxes = await CashboxModel.findAll({
+      where: {
+        type: CashboxTypes.PHYSICAL,
+      },
+      attributes: ["id"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    const physicalCashboxIDs = physicalCashboxes.map((cashbox) =>
+      Number(cashbox.id),
+    );
+
+    if (physicalCashboxIDs.length === 0) {
+      return {
+        closed_xreports: 0,
+        closed_zreports: 0,
+        message: "No physical cashboxes found.",
+      };
+    }
+
     const xreports = await CashboxReportModel.findAll({
       where: {
+        cashbox: {
+          [Op.in]: physicalCashboxIDs,
+        },
         report_type: CashboxReportTypes.XREPORT,
         status: {
           [Op.in]: notClosedStatuses,
@@ -812,88 +840,83 @@ export const AutoCloseUnclosedXReportsService = async () => {
       lock: transaction.LOCK.UPDATE,
     });
 
-    if (xreports.length === 0) {
-      return {
-        closed_xreports: 0,
-        message: "No unclosed X reports found.",
-      };
+    const xreportIDs = xreports.map((item) => Number(item.id));
+    let closedXreports = 0;
+
+    if (xreportIDs.length > 0) {
+      [closedXreports] = await CashboxReportModel.update(
+        {
+          status: CashboxReportStatusTypes.CLOSED,
+          closed_at: now,
+        },
+        {
+          where: {
+            id: {
+              [Op.in]: xreportIDs,
+            },
+            report_type: CashboxReportTypes.XREPORT,
+            status: {
+              [Op.in]: notClosedStatuses,
+            },
+            closed_at: null,
+          },
+          transaction,
+        },
+      );
     }
 
-    const xreportIDs = xreports.map((item) => Number(item.id));
-
-    const [closedCount] = await CashboxReportModel.update(
-      {
-        status: CashboxReportStatusTypes.CLOSED,
-        closed_at: now,
-      },
-      {
-        where: {
-          id: {
-            [Op.in]: xreportIDs,
-          },
-          report_type: CashboxReportTypes.XREPORT,
-          status: {
-            [Op.in]: notClosedStatuses,
-          },
-          closed_at: null,
+    /*
+     * Z allaqachon qo‘lda yopilgan X-reportlardan keyin ham OPEN/STOPPED
+     * qolib ketishi mumkin. Shuning uchun Z-reportlarni X ro‘yxatidan emas,
+     * barcha physical cashboxlardan alohida olamiz.
+     */
+    const zreports = await CashboxReportModel.findAll({
+      where: {
+        cashbox: {
+          [Op.in]: physicalCashboxIDs,
         },
-        transaction,
+        report_type: CashboxReportTypes.ZREPORT,
+        status: {
+          [Op.in]: notClosedStatuses,
+        },
+        closed_at: null,
+        opened_at: {
+          [Op.lte]: now,
+        },
       },
-    );
+      attributes: ["id", "cashbox"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
 
-    const zreportIDs = [
-      ...new Set(
-        xreports
-          .map((item) => Number(item.zreport))
-          .filter((id) => Number.isFinite(id) && id > 0),
-      ),
-    ];
-
+    const zreportIDs = zreports.map((report) => Number(report.id));
     let closedZreports = 0;
 
-    for (const zreportID of zreportIDs) {
-      const openedXReportsCount = await CashboxReportModel.count({
-        where: {
-          zreport: zreportID,
-          report_type: CashboxReportTypes.XREPORT,
-          status: {
-            [Op.in]: notClosedStatuses,
-          },
-          closed_at: null,
-        },
-        transaction,
-      });
-
-      if (openedXReportsCount > 0) {
-        continue;
-      }
-
-      const zReport = await CashboxReportModel.findOne({
-        where: {
-          id: zreportID,
-          report_type: CashboxReportTypes.ZREPORT,
-          status: {
-            [Op.in]: notClosedStatuses,
-          },
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (!zReport) {
-        continue;
-      }
-
-      await zReport.update(
+    if (zreportIDs.length > 0) {
+      [closedZreports] = await CashboxReportModel.update(
         {
           operator: null,
           status: CashboxReportStatusTypes.CLOSED,
           closed_at: now,
         },
         {
+          where: {
+            id: {
+              [Op.in]: zreportIDs,
+            },
+            report_type: CashboxReportTypes.ZREPORT,
+            status: {
+              [Op.in]: notClosedStatuses,
+            },
+            closed_at: null,
+          },
           transaction,
         },
       );
+
+      const closedCashboxIDs = [
+        ...new Set(zreports.map((report) => Number(report.cashbox))),
+      ];
 
       await CashboxModel.update(
         {
@@ -901,17 +924,17 @@ export const AutoCloseUnclosedXReportsService = async () => {
         },
         {
           where: {
-            id: zReport.cashbox,
+            id: {
+              [Op.in]: closedCashboxIDs,
+            },
           },
           transaction,
         },
       );
-
-      closedZreports += 1;
     }
 
     return {
-      closed_xreports: closedCount,
+      closed_xreports: closedXreports,
       closed_zreports: closedZreports,
       message: "Unclosed X reports and Z reports closed successfully.",
     };

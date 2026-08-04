@@ -6,6 +6,7 @@ import { runCashboxReportWorker } from "./temporal/workers/cashbox-report.worker
 import { runAttractionReportWorker } from "./temporal/workers/attraction-report.worker";
 import { runNewsWorker } from "./temporal/workers/news.worker";
 import { runPromotionWorker } from "./temporal/workers/promotion.worker";
+import { ensureTemporalSchedules } from "./temporal/schedule";
 
 export const app = build();
 
@@ -33,6 +34,12 @@ export const app = build();
       void runAttractionReportWorker();
       void runNewsWorker();
       void runPromotionWorker();
+    }
+
+    if (process.env.TEMPORAL_SCHEDULES_ENABLED !== "false") {
+      void ensureTemporalSchedules().catch((error) => {
+        fastify.log.error({ err: error }, "Temporal schedules setup failed");
+      });
     }
   } catch (err) {
     const fastify = await app;

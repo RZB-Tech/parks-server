@@ -1,18 +1,8 @@
-import { CardTransactionType } from "../../models/postgresql/card-transactions-model/enums";
-
-const CashboxTransactionAmount = (data: CardTransactionModelI) => {
-  const amount = Number(data.amount || 0);
-
-  return data.type === CardTransactionType.TOPUP
-    ? amount + Number(data.activation_amount || 0)
-    : amount;
-};
-
 export const CardLastTransactionDTO = (data: CardTransactionModelI) => {
   return {
     id: Number(data.id),
     type: data.type,
-    amount: CashboxTransactionAmount(data),
+    amount: Number(data.amount || 0),
     activation_amount: Number(data.activation_amount || 0),
     description: data.description ?? null,
     balance_before: Number(data.balance_before || 0),
@@ -38,7 +28,7 @@ export const CardTransactionDTO = (
     payment_type: data.payment_type ?? null,
     payment_card_type: data.payment_card_type ?? null,
     payment_service_type: data.payment_service ?? null,
-    amount: CashboxTransactionAmount(data),
+    amount: Number(data.amount || 0),
     activation_amount: Number(data.activation_amount || 0),
     description: data.description ?? null,
     balance_before: Number(data.balance_before || 0),
@@ -94,7 +84,7 @@ export const CardTransactionHistoryDTO = (
     payment_card_type: data.payment_card_type ?? null,
     payment_service_type: data.payment_service ?? null,
 
-    amount: CashboxTransactionAmount(data),
+    amount: Number(data.amount || 0),
     activation_amount: Number(data.activation_amount || 0),
     description: data.description ?? null,
     balance_before: Number(data.balance_before || 0),

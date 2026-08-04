@@ -86,6 +86,74 @@ export const GetOrCreateOnlineDailyZReportService = async (
   };
 };
 
+export const CloseOnlineDailyZReportService = async () => {
+  const sequelize = CashboxReportModel.sequelize!;
+
+  return await sequelize.transaction(async (transaction) => {
+    const cashbox = await CashboxModel.findOne({
+      where: {
+        system_key: ONLINE_PAYMENTS_CASHBOX_KEY,
+        type: CashboxTypes.VIRTUAL,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!cashbox) {
+      throw InternalServerError("ONLINE_PAYMENTS_CASHBOX_NOT_CONFIGURED");
+    }
+
+    const { startDate, endDate } = getTashkentDayRangeUTC();
+    const now = new Date();
+
+    const [closedReports] = await CashboxReportModel.update(
+      {
+        operator: null,
+        status: CashboxReportStatusTypes.CLOSED,
+        closed_at: now,
+      },
+      {
+        where: {
+          cashbox: cashbox.id,
+          report_type: CashboxReportTypes.ZREPORT,
+          status: {
+            [Op.in]: [
+              CashboxReportStatusTypes.OPEN,
+              CashboxReportStatusTypes.STOPPED,
+            ],
+          },
+          closed_at: null,
+          created_at: {
+            [Op.between]: [startDate, endDate],
+          },
+        },
+        transaction,
+      },
+    );
+
+    return {
+      cashbox: Number(cashbox.id),
+      closed_zreports: closedReports,
+    };
+  });
+};
+
+export const OpenOnlineDailyZReportService = async () => {
+  const sequelize = CashboxReportModel.sequelize!;
+
+  return await sequelize.transaction(async (transaction) => {
+    const { cashbox, report } =
+      await GetOrCreateOnlineDailyZReportService(transaction);
+
+    return {
+      cashbox: Number(cashbox.id),
+      report: Number(report.id),
+      status: report.status,
+      opened_at: report.opened_at,
+    };
+  });
+};
+
 const providerAmountField = (provider: PaymentServiceType) => {
   switch (provider) {
     case PaymentServiceType.PAYME:
