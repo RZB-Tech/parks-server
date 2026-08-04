@@ -8,7 +8,9 @@ export const UzumCallbackController = async (
   reply: FastifyReply,
 ) => {
   try {
-    const response = await ProcessUzumCallbackService(request.body);
+    const body = request.body;
+    
+    const response = await ProcessUzumCallbackService(body);
     return reply.code(200).send(response);
   } catch (error) {
     return ExceptionsHandler(error as Error, request, reply);

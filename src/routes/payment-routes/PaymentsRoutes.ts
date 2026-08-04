@@ -19,16 +19,24 @@ const PaymentsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.post(
     "/payments/payme",
-    { preHandler: PaymeAuthMiddleware },
+    {
+      schema: { hide: true } as any,
+      preHandler: PaymeAuthMiddleware,
+    },
     PaymeMerchantController,
   );
 
   fastify.post("/payments/click/prepare", ClickPrepareController);
   fastify.post("/payments/click/complete", ClickCompleteController);
 
-  fastify.post<RouteWithData<UzumCallbackBody>>(
+  fastify.post(
     "/payments/uzum/callback",
-    { schema: uzumCallbackSchema },
+    {
+      schema: {
+        ...uzumCallbackSchema,
+        hide: true,
+      } as any,
+    },
     UzumCallbackController,
   );
 };

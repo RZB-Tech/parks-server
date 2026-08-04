@@ -20,7 +20,7 @@ const ClientPaymentsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   _options: FastifyPluginOptions,
 ) => {
-  fastify.post<RouteWithData<ReqData<CreateClientPaymeOrderData>>>(
+  fastify.post(
     "/payments/payme",
     {
       schema: createClientPaymeOrderSchema,
@@ -29,7 +29,7 @@ const ClientPaymentsRouter: FastifyPluginAsync = async (
     CreateClientPaymeOrderController,
   );
 
-  fastify.post<RouteWithData<ReqData<CreateClientClickOrderData>>>(
+  fastify.post(
     "/payments/click",
     {
       schema: createClientClickOrderSchema,
@@ -38,7 +38,7 @@ const ClientPaymentsRouter: FastifyPluginAsync = async (
     CreateClientClickOrderController,
   );
 
-  fastify.post<RouteWithData<ReqData<CreateClientUzumOrderData>>>(
+  fastify.post(
     "/payments/uzum",
     {
       schema: createClientUzumOrderSchema,
