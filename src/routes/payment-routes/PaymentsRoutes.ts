@@ -26,8 +26,16 @@ const PaymentsRouter: FastifyPluginAsync = async (
     PaymeMerchantController,
   );
 
-  fastify.post("/payments/click/prepare", ClickPrepareController);
-  fastify.post("/payments/click/complete", ClickCompleteController);
+  fastify.post(
+    "/payments/click/prepare",
+    { schema: { hide: true } as any },
+    ClickPrepareController,
+  );
+  fastify.post(
+    "/payments/click/complete",
+    { schema: { hide: true } as any },
+    ClickCompleteController,
+  );
 
   fastify.post(
     "/payments/uzum/callback",

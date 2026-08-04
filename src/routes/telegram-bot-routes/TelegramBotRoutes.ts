@@ -8,7 +8,10 @@ const TelegramBotRouter: FastifyPluginAsync = async (fastify) => {
   fastify.post<RouteWithData<TelegramUpdate>>(
     "/telegram/webhook",
     {
-      schema: telegramWebhookSchema,
+      schema: {
+        ...telegramWebhookSchema,
+        hide: true,
+      } as any,
       preHandler: [TelegramWebhookSecretMiddleware],
     },
     TelegramWebhookController,
