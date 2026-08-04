@@ -121,6 +121,11 @@ export const CardPaymentTransactionDTO = (
       data.attraction !== undefined && data.attraction !== null
         ? Number(data.attraction)
         : null,
+    attraction_tariff:
+      data.attraction_tariff !== undefined && data.attraction_tariff !== null
+        ? Number(data.attraction_tariff)
+        : null,
+    tariff_name: data.tariff_name ?? null,
     xreport:
       data.xreport !== undefined && data.xreport !== null
         ? Number(data.xreport)

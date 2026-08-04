@@ -82,6 +82,10 @@ const attractionRoundRefundTransactionSchema = {
           ],
         },
         promotion: nullableNumber,
+        attraction_tariff: nullableNumber,
+        tariff_name: {
+          oneOf: [{ type: "string" }, { type: "null" }],
+        },
         created_at: nullableDateTime,
       },
     },

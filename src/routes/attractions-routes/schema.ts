@@ -49,10 +49,40 @@ export const attractionProperties = {
     items: { type: "number" },
     examples: [[14, 15, 16]],
   },
-  price: {
+  size: {
     type: "number",
-    description: "Attraction price",
+    exclusiveMinimum: 0,
+    description: "Image scale used when rendering the attraction card.",
+    examples: [1, 1.2],
+  },
+  price: {
+    oneOf: [
+      { type: "integer", minimum: 0 },
+      { type: "null" },
+    ],
+    description:
+      "Single attraction price, or null when the attraction uses tariffs.",
     examples: [25000],
+  },
+  pricing_type: {
+    type: "string",
+    enum: ["single", "tariff"],
+    description: "Pricing mode derived from the attraction price.",
+  },
+  tariffs: {
+    type: "array",
+    description: "Active attraction tariffs when price is null.",
+    items: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        id: { type: "integer" },
+        name: { type: "string" },
+        price: { type: "integer" },
+        status: { type: "string", enum: ["active", "inactive"] },
+        sort_order: { type: "integer" },
+      },
+    },
   },
   duration: {
     type: "number",
@@ -307,7 +337,28 @@ export const createAttractionSchema = {
       main_file: attractionProperties.main_file,
       files: attractionProperties.files,
       sub_attraction_files: attractionProperties.sub_attraction_files,
+      size: attractionProperties.size,
       price: attractionProperties.price,
+      tariffs: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["name", "price"],
+          properties: {
+            name: {
+              type: "string",
+              minLength: 1,
+              maxLength: 100,
+            },
+            price: {
+              type: "integer",
+              minimum: 0,
+            },
+          },
+        },
+      },
       duration: attractionProperties.duration,
       seats: attractionProperties.seats,
       age_limit: attractionProperties.age_limit,
@@ -364,7 +415,32 @@ export const updateAttractionSchema = {
       main_file: attractionProperties.main_file,
       files: attractionProperties.files,
       sub_attraction_files: attractionProperties.sub_attraction_files,
+      size: attractionProperties.size,
       price: attractionProperties.price,
+      tariffs: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["name", "price"],
+          properties: {
+            id: {
+              type: "integer",
+              minimum: 1,
+            },
+            name: {
+              type: "string",
+              minLength: 1,
+              maxLength: 100,
+            },
+            price: {
+              type: "integer",
+              minimum: 0,
+            },
+          },
+        },
+      },
       duration: attractionProperties.duration,
       seats: attractionProperties.seats,
       age_limit: attractionProperties.age_limit,

@@ -14,9 +14,10 @@ export class AttractionModel
   public main_file!: number;
   public files!: Array<number>;
   public sub_attraction_files!: Array<number>;
+  public size!: number;
   public latitude!: string | null;
   public longitude!: string | null;
-  public price!: number;
+  public price!: number | null;
   public duration!: number;
   public seats!: number;
   public age_limit!: number;
@@ -80,6 +81,11 @@ export class AttractionModel
           type: DataTypes.ARRAY(DataTypes.INTEGER),
           allowNull: true,
         },
+        size: {
+          type: DataTypes.DECIMAL(5, 2),
+          allowNull: false,
+          defaultValue: 1,
+        },
         latitude: {
           type: DataTypes.STRING,
           allowNull: true,
@@ -90,7 +96,7 @@ export class AttractionModel
         },
         price: {
           type: DataTypes.INTEGER,
-          allowNull: false,
+          allowNull: true,
         },
         duration: {
           type: DataTypes.INTEGER,
@@ -146,6 +152,11 @@ export class AttractionModel
     AttractionModel.hasMany(models.PromotionAttractionModel, {
       foreignKey: "attraction",
       as: "promotion_attractions",
+    });
+    AttractionModel.hasMany(models.AttractionTariffModel, {
+      foreignKey: "attraction",
+      as: "tariffs",
+      onDelete: "CASCADE",
     });
   }
 }

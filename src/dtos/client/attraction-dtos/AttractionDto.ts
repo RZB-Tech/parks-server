@@ -1,13 +1,83 @@
 import { AttractionRoundStatusTypes } from "../../../models/postgresql/attraction-round-model/enums";
+import { CalculateAttractionSalePrice } from "../../../utils/attractionPricing";
+
+const ClientAttractionTariffsDTO = (
+  tariffs: AttractionTariffModelI[] | undefined,
+  promotion: ActivePromotionForAttractionDTO | null,
+) => {
+  const discountPercent = promotion ? Number(promotion.discount_percent) : 0;
+
+  return (tariffs ?? [])
+    .map((tariff) => {
+      const originalPrice = Number(tariff.price || 0);
+
+      return {
+        id: Number(tariff.id),
+        name: tariff.name,
+        original_price: originalPrice,
+        price: promotion
+          ? CalculateAttractionSalePrice(originalPrice, discountPercent)
+          : originalPrice,
+        discount_percent: discountPercent,
+        sort_order: Number(tariff.sort_order || 0),
+      };
+    })
+    .sort((first, second) => first.sort_order - second.sort_order);
+};
+
+const ClientAttractionPricingDTO = (
+  data: AttractionModelI,
+  promotion: ActivePromotionForAttractionDTO | null,
+) => {
+  const isTariffPricing = data.price === null;
+  const discountPercent = promotion ? Number(promotion.discount_percent) : 0;
+  const originalPrice = isTariffPricing ? null : Number(data.price || 0);
+
+  return {
+    pricing_type: isTariffPricing ? "tariff" : "single",
+    original_price: originalPrice,
+    price:
+      originalPrice === null
+        ? null
+        : promotion
+          ? CalculateAttractionSalePrice(originalPrice, discountPercent)
+          : originalPrice,
+    discount_percent: discountPercent,
+    tariffs: ClientAttractionTariffsDTO(data.tariffs, promotion),
+  } as const;
+};
+
+const ClientPromotionDTO = (
+  data: AttractionModelI,
+  promotion: ActivePromotionForAttractionDTO | null,
+) => {
+  if (!promotion) return null;
+
+  const originalPrice = data.price === null ? null : Number(data.price || 0);
+
+  return {
+    id: Number(promotion.id),
+    code: promotion.code,
+    name: promotion.name,
+    type: promotion.type,
+    discount_percent: Number(promotion.discount_percent),
+    original_price: originalPrice,
+    discounted_price:
+      originalPrice === null
+        ? null
+        : CalculateAttractionSalePrice(
+            originalPrice,
+            Number(promotion.discount_percent),
+          ),
+    started_at: promotion.promotion_started_at,
+    ended_at: promotion.promotion_ended_at,
+  };
+};
 
 export const ClientAttractionDTO = (
   data: AttractionModelI,
   promotion: ActivePromotionForAttractionDTO | null = null,
 ): ClientAttractionResponseDTO => {
-  const originalPrice = promotion
-    ? Number(promotion.original_price)
-    : Number(data.price || 0);
-
   return {
     id: Number(data.id),
     name: data.name,
@@ -18,13 +88,10 @@ export const ClientAttractionDTO = (
     sub_attraction_files: Array.isArray(data.sub_attraction_files)
       ? data.sub_attraction_files.map(Number)
       : null,
+    size: Number(data.size || 1),
     latitude: data.latitude ?? null,
     longitude: data.longitude ?? null,
-    original_price: originalPrice,
-    price: promotion
-      ? Number(promotion.discounted_price)
-      : Number(data.price || 0),
-    discount_percent: promotion ? Number(promotion.discount_percent) : 0,
+    ...ClientAttractionPricingDTO(data, promotion),
     duration: Number(data.duration || 0),
     seats: Number(data.seats || 0),
     age_limit: data.age_limit !== null ? Number(data.age_limit) : null,
@@ -40,19 +107,7 @@ export const ClientAttractionDetailsDTO = (
 ): ClientAttractionDetailsResponseDTO => {
   return {
     ...ClientAttractionDTO(data, promotion),
-    promotion: promotion
-      ? {
-          id: Number(promotion.id),
-          code: promotion.code,
-          name: promotion.name,
-          type: promotion.type,
-          discount_percent: Number(promotion.discount_percent),
-          original_price: Number(promotion.original_price),
-          discounted_price: Number(promotion.discounted_price),
-          started_at: promotion.promotion_started_at,
-          ended_at: promotion.promotion_ended_at,
-        }
-      : null,
+    promotion: ClientPromotionDTO(data, promotion),
   };
 };
 
@@ -72,36 +127,20 @@ export const AttractionLastRoundDTO = (
   const availableSeats = isOpenRound
     ? Math.max(totalSeats - occupiedSeats, 0)
     : totalSeats;
-  const originalPrice = data.promotion
-    ? Number(data.promotion.original_price)
-    : Number(data.attraction.price || 0);
+  const pricing = ClientAttractionPricingDTO(
+    data.attraction,
+    data.promotion,
+  );
 
   return {
     id: Number(data.attraction.id),
     name: data.attraction.name,
-    original_price: originalPrice,
-    price: data.promotion
-      ? Number(data.promotion.discounted_price)
-      : Number(data.attraction.price || 0),
-    discount_percent: data.promotion
-      ? Number(data.promotion.discount_percent)
-      : 0,
-    promotion: data.promotion
-      ? {
-          id: Number(data.promotion.id),
-          code: data.promotion.code,
-          name: data.promotion.name,
-          type: data.promotion.type,
-          discount_percent: Number(data.promotion.discount_percent),
-          original_price: Number(data.promotion.original_price),
-          discounted_price: Number(data.promotion.discounted_price),
-          started_at: data.promotion.promotion_started_at,
-          ended_at: data.promotion.promotion_ended_at,
-        }
-      : null,
+    ...pricing,
+    promotion: ClientPromotionDTO(data.attraction, data.promotion),
     main_file: data.attraction.main_file
       ? Number(data.attraction.main_file)
       : null,
+    size: Number(data.attraction.size || 1),
     seats: totalSeats,
 
     round: data.lastRound

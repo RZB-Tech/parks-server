@@ -1,8 +1,17 @@
 declare interface ClientPromotionAttractionResponseDTO {
   id: number;
   name: string;
-  original_price: number;
-  discounted_price: number;
+  size: number;
+  pricing_type: "single" | "tariff";
+  original_price: number | null;
+  discounted_price: number | null;
+  tariffs: Array<{
+    id: number;
+    name: string;
+    original_price: number;
+    discounted_price: number;
+    sort_order: number;
+  }>;
   sort_order: number;
 }
 

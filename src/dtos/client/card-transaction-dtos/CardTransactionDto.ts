@@ -7,6 +7,11 @@ export const ClientAttractionPaymentTransactionDTO = (
     id: Number(data.id),
     card: Number(data.card),
     attraction: Number(data.attraction),
+    attraction_tariff:
+      data.attraction_tariff !== null && data.attraction_tariff !== undefined
+        ? Number(data.attraction_tariff)
+        : null,
+    tariff_name: data.tariff_name ?? null,
     type: data.type,
     amount: Number(data.amount || 0),
     balance_before: Number(data.balance_before || 0),
@@ -38,6 +43,14 @@ export const ClientTransactionDTO = (
     payment_service: transaction.payment_service ?? null,
     status: transaction.status,
     people_count: Number(transaction.people_count || 0),
+    tariff:
+      transaction.attraction_tariff !== null &&
+      transaction.attraction_tariff !== undefined
+        ? {
+            id: Number(transaction.attraction_tariff),
+            name: transaction.tariff_name ?? "",
+          }
+        : null,
     card: {
       id: Number(card.id),
       card: card.card,
@@ -48,6 +61,7 @@ export const ClientTransactionDTO = (
           id: Number(attraction.id),
           name: attraction.name,
           main_file: attraction.main_file ? Number(attraction.main_file) : null,
+          size: Number(attraction.size || 1),
         }
       : null,
     round: round

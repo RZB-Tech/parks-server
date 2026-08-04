@@ -581,6 +581,10 @@ export const getCardTransactionsSchema = {
 export const cardPaymentTransactionProperties = {
   ...cardTransactionProperties,
 
+  attraction: nullableNumber,
+  attraction_tariff: nullableNumber,
+  tariff_name: nullableString,
+
   payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
 };
 
@@ -641,6 +645,13 @@ export const cardPaymentTransactionSchema = {
 
       attractionID: {
         type: "number",
+      },
+
+      tariffID: {
+        type: "integer",
+        minimum: 1,
+        description:
+          "Required when the attraction uses tariff pricing; forbidden for a single-price attraction.",
       },
     },
   }),

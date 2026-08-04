@@ -25,6 +25,7 @@ import { PaymeTransactionModel } from "../../../models/postgresql/payme-transact
 import { ClickTransactionModel } from "../../../models/postgresql/click-transactions-model/ClickTransactionModel";
 import { UzumTransactionModel } from "../../../models/postgresql/uzum-transactions-model/UzumTransactionModel";
 import { AttractionRoundRefundModel } from "../../../models/postgresql/attraction-round-refund-model/AttractionRoundRefundModel";
+import { AttractionTariffModel } from "../../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -44,6 +45,7 @@ const models = {
   RoleModel,
   EmployeeModel,
   AttractionModel,
+  AttractionTariffModel,
   AttractionOperatorModel,
   CashboxModel,
   CashboxOperatorModel,
@@ -87,6 +89,7 @@ export {
   RoleModel,
   EmployeeModel,
   AttractionModel,
+  AttractionTariffModel,
   AttractionOperatorModel,
   CashboxModel,
   CashboxOperatorModel,

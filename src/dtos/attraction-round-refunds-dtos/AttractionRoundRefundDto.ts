@@ -20,6 +20,12 @@ export const AttractionRoundRefundTransactionDTO = (
       transaction.promotion !== null && transaction.promotion !== undefined
         ? Number(transaction.promotion)
         : null,
+    attraction_tariff:
+      transaction.attraction_tariff !== null &&
+      transaction.attraction_tariff !== undefined
+        ? Number(transaction.attraction_tariff)
+        : null,
+    tariff_name: transaction.tariff_name ?? null,
     created_at: transaction.createdAt ?? null,
   };
 };

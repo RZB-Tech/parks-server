@@ -4,6 +4,8 @@ import { PromotionModel } from "../../../models/postgresql/promotion-model/Promo
 import { PromotionStatusTypes } from "../../../models/postgresql/promotion-model/enums";
 import { ClientPromotionDTO } from "../../../dtos/client/promotion-dtos/PromotionDto";
 import { Op } from "sequelize";
+import { AttractionTariffModel } from "../../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
+import { AttractionTariffStatusTypes } from "../../../models/postgresql/attraction-tariff-model/enums";
 
 export const GetClientPromotionsService = async (): Promise<ClientPromotionResponseDTO[]> => {
   const promotions = await PromotionModel.findAll({
@@ -25,6 +27,14 @@ export const GetClientPromotionsService = async (): Promise<ClientPromotionRespo
             model: AttractionModel,
             as: "attractions",
             required: false,
+            include: [
+              {
+                model: AttractionTariffModel,
+                as: "tariffs",
+                required: false,
+                where: { status: AttractionTariffStatusTypes.ACTIVE },
+              },
+            ],
           },
         ],
       },

@@ -4,14 +4,16 @@ import {
   OpenOnlineDailyZReportService,
 } from "../../services/payment-services/OnlinePaymentReportServices";
 
-export const closeUnclosedXReportsActivity = async () => {
-  return await AutoCloseUnclosedXReportsService();
+export const closeUnclosedXReportsActivity = async (referenceTime: string) => {
+  return await AutoCloseUnclosedXReportsService(referenceTime);
 };
 
-export const closeOnlineDailyZReportActivity = async () => {
-  return await CloseOnlineDailyZReportService();
+export const closeOnlineDailyZReportActivity = async (
+  referenceTime: string,
+) => {
+  return await CloseOnlineDailyZReportService(referenceTime);
 };
 
-export const openOnlineDailyZReportActivity = async () => {
-  return await OpenOnlineDailyZReportService();
+export const openOnlineDailyZReportActivity = async (referenceTime: string) => {
+  return await OpenOnlineDailyZReportService(referenceTime);
 };

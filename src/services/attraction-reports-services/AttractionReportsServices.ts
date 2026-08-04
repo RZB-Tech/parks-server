@@ -29,6 +29,9 @@ import {
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
 import { PromotionReportModel, sequelize } from "../../plugins/db/postgresql/db";
+import { AttractionTariffModel } from "../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
+import { AttractionTariffStatusTypes } from "../../models/postgresql/attraction-tariff-model/enums";
+import { GetAttractionTariffReportsByZReportService } from "../attraction-tariff-reports-services/AttractionTariffReportsServices";
 
 export const OpenAttractionReportService = async (
   operatorID: number,
@@ -1077,6 +1080,19 @@ export const GetAttractionZReportsService = async (
 
         order: [["id", "DESC"]],
       },
+      {
+        model: AttractionTariffModel,
+        as: "tariffs",
+        required: false,
+        separate: true,
+        where: {
+          status: AttractionTariffStatusTypes.ACTIVE,
+        },
+        order: [
+          ["sort_order", "ASC"],
+          ["id", "ASC"],
+        ],
+      },
     ],
   });
 
@@ -1148,6 +1164,11 @@ export const GetAttractionZReportsService = async (
   const filteredZReportIDs = new Set(
     allReportsPlain.map((report) => Number(report.id)),
   );
+  const tariffReportsByZReport =
+    await GetAttractionTariffReportsByZReportService({
+      zreport_ids: [...filteredZReportIDs],
+      promotion_codes: noPromotionFilter ? null : selectedPromotionCodes,
+    });
   const usedPromotionCodes = [
     "basic",
     ...new Set(
@@ -1200,11 +1221,41 @@ export const GetAttractionZReportsService = async (
       const reports = Array.isArray(plain.reports)
         ? plain.reports
             .filter((report) => filteredZReportIDs.has(Number(report.id)))
-            .map((report) => ({
-              ...report,
-              promotion_reports:
-                promotionReportsByZReport.get(Number(report.id)) ?? [],
-            }))
+            .map((report) => {
+              const zreportID = Number(report.id);
+              const tariffReports =
+                tariffReportsByZReport.get(zreportID) ?? [];
+              const basicTariffReports = tariffReports.filter(
+                (tariffReport) => tariffReport.promotion === null,
+              );
+              const zPromotionReports = (
+                promotionReportsByZReport.get(zreportID) ?? []
+              ).map((promotionReport) => ({
+                ...promotionReport,
+                tariff_reports: tariffReports.filter((tariffReport) => {
+                  if (tariffReport.promotion === null) {
+                    return false;
+                  }
+
+                  return (
+                    Number(tariffReport.promotion) ===
+                      Number(promotionReport.promotion) &&
+                    Number(tariffReport.discount_percent) ===
+                      Number(promotionReport.discount_percent) &&
+                    Number(tariffReport.original_unit_price) ===
+                      Number(promotionReport.original_unit_price) &&
+                    Number(tariffReport.sale_unit_price) ===
+                      Number(promotionReport.sale_unit_price)
+                  );
+                }),
+              }));
+
+              return {
+                ...report,
+                promotion_reports: zPromotionReports,
+                tariff_reports: basicTariffReports,
+              };
+            })
         : [];
 
       return AttractionZReportAttractionDTO({

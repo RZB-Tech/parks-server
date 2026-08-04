@@ -32,6 +32,7 @@ declare type AttractionReportWithOperatorPlain = AttractionReportModelI & {
   operators?: AttractionReportOperatorPlain | null;
 
   promotion_reports?: PromotionReportPlain[];
+  tariff_reports?: AttractionTariffReportPlain[];
 
   created_at?: Date;
   updated_at?: Date;
@@ -82,6 +83,18 @@ declare interface AttractionReportResponseDTO {
   created_at?: Date;
 }
 
+declare type AttractionZReportResponseDTO = Omit<
+  AttractionReportResponseDTO,
+  "promotion_reports"
+> & {
+  tariff_reports?: AttractionTariffReportResponseDTO[];
+};
+
+declare type AttractionZPromotionReportResponseDTO =
+  PromotionReportResponseDTO & {
+    tariff_reports: AttractionTariffReportResponseDTO[];
+  };
+
 declare interface AttractionReportsTodayDto {
   zreport: AttractionReportResponseDTO | null;
 
@@ -110,6 +123,11 @@ declare interface AttractionZReportTotalsDTO {
   paid_amount: number;
   total_amount: number;
 }
+
+declare type AttractionZReportTotalsWithTariffsDTO =
+  AttractionZReportTotalsDTO & {
+    tariff_reports: AttractionTariffReportResponseDTO[];
+  };
 
 /*
 |--------------------------------------------------------------------------
@@ -140,6 +158,14 @@ declare type AttractionWithZReportsPlain = AttractionModelI & {
   reports?: AttractionReportWithOperatorPlain[];
 };
 
+declare interface AttractionZReportTariffDTO {
+  id: number;
+  name: string;
+  price: number;
+  status: import("../../models/postgresql/attraction-tariff-model/enums").AttractionTariffStatusTypes;
+  sort_order: number;
+}
+
 declare interface AttractionZReportAttractionResponseDTO {
   id: number;
 
@@ -153,7 +179,10 @@ declare interface AttractionZReportAttractionResponseDTO {
 
   files: number[];
 
-  price: number;
+  size: number;
+  price: number | null;
+  pricing_type?: "single" | "tariff";
+  tariffs?: AttractionZReportTariffDTO[];
   duration: number;
   seats: number;
 
@@ -163,11 +192,13 @@ declare interface AttractionZReportAttractionResponseDTO {
 
   description: string | null;
 
-  zreports: Array<Omit<AttractionReportResponseDTO, "promotion_reports">>;
+  zreports: AttractionZReportResponseDTO[];
 
-  promotion_reports: PromotionReportResponseDTO[];
+  promotion_reports: AttractionZPromotionReportResponseDTO[];
 
-  total_reports: AttractionZReportTotalsDTO;
+  total_reports:
+    | AttractionZReportTotalsDTO
+    | AttractionZReportTotalsWithTariffsDTO;
 }
 
 declare interface AccountingAttractionDTO {
@@ -183,7 +214,8 @@ declare interface AccountingAttractionDTO {
 
   files: number[];
 
-  price: number;
+  size: number;
+  price: number | null;
   duration: number;
   seats: number;
 

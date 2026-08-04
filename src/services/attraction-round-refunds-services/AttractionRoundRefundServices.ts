@@ -603,6 +603,8 @@ export const RefundFinishedAttractionRoundService = async (
           operator: parsedOperatorID,
           cashbox: null,
           attraction: attractionID,
+          attraction_tariff: payment.attraction_tariff,
+          tariff_name: payment.tariff_name,
           xreport: Number(xReport.id),
           cashbox_report: null,
           type: CardTransactionType.REFUND,

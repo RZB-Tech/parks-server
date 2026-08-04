@@ -11,6 +11,8 @@ declare type AttractionRoundRefundTransactionPlain = Pick<
   | "payment_card_type"
   | "payment_service"
   | "promotion"
+  | "attraction_tariff"
+  | "tariff_name"
   | "createdAt"
 >;
 
@@ -26,6 +28,8 @@ declare interface AttractionRoundRefundTransactionResponseDTO {
   payment_card_type: CardTransactionModelI["payment_card_type"];
   payment_service_type: CardTransactionModelI["payment_service"];
   promotion: number | null;
+  attraction_tariff: number | null;
+  tariff_name: string | null;
   created_at: Date | null;
 }
 

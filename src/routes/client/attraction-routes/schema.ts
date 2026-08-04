@@ -9,6 +9,22 @@ const nullableIntegerSchema = {
   anyOf: [{ type: "integer" }, { type: "null" }],
 };
 
+const clientAttractionTariffsSchema = {
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      id: { type: "integer" },
+      name: { type: "string" },
+      original_price: { type: "integer" },
+      price: { type: "integer" },
+      discount_percent: { type: "number" },
+      sort_order: { type: "integer" },
+    },
+  },
+};
+
 export const getClientAttractionsSchema = {
   tags: ["Clients|Attractions"],
   summary: "Get client attractions",
@@ -57,15 +73,20 @@ export const getClientAttractionsSchema = {
                 type: "integer",
               },
             },
+            size: { type: "number" },
             latitude: { type: "string" },
             longitude: { type: "string" },
+            pricing_type: {
+              type: "string",
+              enum: ["single", "tariff"],
+            },
             original_price: {
-              type: "integer",
+              ...nullableIntegerSchema,
               description:
                 "Original unit price before the active promotion discount.",
             },
             price: {
-              type: "integer",
+              ...nullableIntegerSchema,
               description:
                 "Current payable unit price. Uses the active promotion discounted price when available.",
             },
@@ -74,6 +95,7 @@ export const getClientAttractionsSchema = {
               description:
                 "Current active promotion discount percent, or zero when no promotion is active.",
             },
+            tariffs: clientAttractionTariffsSchema,
             duration: { type: "integer" },
             seats: { type: "integer" },
             age_limit: nullableIntegerSchema,
@@ -131,11 +153,17 @@ export const getClientAttractionSchema = {
               { type: "null" },
             ],
           },
+          size: { type: "number" },
           latitude: nullableStringSchema,
           longitude: nullableStringSchema,
-          original_price: { type: "integer" },
-          price: { type: "integer" },
+          pricing_type: {
+            type: "string",
+            enum: ["single", "tariff"],
+          },
+          original_price: nullableIntegerSchema,
+          price: nullableIntegerSchema,
           discount_percent: { type: "number" },
+          tariffs: clientAttractionTariffsSchema,
           duration: { type: "integer" },
           seats: { type: "integer" },
           age_limit: nullableIntegerSchema,
@@ -152,8 +180,8 @@ export const getClientAttractionSchema = {
                   name: { type: "string" },
                   type: { type: "string" },
                   discount_percent: { type: "number" },
-                  original_price: { type: "integer" },
-                  discounted_price: { type: "integer" },
+                  original_price: nullableIntegerSchema,
+                  discounted_price: nullableIntegerSchema,
                   started_at: {
                     type: "string",
                     format: "date-time",
@@ -204,13 +232,17 @@ export const getClientAttractionRoundSchema = {
         properties: {
           id: { type: "integer" },
           name: { type: "string" },
+          pricing_type: {
+            type: "string",
+            enum: ["single", "tariff"],
+          },
           original_price: {
-            type: "integer",
+            ...nullableIntegerSchema,
             description:
               "Original unit price before the active promotion discount.",
           },
           price: {
-            type: "integer",
+            ...nullableIntegerSchema,
             description:
               "Current payable unit price. Uses the active promotion discounted price when available.",
           },
@@ -219,6 +251,7 @@ export const getClientAttractionRoundSchema = {
             description:
               "Current active promotion discount percent, or zero when no promotion is active.",
           },
+          tariffs: clientAttractionTariffsSchema,
           promotion: {
             description:
               "The promotion currently active for this attraction, or null when no promotion is active.",
@@ -231,8 +264,8 @@ export const getClientAttractionRoundSchema = {
                   name: { type: "string" },
                   type: { type: "string" },
                   discount_percent: { type: "number" },
-                  original_price: { type: "integer" },
-                  discounted_price: { type: "integer" },
+                  original_price: nullableIntegerSchema,
+                  discounted_price: nullableIntegerSchema,
                   started_at: {
                     type: "string",
                     format: "date-time",
@@ -247,6 +280,7 @@ export const getClientAttractionRoundSchema = {
             ],
           },
           main_file: nullableIntegerSchema,
+          size: { type: "number" },
           seats: { type: "integer" },
           available_seats: { type: "integer" },
           round: {

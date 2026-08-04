@@ -1,19 +1,26 @@
 import { Op, Transaction } from "sequelize";
 import { InternalServerError } from "../../exceptions";
 import { PaymentServiceType } from "../../models/postgresql/card-transactions-model/enums";
-import { CashboxTypes } from "../../models/postgresql/cashbox-model/enums";
+import {
+  CashboxStatusTypes,
+  CashboxTypes,
+} from "../../models/postgresql/cashbox-model/enums";
 import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
 import {
   CashboxReportStatusTypes,
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
 import { CashboxModel } from "../../plugins/db/postgresql/db";
-import { getTashkentDayRangeUTC } from "../../utils/date";
+import {
+  getMostRecentTashkentCutoffUTC,
+  getTashkentDayRangeUTC,
+} from "../../utils/date";
 
 export const ONLINE_PAYMENTS_CASHBOX_KEY = "online_payments";
 
 export const GetOrCreateOnlineDailyZReportService = async (
   transaction: Transaction,
+  referenceTime: string | Date = new Date(),
 ) => {
   const cashbox = await CashboxModel.findOne({
     where: {
@@ -28,9 +35,20 @@ export const GetOrCreateOnlineDailyZReportService = async (
     throw InternalServerError("ONLINE_PAYMENTS_CASHBOX_NOT_CONFIGURED");
   }
 
-  const { startDate, endDate } = getTashkentDayRangeUTC();
+  const referenceDate =
+    referenceTime instanceof Date ? referenceTime : new Date(referenceTime);
+
+  if (Number.isNaN(referenceDate.getTime())) {
+    throw InternalServerError("INVALID_ONLINE_REPORT_REFERENCE_TIME");
+  }
+
+  const { startDate, endDate } = getTashkentDayRangeUTC(referenceDate);
   const now = new Date();
 
+  /*
+   * Heal stale daily reports before opening/using today's report. Checking
+   * OPEN and STOPPED also normalizes legacy rows whose closed_at is already set.
+   */
   await CashboxReportModel.update(
     {
       status: CashboxReportStatusTypes.CLOSED,
@@ -40,8 +58,13 @@ export const GetOrCreateOnlineDailyZReportService = async (
       where: {
         cashbox: cashbox.id,
         report_type: CashboxReportTypes.ZREPORT,
-        status: CashboxReportStatusTypes.OPEN,
-        created_at: {
+        status: {
+          [Op.in]: [
+            CashboxReportStatusTypes.OPEN,
+            CashboxReportStatusTypes.STOPPED,
+          ],
+        },
+        report_date: {
           [Op.lt]: startDate,
         },
       },
@@ -53,7 +76,8 @@ export const GetOrCreateOnlineDailyZReportService = async (
     where: {
       cashbox: cashbox.id,
       report_type: CashboxReportTypes.ZREPORT,
-      created_at: {
+      status: CashboxReportStatusTypes.OPEN,
+      report_date: {
         [Op.between]: [startDate, endDate],
       },
     },
@@ -62,6 +86,26 @@ export const GetOrCreateOnlineDailyZReportService = async (
   });
 
   if (!report) {
+    const existingCurrentReport = await CashboxReportModel.findOne({
+      where: {
+        cashbox: cashbox.id,
+        report_type: CashboxReportTypes.ZREPORT,
+        report_date: {
+          [Op.between]: [startDate, endDate],
+        },
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    /*
+     * Never append a payment to a report that the 23:59 workflow has closed.
+     * The provider can retry after midnight, when a new daily report is open.
+     */
+    if (existingCurrentReport) {
+      throw InternalServerError("ONLINE_DAILY_ZREPORT_IS_NOT_OPEN");
+    }
+
     report = await CashboxReportModel.create(
       {
         operator: null,
@@ -80,13 +124,28 @@ export const GetOrCreateOnlineDailyZReportService = async (
     );
   }
 
+  await CashboxModel.update(
+    {
+      status: CashboxStatusTypes.ACTIVE,
+    },
+    {
+      where: {
+        id: cashbox.id,
+        status: CashboxStatusTypes.INACTIVE,
+      },
+      transaction,
+    },
+  );
+
   return {
     cashbox,
     report,
   };
 };
 
-export const CloseOnlineDailyZReportService = async () => {
+export const CloseOnlineDailyZReportService = async (
+  referenceTime: string | Date = new Date(),
+) => {
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
@@ -103,8 +162,12 @@ export const CloseOnlineDailyZReportService = async () => {
       throw InternalServerError("ONLINE_PAYMENTS_CASHBOX_NOT_CONFIGURED");
     }
 
-    const { startDate, endDate } = getTashkentDayRangeUTC();
     const now = new Date();
+    const cutoff = getMostRecentTashkentCutoffUTC(
+      referenceTime,
+      23,
+      59,
+    );
 
     const [closedReports] = await CashboxReportModel.update(
       {
@@ -122,28 +185,62 @@ export const CloseOnlineDailyZReportService = async () => {
               CashboxReportStatusTypes.STOPPED,
             ],
           },
-          closed_at: null,
-          created_at: {
-            [Op.between]: [startDate, endDate],
+          opened_at: {
+            [Op.lte]: cutoff,
           },
         },
         transaction,
       },
     );
 
+    const remainingActiveReports = await CashboxReportModel.count({
+      where: {
+        cashbox: cashbox.id,
+        report_type: CashboxReportTypes.ZREPORT,
+        status: {
+          [Op.in]: [
+            CashboxReportStatusTypes.OPEN,
+            CashboxReportStatusTypes.STOPPED,
+          ],
+        },
+      },
+      transaction,
+    });
+
+    let reconciledCashboxes = 0;
+
+    if (remainingActiveReports === 0) {
+      [reconciledCashboxes] = await CashboxModel.update(
+        {
+          status: CashboxStatusTypes.INACTIVE,
+        },
+        {
+          where: {
+            id: cashbox.id,
+            status: CashboxStatusTypes.ACTIVE,
+          },
+          transaction,
+        },
+      );
+    }
+
     return {
       cashbox: Number(cashbox.id),
       closed_zreports: closedReports,
+      reconciled_cashboxes: reconciledCashboxes,
+      cutoff: cutoff.toISOString(),
     };
   });
 };
 
-export const OpenOnlineDailyZReportService = async () => {
+export const OpenOnlineDailyZReportService = async (
+  referenceTime: string | Date = new Date(),
+) => {
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
     const { cashbox, report } =
-      await GetOrCreateOnlineDailyZReportService(transaction);
+      await GetOrCreateOnlineDailyZReportService(transaction, referenceTime);
 
     return {
       cashbox: Number(cashbox.id),

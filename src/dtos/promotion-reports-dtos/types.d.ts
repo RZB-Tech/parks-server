@@ -90,6 +90,8 @@ declare interface PromotionReportPlain {
   total_amount: number | string;
   paid_amount: number | string;
 
+  tariff_reports?: AttractionTariffReportPlain[];
+
   createdAt?: Date;
   updatedAt?: Date;
 

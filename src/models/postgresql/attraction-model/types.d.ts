@@ -8,9 +8,10 @@ declare interface AttractionModelI {
   main_file: number;
   files: Array<number>;
   sub_attraction_files: Array<number>;
+  size: number;
   latitude: string | null;
   longitude: string | null;
-  price: number;
+  price: number | null;
   duration: number;
   seats: number;
   age_limit: number;
@@ -18,7 +19,10 @@ declare interface AttractionModelI {
   max_weight: number;
   description: string;
 
-  attraction_operator?: AttractionOperatorModelI & {
-    operators?: EmployeeModelI;
-  };
+  attraction_operator?: Array<
+    AttractionOperatorModelI & {
+      operators?: EmployeeModelI;
+    }
+  >;
+  tariffs?: AttractionTariffModelI[];
 }

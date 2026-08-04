@@ -8,6 +8,7 @@ import {
 import {
   getAccountingDateRange,
   getDateRange,
+  getMostRecentTashkentCutoffUTC,
   getTashkentDayRangeUTC,
   getTodayRange,
 } from "../../utils/date";
@@ -85,6 +86,12 @@ export const OpenCashboxReportService = async (
       where: {
         cashbox: cashboxID,
         report_type: CashboxReportTypes.ZREPORT,
+        status: {
+          [Op.in]: [
+            CashboxReportStatusTypes.OPEN,
+            CashboxReportStatusTypes.STOPPED,
+          ],
+        },
         created_at: {
           [Op.between]: [startDate, endDate],
         },
@@ -786,10 +793,13 @@ export const GetNotConfirmedZReportDatesService = async () => {
   return reports.map((report) => report.report_date);
 };
 
-export const AutoCloseUnclosedXReportsService = async () => {
+export const AutoCloseUnclosedXReportsService = async (
+  referenceTime: string | Date = new Date(),
+) => {
   const sequelize = CashboxReportModel.sequelize!;
   return await sequelize.transaction(async (transaction) => {
     const now = new Date();
+    const cutoff = getMostRecentTashkentCutoffUTC(referenceTime, 3, 0);
 
     const notClosedStatuses = [
       CashboxReportStatusTypes.OPEN,
@@ -830,9 +840,8 @@ export const AutoCloseUnclosedXReportsService = async () => {
         status: {
           [Op.in]: notClosedStatuses,
         },
-        closed_at: null,
         opened_at: {
-          [Op.lte]: now,
+          [Op.lt]: cutoff,
         },
       },
       attributes: ["id", "zreport"],
@@ -858,7 +867,6 @@ export const AutoCloseUnclosedXReportsService = async () => {
             status: {
               [Op.in]: notClosedStatuses,
             },
-            closed_at: null,
           },
           transaction,
         },
@@ -879,9 +887,8 @@ export const AutoCloseUnclosedXReportsService = async () => {
         status: {
           [Op.in]: notClosedStatuses,
         },
-        closed_at: null,
         opened_at: {
-          [Op.lte]: now,
+          [Op.lt]: cutoff,
         },
       },
       attributes: ["id", "cashbox"],
@@ -908,34 +915,64 @@ export const AutoCloseUnclosedXReportsService = async () => {
             status: {
               [Op.in]: notClosedStatuses,
             },
-            closed_at: null,
-          },
-          transaction,
-        },
-      );
-
-      const closedCashboxIDs = [
-        ...new Set(zreports.map((report) => Number(report.cashbox))),
-      ];
-
-      await CashboxModel.update(
-        {
-          status: CashboxStatusTypes.INACTIVE,
-        },
-        {
-          where: {
-            id: {
-              [Op.in]: closedCashboxIDs,
-            },
           },
           transaction,
         },
       );
     }
 
+    /*
+     * Legacy data can contain an ACTIVE cashbox with no OPEN/STOPPED report
+     * (for example, when its Z-report was closed before the cashbox update).
+     * Reconcile every physical cashbox, not only the ones closed in this run.
+     */
+    const remainingActiveReports = await CashboxReportModel.findAll({
+      where: {
+        cashbox: {
+          [Op.in]: physicalCashboxIDs,
+        },
+        status: {
+          [Op.in]: notClosedStatuses,
+        },
+      },
+      attributes: ["cashbox"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    const remainingActiveCashboxIDs = [
+      ...new Set(
+        remainingActiveReports.map((report) => Number(report.cashbox)),
+      ),
+    ];
+
+    const [reconciledCashboxes] = await CashboxModel.update(
+      {
+        status: CashboxStatusTypes.INACTIVE,
+      },
+      {
+        where: {
+          type: CashboxTypes.PHYSICAL,
+          status: CashboxStatusTypes.ACTIVE,
+          id:
+            remainingActiveCashboxIDs.length > 0
+              ? {
+                  [Op.in]: physicalCashboxIDs,
+                  [Op.notIn]: remainingActiveCashboxIDs,
+                }
+              : {
+                  [Op.in]: physicalCashboxIDs,
+                },
+        },
+        transaction,
+      },
+    );
+
     return {
       closed_xreports: closedXreports,
       closed_zreports: closedZreports,
+      reconciled_cashboxes: reconciledCashboxes,
+      cutoff: cutoff.toISOString(),
       message: "Unclosed X reports and Z reports closed successfully.",
     };
   });

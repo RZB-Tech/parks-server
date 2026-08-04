@@ -47,7 +47,8 @@ export const OperatorAttractionsDTO = (
       attraction.dashboard_file !== null
         ? Number(attraction.dashboard_file)
         : null,
-    price: Number(attraction.price),
+    size: Number(attraction.size || 1),
+    price: attraction.price === null ? null : Number(attraction.price),
     age_limit: Number(attraction.age_limit),
     min_height: Number(attraction.min_height),
     max_weight: Number(attraction.max_weight),

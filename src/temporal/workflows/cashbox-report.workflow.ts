@@ -1,4 +1,4 @@
-import { proxyActivities } from "@temporalio/workflow";
+import { proxyActivities, workflowInfo } from "@temporalio/workflow";
 import type * as activities from "../activities/cashbox-report.activities";
 
 const {
@@ -8,18 +8,26 @@ const {
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "5 minutes",
   retry: {
-    maximumAttempts: 3,
+    initialInterval: "30 seconds",
+    maximumInterval: "10 minutes",
+    maximumAttempts: 10,
   },
 });
 
 export const closeUnclosedXReportsWorkflow = async () => {
-  return await closeUnclosedXReportsActivity();
+  return await closeUnclosedXReportsActivity(
+    workflowInfo().startTime.toISOString(),
+  );
 };
 
 export const closeOnlineDailyZReportWorkflow = async () => {
-  return await closeOnlineDailyZReportActivity();
+  return await closeOnlineDailyZReportActivity(
+    workflowInfo().startTime.toISOString(),
+  );
 };
 
 export const openOnlineDailyZReportWorkflow = async () => {
-  return await openOnlineDailyZReportActivity();
+  return await openOnlineDailyZReportActivity(
+    workflowInfo().startTime.toISOString(),
+  );
 };

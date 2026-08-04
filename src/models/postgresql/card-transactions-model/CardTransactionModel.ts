@@ -22,6 +22,8 @@ export class CardTransactionModel
   public operator!: number | null;
   public cashbox!: number | null;
   public attraction!: number | null;
+  public attraction_tariff!: number | null;
+  public tariff_name!: string | null;
   public xreport!: number | null;
   public cashbox_report!: number | null;
 
@@ -96,6 +98,16 @@ export class CardTransactionModel
 
         attraction: {
           type: DataTypes.BIGINT,
+          allowNull: true,
+        },
+
+        attraction_tariff: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+        },
+
+        tariff_name: {
+          type: DataTypes.STRING(100),
           allowNull: true,
         },
 
@@ -278,6 +290,12 @@ export class CardTransactionModel
     CardTransactionModel.belongsTo(models.AttractionModel, {
       foreignKey: "attraction",
       as: "attractions",
+    });
+
+    CardTransactionModel.belongsTo(models.AttractionTariffModel, {
+      foreignKey: "attraction_tariff",
+      as: "attraction_tariffs",
+      onDelete: "SET NULL",
     });
 
     CardTransactionModel.belongsTo(models.AttractionReportModel, {

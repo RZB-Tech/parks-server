@@ -47,6 +47,12 @@ export const clientAttractionPaymentSchema = {
         description:
           "Maximum amount confirmed by the client. The server recalculates and applies the current active promotion price.",
       },
+      tariffID: {
+        type: "integer",
+        minimum: 1,
+        description:
+          "Required when the attraction uses tariff pricing; omit it for a single-price attraction.",
+      },
     },
   }),
 
@@ -60,6 +66,10 @@ export const clientAttractionPaymentSchema = {
           id: { type: "integer" },
           card: { type: "integer" },
           attraction: { type: "integer" },
+          attraction_tariff: nullableIntegerSchema,
+          tariff_name: {
+            anyOf: [{ type: "string" }, { type: "null" }],
+          },
           type: { type: "string" },
           amount: { type: "number" },
           balance_before: { type: "number" },
@@ -188,6 +198,18 @@ export const getClientTransactionsSchema = {
               description:
                 "Number of people paid for in this attraction transaction.",
             },
+            tariff: {
+              anyOf: [
+                {
+                  type: "object",
+                  properties: {
+                    id: { type: "integer" },
+                    name: { type: "string" },
+                  },
+                },
+                { type: "null" },
+              ],
+            },
             card: {
               type: "object",
               properties: {
@@ -205,6 +227,7 @@ export const getClientTransactionsSchema = {
                     id: { type: "integer" },
                     name: { type: "string" },
                     main_file: nullableIntegerSchema,
+                    size: { type: "number" },
                   },
                 },
                 { type: "null" },

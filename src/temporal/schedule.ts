@@ -37,8 +37,8 @@ const ensureSchedule = async (data: {
       timezone: "Asia/Tashkent",
     },
     policies: {
-      overlap: ScheduleOverlapPolicy.SKIP,
-      catchupWindow: data.catchupWindowMs ?? 60 * 60 * 1000,
+      overlap: ScheduleOverlapPolicy.BUFFER_ONE,
+      catchupWindow: data.catchupWindowMs ?? 36 * 60 * 60 * 1000,
     },
   };
 
@@ -58,7 +58,9 @@ const ensureSchedule = async (data: {
 
     await handle.update((previous) => ({
       ...schedule,
-      state: previous.state,
+      state: {
+        paused: false,
+      },
       searchAttributes: previous.searchAttributes,
       typedSearchAttributes: previous.typedSearchAttributes,
     }));
@@ -90,7 +92,7 @@ export const ensureTemporalSchedules = async () => {
     taskQueue: "cashbox-report-queue",
     hour: 23,
     minute: 59,
-    catchupWindowMs: 30 * 1000,
+    catchupWindowMs: 36 * 60 * 60 * 1000,
   });
 
   await ensureSchedule({
@@ -101,6 +103,24 @@ export const ensureTemporalSchedules = async () => {
     minute: 0,
   });
 }; 
+
+/**
+ * Reconcile legacy/unclosed cashbox data immediately after deployment instead
+ * of waiting for the next 03:00 or 23:59 tick. Both workflows apply their own
+ * business-time cutoff, so current reports are safe from the recovery trigger.
+ */
+export const triggerCashboxReportRecovery = async () => {
+  const client = await getTemporalClient();
+
+  await Promise.all([
+    client.schedule
+      .getHandle("nightly-close-unclosed-xreports")
+      .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
+    client.schedule
+      .getHandle("nightly-close-online-payment-zreport")
+      .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
+  ]);
+};
 
 if (require.main === module) {
   ensureTemporalSchedules()

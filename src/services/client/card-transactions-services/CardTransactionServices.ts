@@ -32,6 +32,8 @@ import { getTashkentMonthRangeUTC } from "../../../utils/date";
 import { FindBestActivePromotionForAttractionService } from "../../promotion-services/PromotionServices";
 import { UpsertPromotionReportService } from "../../promotion-reports-services/PromotionReportsServices";
 import { GetOrCreateOpenAttractionRoundService } from "../../attraction-reports-services/AttractionReportsServices";
+import { ResolveAttractionPricingService } from "../../attraction-tariffs-services/AttractionTariffsServices";
+import { CalculateAttractionSalePrice } from "../../../utils/attractionPricing";
 
 export const ClientAttractionPaymentService = async (
   telegramID: number,
@@ -112,12 +114,13 @@ export const ClientAttractionPaymentService = async (
         throw BadRequest("ATTRACTION_NOT_AVAILABLE");
       }
 
-      const attractionPrice = Number(attraction.price ?? 0);
       const totalSeats = Number(attraction.seats ?? 0);
 
-      if (!Number.isSafeInteger(attractionPrice) || attractionPrice < 1) {
-        throw BadRequest("INVALID_ATTRACTION_PRICE");
-      }
+      const resolvedPricing = await ResolveAttractionPricingService(
+        attraction,
+        body.tariffID,
+        transaction,
+      );
 
       if (!Number.isInteger(totalSeats) || totalSeats < 1) {
         throw BadRequest("INVALID_ATTRACTION_SEATS");
@@ -189,17 +192,15 @@ export const ClientAttractionPaymentService = async (
 
       const hasPromotion = promotion !== null;
 
-      const originalUnitPrice = promotion
-        ? Number(promotion.original_price)
-        : attractionPrice;
-
-      const saleUnitPrice = promotion
-        ? Number(promotion.discounted_price)
-        : attractionPrice;
-
       const discountPercent = promotion
         ? Number(promotion.discount_percent)
         : 0;
+
+      const originalUnitPrice = resolvedPricing.price;
+
+      const saleUnitPrice = promotion
+        ? CalculateAttractionSalePrice(originalUnitPrice, discountPercent)
+        : originalUnitPrice;
 
       if (!Number.isSafeInteger(originalUnitPrice) || originalUnitPrice < 0) {
         throw BadRequest("INVALID_ORIGINAL_UNIT_PRICE");
@@ -319,6 +320,8 @@ export const ClientAttractionPaymentService = async (
           cashbox: null,
 
           attraction: attractionID,
+          attraction_tariff: resolvedPricing.tariff?.id ?? null,
+          tariff_name: resolvedPricing.tariff?.name ?? null,
           xreport: xreportID,
 
           type: CardTransactionType.PAYMENT,

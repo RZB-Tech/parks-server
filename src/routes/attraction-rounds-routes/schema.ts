@@ -130,7 +130,7 @@ export const attractionRoundAttractionProperties = {
   },
 
   price: {
-    type: "number",
+    oneOf: [{ type: "number" }, { type: "null" }],
   },
 
   duration: {
@@ -234,6 +234,10 @@ export const attractionRoundTransactionProperties = {
   },
 
   operator: nullableNumber,
+
+  attraction_tariff: nullableNumber,
+
+  tariff_name: nullableString,
 
   payment_type: {
     type: "string",

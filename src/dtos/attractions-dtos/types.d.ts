@@ -16,4 +16,5 @@ type AttractionWithOperatorsPlain = AttractionModelI & {
       >;
     }
   >;
+  tariffs?: AttractionTariffModelI[];
 };

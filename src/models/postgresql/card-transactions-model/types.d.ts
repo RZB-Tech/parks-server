@@ -6,6 +6,8 @@ declare interface CardTransactionModelI {
   operator: number | null;
   cashbox: number | null;
   attraction: number | null;
+  attraction_tariff: number | null;
+  tariff_name: string | null;
   xreport: number | null;
   cashbox_report: number | null;
 

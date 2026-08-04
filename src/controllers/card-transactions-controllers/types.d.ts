@@ -27,6 +27,7 @@ declare interface GetCashboxCardTransactionsQuery {
 declare interface CardPaymentTransactionData {
   nfc: string;
   attractionID: number;
+  tariffID?: number;
 }
 
 declare interface CardRefundData {

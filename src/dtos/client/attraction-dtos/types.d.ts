@@ -8,13 +8,16 @@ declare interface ClientAttractionResponseDTO {
   main_file: number | null;
   files: Array<number>;
   sub_attraction_files: Array<number> | null;
+  size: number;
 
   latitude: string | null;
   longitude: string | null;
 
-  original_price: number;
-  price: number;
+  pricing_type: "single" | "tariff";
+  original_price: number | null;
+  price: number | null;
   discount_percent: number;
+  tariffs: ClientAttractionTariffDTO[];
   duration: number;
   seats: number;
 
@@ -33,8 +36,8 @@ declare interface ClientAttractionDetailsResponseDTO
     name: string;
     type: PromotionTypes;
     discount_percent: number;
-    original_price: number;
-    discounted_price: number;
+    original_price: number | null;
+    discounted_price: number | null;
     started_at: Date;
     ended_at: Date;
   } | null;
@@ -43,21 +46,24 @@ declare interface ClientAttractionDetailsResponseDTO
 declare interface AttractionLastRoundResponseDTO {
   id: number;
   name: string;
-  original_price: number;
-  price: number;
+  pricing_type: "single" | "tariff";
+  original_price: number | null;
+  price: number | null;
   discount_percent: number;
+  tariffs: ClientAttractionTariffDTO[];
   promotion: {
     id: number;
     code: string;
     name: string;
     type: PromotionTypes;
     discount_percent: number;
-    original_price: number;
-    discounted_price: number;
+    original_price: number | null;
+    discounted_price: number | null;
     started_at: Date;
     ended_at: Date;
   } | null;
   main_file: number | null;
+  size: number;
   seats: number;
 
   round: {
@@ -70,4 +76,13 @@ declare interface AttractionLastRoundResponseDTO {
   } | null;
 
   available_seats: number;
+}
+
+declare interface ClientAttractionTariffDTO {
+  id: number;
+  name: string;
+  original_price: number;
+  price: number;
+  discount_percent: number;
+  sort_order: number;
 }

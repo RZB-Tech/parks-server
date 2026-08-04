@@ -47,6 +47,8 @@ import { UserModel } from "../../plugins/db/postgresql/db";
 import { FindBestActivePromotionForAttractionService } from "../promotion-services/PromotionServices";
 import { UpsertPromotionReportService } from "../promotion-reports-services/PromotionReportsServices";
 import { CARD_ACTIVATION_AMOUNT } from "../../consts/card";
+import { ResolveAttractionPricingService } from "../attraction-tariffs-services/AttractionTariffsServices";
+import { CalculateAttractionSalePrice } from "../../utils/attractionPricing";
 
 export const CheckNfcCardService = async (
   operatorID: number,
@@ -641,12 +643,13 @@ export const CardPaymentTransactionService = async (
       throw NotFound("Attraction not found!");
     }
 
-    const attractionPrice = Number(attraction.price);
     const seats = Number(attraction.seats);
 
-    if (!Number.isSafeInteger(attractionPrice) || attractionPrice < 0) {
-      throw BadRequest("Attraction price is invalid!");
-    }
+    const resolvedPricing = await ResolveAttractionPricingService(
+      attraction,
+      body.tariffID,
+      transaction,
+    );
 
     if (!Number.isInteger(seats) || seats <= 0) {
       throw BadRequest("Attraction seats count is invalid!");
@@ -722,15 +725,13 @@ export const CardPaymentTransactionService = async (
 
     const hasPromotion = promotion !== null;
 
-    const originalUnitPrice = promotion
-      ? Number(promotion.original_price)
-      : attractionPrice;
+    const discountPercent = promotion ? Number(promotion.discount_percent) : 0;
+
+    const originalUnitPrice = resolvedPricing.price;
 
     const saleUnitPrice = promotion
-      ? Number(promotion.discounted_price)
-      : attractionPrice;
-
-    const discountPercent = promotion ? Number(promotion.discount_percent) : 0;
+      ? CalculateAttractionSalePrice(originalUnitPrice, discountPercent)
+      : originalUnitPrice;
 
     if (!Number.isSafeInteger(originalUnitPrice) || originalUnitPrice < 0) {
       throw BadRequest("Promotion original price is invalid!");
@@ -837,6 +838,8 @@ export const CardPaymentTransactionService = async (
         operator: parsedOperatorID,
         cashbox: null,
         attraction: attractionID,
+        attraction_tariff: resolvedPricing.tariff?.id ?? null,
+        tariff_name: resolvedPricing.tariff?.name ?? null,
         xreport: xreportID,
         type: CardTransactionType.PAYMENT,
         amount: chargedAmount,
