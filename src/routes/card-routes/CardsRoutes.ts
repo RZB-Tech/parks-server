@@ -27,13 +27,13 @@ const CardsRouter: FastifyPluginAsync = async (
 
   fastify.get(
     "/cards/stats",
-    { schema: getCardStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
+    { schema: getCardStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accauntant', 'head_cashier'])] },
     GetCardStatsController,
   );
 
   fastify.get(
     "/cards",
-    { schema: getCardsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
+    { schema: getCardsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accauntant', 'head_cashier'])] },
     GetCardsController,
   );
 
@@ -45,13 +45,13 @@ const CardsRouter: FastifyPluginAsync = async (
 
   fastify.put(
     "/cards/:cardID",
-    { schema: updateCardSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
+    { schema: updateCardSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accauntant', 'head_cashier'])] },
     UpdateCardsController,
   );
 
   fastify.delete(
     "/cards",
-    { schema: deleteCardsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_cashier'])] },
+    { schema: deleteCardsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accauntant', 'head_cashier'])] },
     DeleteCardsController,
   );
 };

@@ -6,31 +6,21 @@ import {
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 import {
   closeCurrentAttractionRoundSchema,
-  getAttractionRoundRefundsSchema,
   getCurrentAttractionRoundSchema,
   getTodayAttractionRoundsSchema,
   getTodayRoundsSchema,
-  refundFinishedAttractionRoundSchema,
 } from "./schema";
 import {
   CloseCurrentAttractionRoundController,
-  GetAttractionRoundRefundsController,
   GetCurrentAttractionRoundController,
   GetTodayAttractionRoundsController,
   GetTodayRoundsController,
-  RefundFinishedAttractionRoundController,
 } from "../../controllers/attraction-round-controllers/AttractionRoundController";
 
 const AttractionRoundsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.get(
-    "/attractions/rounds/refunds",
-    { schema: getAttractionRoundRefundsSchema, preHandler: [AuthMiddleware]},
-    GetAttractionRoundRefundsController,
-  );
-
   fastify.get(
     "/attractions/:attractionID/rounds/current",
     { schema: getCurrentAttractionRoundSchema, preHandler: [AuthMiddleware] },
@@ -55,11 +45,6 @@ const AttractionRoundsRouter: FastifyPluginAsync = async (
     CloseCurrentAttractionRoundController,
   );
 
-  fastify.post(
-    "/attractions/:attractionID/rounds/:roundID/refunds",
-    { schema: refundFinishedAttractionRoundSchema, preHandler: [AuthMiddleware] },
-    RefundFinishedAttractionRoundController,
-  );
 };
 
 export default AttractionRoundsRouter;

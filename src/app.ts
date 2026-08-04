@@ -29,6 +29,7 @@ import CardTransactionsRouter from "./routes/card-transactions-routes/CardTransa
 import CashboxReportsRouter from "./routes/cashbox-reports-routes/CashboxReportsRoutes";
 import AttractionReportsRouter from "./routes/attraction-reports-routes/AttractionReportsRoutes";
 import AttractionRoundsRouter from "./routes/attraction-rounds-routes/AttractionRoundsRoutes";
+import AttractionRoundRefundRouter from "./routes/attraction-round-refunds-routes/AttractionRoundRefundRoutes";
 import SosRouter from "./routes/sos-routes/SosRoutes";
 import UserRouter from "./routes/client/user-routes/UserRoutes";
 import ClientAuthRouter from "./routes/client/auth-route/AuthRoutes";
@@ -78,6 +79,7 @@ export const build = async () => {
   app.register(AttractionOperatorsRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionReportsRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionRoundsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AttractionRoundRefundRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxesRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxOperatorsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxReportsRouter, { prefix: SERVER.API_PREFIX });

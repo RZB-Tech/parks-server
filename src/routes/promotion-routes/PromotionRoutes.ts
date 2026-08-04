@@ -14,27 +14,27 @@ const PromotionRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/promotions",
-    { schema: getAllPromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: getAllPromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
     GetAllPromotionsController,
   );
   fastify.get(
     "/promotions/:promotionID",
-    { schema: getPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: getPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
     GetPromotionController,
   );
   fastify.post(
     "/promotion",
-    { schema: createPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: createPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
     CreatePromotionController,
   );
   fastify.put(
     "/promotion/:promotionID",
-    { schema: updatePromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: updatePromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
     UpdatePromotionController,
   );
   fastify.delete(
     "/promotions",
-    { schema: deletePromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: deletePromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accauntant"])]},
     DeletePromotionController,
   );
 };
