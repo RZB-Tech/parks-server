@@ -103,6 +103,7 @@ export class CardTransactionModel
           type: DataTypes.BIGINT,
           allowNull: true,
         },
+        
         cashbox_report: {
           type: DataTypes.BIGINT,
           allowNull: true,

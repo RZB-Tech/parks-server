@@ -100,7 +100,7 @@ export const ensureTemporalSchedules = async () => {
     hour: 0,
     minute: 0,
   });
-};
+}; 
 
 if (require.main === module) {
   ensureTemporalSchedules()
