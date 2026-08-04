@@ -1,15 +1,12 @@
 import { FastifyInstance, FastifyPluginAsync } from "fastify";
 import fp from "fastify-plugin";
 import { sequelize } from "./db";
-import { ApplySchemaMigrations } from "./schemaMigrations";
 
 const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   try {
     await sequelize.authenticate();
 
     await sequelize.sync();
-
-    await ApplySchemaMigrations(sequelize);
 
     fastify.decorate("sequelize", sequelize);
 

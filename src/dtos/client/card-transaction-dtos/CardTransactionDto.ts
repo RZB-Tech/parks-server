@@ -26,6 +26,7 @@ export const ClientTransactionDTO = (
   card: CardsModelI,
   attraction: AttractionModelI | null,
   round: AttractionRoundModelI | null,
+  cashbox: CashboxModelI | null,
 ): ClientTransactionResponseDTO => {
   const amount = Number(transaction.amount || 0);
 
@@ -56,6 +57,12 @@ export const ClientTransactionDTO = (
       card: card.card,
       type: card.type,
     },
+    cashbox: cashbox
+      ? {
+          id: Number(cashbox.id),
+          name: cashbox.name,
+        }
+      : null,
     attraction: attraction
       ? {
           id: Number(attraction.id),

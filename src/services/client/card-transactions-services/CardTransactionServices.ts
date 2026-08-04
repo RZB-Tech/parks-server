@@ -6,6 +6,7 @@ import {
   AttractionReportModel,
   AttractionRoundModel,
   CardModel,
+  CashboxModel,
   UserModel,
 } from "../../../plugins/db/postgresql/db";
 import { UserStatusTypes } from "../../../models/postgresql/client/user-model/enums";
@@ -706,6 +707,30 @@ export const GetClientTransactionsService = async (
       })
     : [];
 
+  /*
+   * Cashboxlarni bitta query bilan olamiz. paranoid: false tarixdagi
+   * transaction uchun keyinchalik o‘chirilgan kassaning nomini ham saqlaydi.
+   */
+  const cashboxIDs = [
+    ...new Set(
+      transactions
+        .map((transaction) => Number(transaction.cashbox))
+        .filter((cashboxID) => Number.isInteger(cashboxID) && cashboxID > 0),
+    ),
+  ];
+
+  const cashboxes = cashboxIDs.length
+    ? await CashboxModel.findAll({
+        where: {
+          id: {
+            [Op.in]: cashboxIDs,
+          },
+        },
+        attributes: ["id", "name"],
+        paranoid: false,
+      })
+    : [];
+
   const transactionIDs = transactions.map((transaction) =>
     Number(transaction.id),
   );
@@ -724,6 +749,10 @@ export const GetClientTransactionsService = async (
 
   const attractionMap = new Map(
     attractions.map((attraction) => [Number(attraction.id), attraction]),
+  );
+
+  const cashboxMap = new Map(
+    cashboxes.map((cashbox) => [Number(cashbox.id), cashbox]),
   );
 
   const transactionRoundMap = new Map<number, AttractionRoundModel>();
@@ -748,7 +777,17 @@ export const GetClientTransactionsService = async (
 
     const round = transactionRoundMap.get(Number(transaction.id)) ?? null;
 
-    return ClientTransactionDTO(transaction, card, attraction, round);
+    const cashboxID = Number(transaction.cashbox);
+    const cashbox =
+      cashboxID > 0 ? (cashboxMap.get(cashboxID) ?? null) : null;
+
+    return ClientTransactionDTO(
+      transaction,
+      card,
+      attraction,
+      round,
+      cashbox,
+    );
   });
 
   const total = Number(transactionResult.count || 0);

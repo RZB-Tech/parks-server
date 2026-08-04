@@ -38,6 +38,11 @@ declare interface ClientTransactionAttractionDTO {
   size: number;
 }
 
+declare interface ClientTransactionCashboxDTO {
+  id: number;
+  name: string;
+}
+
 declare interface ClientTransactionRoundDTO {
   id: number;
   round_number: number;
@@ -77,6 +82,7 @@ declare interface ClientTransactionResponseDTO {
   } | null;
 
   card: ClientTransactionCardDTO;
+  cashbox: ClientTransactionCashboxDTO | null;
   attraction: ClientTransactionAttractionDTO | null;
   round: ClientTransactionRoundDTO | null;
   promotion: ClientTransactionPromotionDTO | null;

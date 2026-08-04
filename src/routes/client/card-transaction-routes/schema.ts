@@ -219,6 +219,20 @@ export const getClientTransactionsSchema = {
               },
             },
 
+            cashbox: {
+              anyOf: [
+                {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    id: { type: "integer" },
+                    name: { type: "string" },
+                  },
+                },
+                { type: "null" },
+              ],
+            },
+
             attraction: {
               anyOf: [
                 {
