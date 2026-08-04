@@ -274,10 +274,28 @@ export const GetTodayAttractionRoundsService = async (
   });
 };
 
-export const GetTodayRoundsService = async (): Promise<
+export const GetTodayRoundsService = async (
+  query: GetTodayRoundsQuery = {},
+): Promise<
   AttractionRoundResponseDTO[]
 > => {
-  const { startDate, endDate } = getTashkentDayRangeUTC();
+  const { startDate, endDate } = getTashkentDayRangeUTC(query.date);
+  const hasAttractionID = query.attractionID !== undefined;
+  const attractionID = hasAttractionID ? Number(query.attractionID) : undefined;
+
+  if (
+    hasAttractionID &&
+    (!Number.isInteger(attractionID) || Number(attractionID) <= 0)
+  ) {
+    throw BadRequest("ATTRACTION_ID_IS_INVALID");
+  }
+
+  const hasCardNumber = query.card_number !== undefined;
+  const cardNumber = hasCardNumber ? query.card_number!.trim() : undefined;
+
+  if (hasCardNumber && !cardNumber) {
+    throw BadRequest("CARD_NUMBER_IS_INVALID");
+  }
 
   const rounds = await AttractionRoundModel.findAll({
     where: {
@@ -288,9 +306,9 @@ export const GetTodayRoundsService = async (): Promise<
         ],
       },
       started_at: {
-        [Op.gte]: startDate,
-        [Op.lt]: endDate,
+        [Op.between]: [startDate, endDate],
       },
+      ...(attractionID !== undefined ? { attraction: attractionID } : {}),
     },
 
     include: [
@@ -361,6 +379,8 @@ export const GetTodayRoundsService = async (): Promise<
         {
           model: CardModel,
           as: "cards",
+          required: hasCardNumber,
+          ...(cardNumber ? { where: { card: cardNumber } } : {}),
         },
       ],
     });
@@ -374,29 +394,35 @@ export const GetTodayRoundsService = async (): Promise<
     }
   }
 
-  return roundData.map((round) => {
-    /*
-     * Har bir round uchun o‘z transactionlarini
-     * round.transactions array tartibida olamiz.
-     */
-    const roundTransactionIDs = Array.isArray(round.transactions)
-      ? round.transactions
-          .map(Number)
-          .filter(
-            (transactionID) =>
-              Number.isInteger(transactionID) && transactionID > 0,
-          )
-      : [];
+  return roundData
+    .map((round) => {
+      /*
+       * Har bir round uchun o‘z transactionlarini
+       * round.transactions array tartibida olamiz.
+       */
+      const roundTransactionIDs = Array.isArray(round.transactions)
+        ? round.transactions
+            .map(Number)
+            .filter(
+              (transactionID) =>
+                Number.isInteger(transactionID) && transactionID > 0,
+            )
+        : [];
 
-    const roundTransactions = roundTransactionIDs
-      .map((transactionID) => transactionMap.get(transactionID))
-      .filter(
-        (transaction): transaction is AttractionRoundTransactionPlain =>
-          transaction !== undefined,
-      );
+      const roundTransactions = roundTransactionIDs
+        .map((transactionID) => transactionMap.get(transactionID))
+        .filter(
+          (transaction): transaction is AttractionRoundTransactionPlain =>
+            transaction !== undefined,
+        );
 
-    return AttractionRoundDTO(round, roundTransactions);
-  });
+      if (hasCardNumber && roundTransactions.length === 0) {
+        return null;
+      }
+
+      return AttractionRoundDTO(round, roundTransactions);
+    })
+    .filter((round): round is AttractionRoundResponseDTO => round !== null);
 };
 
 export const CloseCurrentAttractionRoundService = async (

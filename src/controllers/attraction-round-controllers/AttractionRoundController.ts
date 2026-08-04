@@ -31,7 +31,9 @@ export const GetTodayAttractionRoundsController = makeReplyingController(
 export const GetTodayRoundsController = makeReplyingController(
   "attraction-rounds",
   async (request: FastifyRequest) => {
-    return GetTodayRoundsService();
+    const query = request.query as GetTodayRoundsQuery;
+
+    return GetTodayRoundsService(query);
   },
 );
 

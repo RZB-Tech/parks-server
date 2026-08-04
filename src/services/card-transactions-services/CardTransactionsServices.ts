@@ -24,7 +24,10 @@ import {
   CashboxReportStatusTypes,
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
-import { getTashkentDateOnly, getTodayRange } from "../../utils/date";
+import {
+  getTashkentDateOnly,
+  getTashkentDayRangeUTC,
+} from "../../utils/date";
 import {
   getReportTopUpIncrementData,
   validateTopUpPaymentType,
@@ -558,13 +561,13 @@ export const GetCardTransactionsService = async (
   const limit = Number(query.limit) || 10;
   const offset = (page - 1) * limit;
 
-  const { start, end } = getTodayRange();
+  const { startDate, endDate } = getTashkentDayRangeUTC(query.date);
 
   const { rows, count } = await CardTransactionModel.findAndCountAll({
     where: {
       cashbox: cashboxID,
       createdAt: {
-        [Op.between]: [start, end],
+        [Op.between]: [startDate, endDate],
       },
     },
     include: [

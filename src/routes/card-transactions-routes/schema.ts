@@ -516,7 +516,8 @@ export const cardRefundTransactionSchema = {
 
 export const getCardTransactionsSchema = {
   summary: "Get card transactions",
-  description: "Get today's card transactions by cashbox",
+  description:
+    "Get card transactions by cashbox for the requested Tashkent date. Defaults to today.",
   tags: ["Card Transactions route"],
   params: {
     type: "object",
@@ -534,6 +535,12 @@ export const getCardTransactionsSchema = {
     type: "object",
     additionalProperties: false,
     properties: {
+      date: {
+        type: "string",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description: "Transaction date in YYYY-MM-DD format",
+      },
+
       page: {
         type: "number",
         default: 1,

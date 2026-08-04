@@ -541,11 +541,31 @@ export const getTodayRoundsSchema = {
   summary: "Get all today attraction rounds",
 
   description:
-    "Get today's open and finished rounds for all attractions with operator, attraction and payment transaction details.",
+    "Get open and finished rounds by Tashkent date with optional attraction and card number filters.",
 
   tags: ["Attraction rounds route"],
 
   headers: authorizationHeaders,
+
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      date: {
+        type: "string",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description: "Round date in YYYY-MM-DD format. Defaults to today.",
+      },
+      attractionID: {
+        type: "integer",
+        minimum: 1,
+      },
+      card_number: {
+        type: "string",
+        minLength: 1,
+      },
+    },
+  },
 
   response: {
     200: successAnswerTemplate({

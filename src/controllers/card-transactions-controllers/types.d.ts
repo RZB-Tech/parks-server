@@ -19,6 +19,7 @@ declare interface CardTopUpTransactionData {
 }
 
 declare interface GetCashboxCardTransactionsQuery {
+  date?: string;
   page?: number;
   limit?: number;
 }
