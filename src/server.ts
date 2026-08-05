@@ -8,7 +8,7 @@ import { runNewsWorker } from "./temporal/workers/news.worker";
 import { runPromotionWorker } from "./temporal/workers/promotion.worker";
 import {
   ensureTemporalSchedules,
-  triggerCashboxReportRecovery,
+  triggerReportRecovery,
 } from "./temporal/schedule";
 
 export const app = build();
@@ -76,7 +76,7 @@ export const app = build();
         while (true) {
           try {
             await ensureTemporalSchedules();
-            await triggerCashboxReportRecovery();
+            await triggerReportRecovery();
             return;
           } catch (error) {
             failedAttempts += 1;

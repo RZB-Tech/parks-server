@@ -23,6 +23,7 @@ import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-r
 import {
   getAccountingDateRange,
   getDateRange,
+  getMostRecentTashkentCutoffUTC,
   getTashkentDayRangeUTC,
   getTodayRange,
 } from "../../utils/date";
@@ -1607,11 +1608,14 @@ export const GetNotConfirmedAttractionZReportDatesService = async () => {
   return reports.map((report) => report.report_date);
 };
 
-export const AutoCloseUnclosedAttractionReportsService = async () => {
+export const AutoCloseUnclosedAttractionReportsService = async (
+  referenceTime: string | Date = new Date(),
+) => {
   const sequelize = AttractionReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
     const now = new Date();
+    const cutoff = getMostRecentTashkentCutoffUTC(referenceTime, 3, 0);
 
     const closeableStatuses = [
       AttractionReportStatusTypes.OPEN,
@@ -1624,127 +1628,164 @@ export const AutoCloseUnclosedAttractionReportsService = async () => {
         status: {
           [Op.in]: closeableStatuses,
         },
-        closed_at: null,
+        opened_at: {
+          [Op.lt]: cutoff,
+        },
       },
       attributes: ["id", "zreport"],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
 
-    if (xreports.length === 0) {
-      return {
-        closed_xreports: 0,
-        closed_zreports: 0,
-        message: "No unclosed attraction X reports found.",
-      };
-    }
-
     const xreportIDs = xreports.map((item) => Number(item.id));
+    let closedXReports = 0;
 
-    const [closedXReports] = await AttractionReportModel.update(
-      {
-        operator: null,
-        status: AttractionReportStatusTypes.CLOSED,
-        closed_at: now,
-      },
-      {
-        where: {
-          id: {
-            [Op.in]: xreportIDs,
-          },
-          report_type: AttractionReportTypes.XREPORT,
-          status: {
-            [Op.in]: closeableStatuses,
-          },
-          closed_at: null,
-        },
-        transaction,
-      },
-    );
-
-    const zreportIDs = [
-      ...new Set(
-        xreports
-          .map((item) => Number(item.zreport))
-          .filter((id) => Number.isFinite(id) && id > 0),
-      ),
-    ];
-
-    let closedZReports = 0;
-
-    for (const zreportID of zreportIDs) {
-      const openedXReportsCount = await AttractionReportModel.count({
-        where: {
-          zreport: zreportID,
-          report_type: AttractionReportTypes.XREPORT,
-          status: {
-            [Op.in]: closeableStatuses,
-          },
-          closed_at: null,
-        },
-        transaction,
-      });
-
-      if (openedXReportsCount > 0) {
-        continue;
-      }
-
-      const zReport = await AttractionReportModel.findOne({
-        where: {
-          id: zreportID,
-          report_type: AttractionReportTypes.ZREPORT,
-          status: {
-            [Op.in]: closeableStatuses,
-          },
-          closed_at: null,
-        },
-        attributes: ["id", "attraction"],
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (!zReport) {
-        continue;
-      }
-
-      const [updatedZReports] = await AttractionReportModel.update(
+    if (xreportIDs.length > 0) {
+      [closedXReports] = await AttractionReportModel.update(
         {
           status: AttractionReportStatusTypes.CLOSED,
           closed_at: now,
         },
         {
           where: {
-            id: zreportID,
-            report_type: AttractionReportTypes.ZREPORT,
+            id: {
+              [Op.in]: xreportIDs,
+            },
+            report_type: AttractionReportTypes.XREPORT,
             status: {
               [Op.in]: closeableStatuses,
             },
-            closed_at: null,
           },
           transaction,
         },
       );
+    }
 
-      if (updatedZReports > 0) {
-        await AttractionModel.update(
-          {
-            status: AttractionStatusTypes.INACTIVE,
-          },
-          {
-            where: {
-              id: zReport.attraction,
+    /*
+     * Z-reportlarni X-reportlar ro‘yxatidan olish yetarli emas: X-reportlar
+     * oldin qo‘lda yopilgan bo‘lsa ham parent Z OPEN/STOPPED qolishi mumkin.
+     */
+    const zreports = await AttractionReportModel.findAll({
+      where: {
+        report_type: AttractionReportTypes.ZREPORT,
+        status: {
+          [Op.in]: closeableStatuses,
+        },
+        opened_at: {
+          [Op.lt]: cutoff,
+        },
+      },
+      attributes: ["id", "attraction"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    const zreportIDs = zreports.map((report) => Number(report.id));
+    const zreportAttraction = new Map(
+      zreports.map((report) => [Number(report.id), Number(report.attraction)]),
+    );
+
+    const remainingActiveXReports = zreportIDs.length
+      ? await AttractionReportModel.findAll({
+          where: {
+            zreport: {
+              [Op.in]: zreportIDs,
             },
-            transaction,
+            report_type: AttractionReportTypes.XREPORT,
+            status: {
+              [Op.in]: closeableStatuses,
+            },
           },
-        );
-      }
+          attributes: ["zreport"],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+      : [];
 
-      closedZReports += updatedZReports;
+    const zreportsWithActiveXReport = new Set(
+      remainingActiveXReports.map((report) => Number(report.zreport)),
+    );
+    const closeableZReportIDs = zreportIDs.filter(
+      (id) => !zreportsWithActiveXReport.has(id),
+    );
+
+    let closedZReports = 0;
+
+    if (closeableZReportIDs.length > 0) {
+      [closedZReports] = await AttractionReportModel.update(
+        {
+          status: AttractionReportStatusTypes.CLOSED,
+          closed_at: now,
+        },
+        {
+          where: {
+            id: {
+              [Op.in]: closeableZReportIDs,
+            },
+            report_type: AttractionReportTypes.ZREPORT,
+            status: {
+              [Op.in]: closeableStatuses,
+            },
+          },
+          transaction,
+        },
+      );
+    }
+
+    const affectedAttractionIDs = [
+      ...new Set(
+        closeableZReportIDs
+          .map((id) => zreportAttraction.get(id))
+          .filter((id): id is number => Number.isFinite(id)),
+      ),
+    ];
+
+    const remainingActiveReports = affectedAttractionIDs.length
+      ? await AttractionReportModel.findAll({
+          where: {
+            attraction: {
+              [Op.in]: affectedAttractionIDs,
+            },
+            status: {
+              [Op.in]: closeableStatuses,
+            },
+          },
+          attributes: ["attraction"],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+      : [];
+
+    const attractionsWithActiveReports = new Set(
+      remainingActiveReports.map((report) => Number(report.attraction)),
+    );
+    const inactiveAttractionIDs = affectedAttractionIDs.filter(
+      (id) => !attractionsWithActiveReports.has(id),
+    );
+
+    let reconciledAttractions = 0;
+
+    if (inactiveAttractionIDs.length > 0) {
+      [reconciledAttractions] = await AttractionModel.update(
+        {
+          status: AttractionStatusTypes.INACTIVE,
+        },
+        {
+          where: {
+            id: {
+              [Op.in]: inactiveAttractionIDs,
+            },
+          },
+          transaction,
+        },
+      );
     }
 
     return {
       closed_xreports: closedXReports,
       closed_zreports: closedZReports,
+      reconciled_attractions: reconciledAttractions,
+      cutoff: cutoff.toISOString(),
       message: "Unclosed attraction reports closed successfully.",
     };
   });

@@ -82,8 +82,8 @@ export const ensureTemporalSchedules = async () => {
     scheduleId: "nightly-close-unclosed-attraction-reports",
     workflowType: closeUnclosedAttractionReportsWorkflow,
     taskQueue: "attraction-report-queue",
-    hour: 2,
-    minute: 59,
+    hour: 3,
+    minute: 0,
   });
 
   await ensureSchedule({
@@ -105,11 +105,11 @@ export const ensureTemporalSchedules = async () => {
 }; 
 
 /**
- * Reconcile legacy/unclosed cashbox data immediately after deployment instead
- * of waiting for the next 03:00 or 23:59 tick. Both workflows apply their own
- * business-time cutoff, so current reports are safe from the recovery trigger.
+ * Reconcile legacy/unclosed report data immediately after deployment instead
+ * of waiting for the next scheduled tick. Workflows apply their own business
+ * cutoff, so reports opened after that boundary are safe from recovery.
  */
-export const triggerCashboxReportRecovery = async () => {
+export const triggerReportRecovery = async () => {
   const client = await getTemporalClient();
 
   await Promise.all([
@@ -118,6 +118,9 @@ export const triggerCashboxReportRecovery = async () => {
       .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
     client.schedule
       .getHandle("nightly-close-online-payment-zreport")
+      .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
+    client.schedule
+      .getHandle("nightly-close-unclosed-attraction-reports")
       .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
   ]);
 };

@@ -26,10 +26,7 @@ import {
   UzumTransactionModel,
   sequelize,
 } from "../../../plugins/db/postgresql/db";
-import {
-  AddOnlinePaymentToDailyZReportService,
-  AddOnlineRefundToDailyZReportService,
-} from "../OnlinePaymentReportServices";
+import { AddOnlinePaymentToDailyZReportService } from "../OnlinePaymentReportServices";
 
 const GetUzumConfig = () => {
   const apiURL = process.env.UZUM_API_URL;
@@ -436,6 +433,13 @@ const ApplyUzumRefund = async (
     { transaction, lock: transaction.LOCK.UPDATE },
   );
   if (!order) throw NotFound("PAYMENT_ORDER_NOT_FOUND");
+  const originalCardTransaction = await CardTransactionModel.findByPk(
+    uzumTransaction.card_transaction,
+    { transaction, lock: transaction.LOCK.UPDATE },
+  );
+  if (!originalCardTransaction) {
+    throw NotFound("UZUM_CARD_TRANSACTION_NOT_FOUND");
+  }
   const card = await CardModel.findByPk(order.card, {
     transaction,
     lock: transaction.LOCK.UPDATE,
@@ -449,19 +453,14 @@ const ApplyUzumRefund = async (
     throw BadRequest("INSUFFICIENT_CARD_BALANCE_FOR_UZUM_REFUND");
   }
 
-  const report = await AddOnlineRefundToDailyZReportService(
-    PaymentServiceType.UZUM,
-    amount,
-    transaction,
-  );
   await CardTransactionModel.create(
     {
       card: Number(card.id),
       operator: null,
-      cashbox: Number(report.cashbox.id),
+      cashbox: originalCardTransaction.cashbox,
       attraction: null,
       xreport: null,
-      cashbox_report: Number(report.report.id),
+      cashbox_report: originalCardTransaction.cashbox_report,
       type: CardTransactionType.REFUND,
       amount,
       balance_before: balanceBefore,

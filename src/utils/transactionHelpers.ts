@@ -35,7 +35,6 @@ export const getReportTopUpIncrementData = (
 
   const incrementData: Record<string, number> = {
     total_amount: paidAmount,
-    transactions_count: 1,
   };
 
   if (body.payment_type === PaymentType.CASH) {
@@ -56,6 +55,10 @@ export const getReportTopUpIncrementData = (
 
   if (body.payment_type === PaymentType.ONLINE) {
     incrementData.online_amount = paidAmount;
+
+    if (body.payment_service_type === PaymentServiceType.ONEQR) {
+      incrementData.oneqr_amount = paidAmount;
+    }
 
     if (body.payment_service_type === PaymentServiceType.UZUM) {
       incrementData.uzum_amount = paidAmount;

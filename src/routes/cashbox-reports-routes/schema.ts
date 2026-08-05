@@ -97,6 +97,10 @@ export const cashboxReportProperties = {
     type: "number",
   },
 
+  oneqr_amount: {
+    type: "number",
+  },
+
   uzum_amount: {
     type: "number",
   },
@@ -108,12 +112,6 @@ export const cashboxReportProperties = {
   click_amount: {
     type: "number",
   },
-  refunded_amount: { type: "number" },
-  refund_transactions_count: { type: "number" },
-  payme_refunded_amount: { type: "number" },
-  uzum_refunded_amount: { type: "number" },
-  click_refunded_amount: { type: "number" },
-  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -129,15 +127,7 @@ export const cashboxReportProperties = {
     type: "number",
   },
 
-  returned_cards_amount: {
-    type: "number",
-  },
-
   relationed_cards_count: {
-    type: "number",
-  },
-
-  transactions_count: {
     type: "number",
   },
 
@@ -239,6 +229,10 @@ export const zReportProperties = {
     type: "number",
   },
 
+  oneqr_amount: {
+    type: "number",
+  },
+
   uzum_amount: {
     type: "number",
   },
@@ -250,12 +244,6 @@ export const zReportProperties = {
   click_amount: {
     type: "number",
   },
-  refunded_amount: { type: "number" },
-  refund_transactions_count: { type: "number" },
-  payme_refunded_amount: { type: "number" },
-  uzum_refunded_amount: { type: "number" },
-  click_refunded_amount: { type: "number" },
-  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -271,15 +259,7 @@ export const zReportProperties = {
     type: "number",
   },
 
-  returned_cards_amount: {
-    type: "number",
-  },
-
   relationed_cards_count: {
-    type: "number",
-  },
-
-  transactions_count: {
     type: "number",
   },
 
@@ -374,6 +354,10 @@ export const accountingZReportAmountProperties = {
     type: "number",
   },
 
+  oneqr_amount: {
+    type: "number",
+  },
+
   uzum_amount: {
     type: "number",
   },
@@ -385,12 +369,6 @@ export const accountingZReportAmountProperties = {
   click_amount: {
     type: "number",
   },
-  refunded_amount: { type: "number" },
-  refund_transactions_count: { type: "number" },
-  payme_refunded_amount: { type: "number" },
-  uzum_refunded_amount: { type: "number" },
-  click_refunded_amount: { type: "number" },
-  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -406,15 +384,7 @@ export const accountingZReportAmountProperties = {
     type: "number",
   },
 
-  returned_cards_amount: {
-    type: "number",
-  },
-
   relationed_cards_count: {
-    type: "number",
-  },
-
-  transactions_count: {
     type: "number",
   },
 

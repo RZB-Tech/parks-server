@@ -21,10 +21,7 @@ import {
 import { PaymeTransactionModel } from "../../../models/postgresql/payme-transactions-model/PaymeTransactionModel";
 import { PaymeTransactionStateTypes } from "../../../models/postgresql/payme-transactions-model/enums";
 import { sequelize } from "../../../plugins/db/postgresql/db";
-import {
-  AddOnlinePaymentToDailyZReportService,
-  AddOnlineRefundToDailyZReportService,
-} from "../OnlinePaymentReportServices";
+import { AddOnlinePaymentToDailyZReportService } from "../OnlinePaymentReportServices";
 
 const PAYME_CREATE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
@@ -684,20 +681,14 @@ const CancelTransactionService = async (
       return PaymeErrorResponse(request.id, PaymeErrors.cannotCancel());
     }
 
-    const onlineRefundReport = await AddOnlineRefundToDailyZReportService(
-      PaymentServiceType.PAYME,
-      refundAmount,
-      dbTransaction,
-    );
-
     await CardTransactionModel.create(
       {
         card: Number(card.id),
         operator: null,
-        cashbox: Number(onlineRefundReport.cashbox.id),
+        cashbox: originalCardTransaction.cashbox,
         attraction: null,
         xreport: null,
-        cashbox_report: Number(onlineRefundReport.report.id),
+        cashbox_report: originalCardTransaction.cashbox_report,
         type: CardTransactionType.REFUND,
         amount: refundAmount,
         balance_before: balanceBefore,

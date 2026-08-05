@@ -1,4 +1,4 @@
-import { proxyActivities } from "@temporalio/workflow";
+import { proxyActivities, workflowInfo } from "@temporalio/workflow";
 import type * as activities from "../activities/attraction-report.activities";
 
 const { closeUnclosedAttractionReportsActivity } = proxyActivities<
@@ -6,10 +6,14 @@ const { closeUnclosedAttractionReportsActivity } = proxyActivities<
 >({
   startToCloseTimeout: "5 minutes",
   retry: {
-    maximumAttempts: 3,
+    initialInterval: "30 seconds",
+    maximumInterval: "10 minutes",
+    maximumAttempts: 10,
   },
 });
 
 export const closeUnclosedAttractionReportsWorkflow = async () => {
-  return await closeUnclosedAttractionReportsActivity();
+  return await closeUnclosedAttractionReportsActivity(
+    workflowInfo().startTime.toISOString(),
+  );
 };

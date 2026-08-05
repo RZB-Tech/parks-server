@@ -56,10 +56,9 @@ export const attractionProperties = {
     examples: [1, 1.2],
   },
   price: {
-    oneOf: [
-      { type: "integer", minimum: 0 },
-      { type: "null" },
-    ],
+    type: "integer",
+    nullable: true,
+    minimum: 0,
     description:
       "Single attraction price, or null when the attraction uses tariffs.",
     examples: [25000],

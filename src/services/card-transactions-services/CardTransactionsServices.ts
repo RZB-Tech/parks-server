@@ -538,7 +538,6 @@ export const CardRefundTransactionService = async (
 
     const reportIncrement = {
       returned_cards_count: 1,
-      returned_cards_amount: transferAmount,
     };
 
     await CashboxReportModel.increment(reportIncrement, {

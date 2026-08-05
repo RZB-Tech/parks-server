@@ -22,22 +22,14 @@ export const CashboxXReportDTO = (
     online_amount: Number(data.online_amount || 0),
     uzcard_amount: Number(data.uzcard_amount || 0),
     humo_amount: Number(data.humo_amount || 0),
+    oneqr_amount: Number(data.oneqr_amount || 0),
     uzum_amount: Number(data.uzum_amount || 0),
     payme_amount: Number(data.payme_amount || 0),
     click_amount: Number(data.click_amount || 0),
-    refunded_amount: Number(data.refunded_amount || 0),
-    refund_transactions_count: Number(data.refund_transactions_count || 0),
-    payme_refunded_amount: Number(data.payme_refunded_amount || 0),
-    uzum_refunded_amount: Number(data.uzum_refunded_amount || 0),
-    click_refunded_amount: Number(data.click_refunded_amount || 0),
-    net_amount:
-      Number(data.total_amount || 0) - Number(data.refunded_amount || 0),
     activated_cards_count: Number(data.activated_cards_count || 0),
     activated_cards_amount: Number(data.activated_cards_amount || 0),
     returned_cards_count: Number(data.returned_cards_count || 0),
-    returned_cards_amount: Number(data.returned_cards_amount || 0),
     relationed_cards_count: Number(data.relationed_cards_count || 0),
-    transactions_count: Number(data.transactions_count || 0),
     xreports_count:
       data.xreports_count !== null ? Number(data.xreports_count) : null,
   };
@@ -99,22 +91,14 @@ export const ZReportDTO = (
     online_amount: Number(data.online_amount || 0),
     uzcard_amount: Number(data.uzcard_amount || 0),
     humo_amount: Number(data.humo_amount || 0),
+    oneqr_amount: Number(data.oneqr_amount || 0),
     uzum_amount: Number(data.uzum_amount || 0),
     payme_amount: Number(data.payme_amount || 0),
     click_amount: Number(data.click_amount || 0),
-    refunded_amount: Number(data.refunded_amount || 0),
-    refund_transactions_count: Number(data.refund_transactions_count || 0),
-    payme_refunded_amount: Number(data.payme_refunded_amount || 0),
-    uzum_refunded_amount: Number(data.uzum_refunded_amount || 0),
-    click_refunded_amount: Number(data.click_refunded_amount || 0),
-    net_amount:
-      Number(data.total_amount || 0) - Number(data.refunded_amount || 0),
     activated_cards_count: Number(data.activated_cards_count || 0),
     activated_cards_amount: Number(data.activated_cards_amount || 0),
     returned_cards_count: Number(data.returned_cards_count || 0),
-    returned_cards_amount: Number(data.returned_cards_amount || 0),
     relationed_cards_count: Number(data.relationed_cards_count || 0),
-    transactions_count: Number(data.transactions_count || 0),
     xreports_count:
       data.xreports_count !== null ? Number(data.xreports_count) : null,
     created_at: data.created_at,
@@ -132,22 +116,15 @@ export const emptyAccountingZReport = (): AccountingZReportAmountDTO => {
 
     uzcard_amount: 0,
     humo_amount: 0,
+    oneqr_amount: 0,
     uzum_amount: 0,
     payme_amount: 0,
     click_amount: 0,
-    refunded_amount: 0,
-    refund_transactions_count: 0,
-    payme_refunded_amount: 0,
-    uzum_refunded_amount: 0,
-    click_refunded_amount: 0,
-    net_amount: 0,
 
     activated_cards_count: 0,
     activated_cards_amount: 0,
     returned_cards_count: 0,
-    returned_cards_amount: 0,
     relationed_cards_count: 0,
-    transactions_count: 0,
     xreports_count: 0,
   };
 };
@@ -163,26 +140,17 @@ export const addAccountingZReportAmount = (
 
   target.uzcard_amount += Number(report.uzcard_amount || 0);
   target.humo_amount += Number(report.humo_amount || 0);
+  target.oneqr_amount += Number(report.oneqr_amount || 0);
   target.uzum_amount += Number(report.uzum_amount || 0);
   target.payme_amount += Number(report.payme_amount || 0);
   target.click_amount += Number(report.click_amount || 0);
-  target.refunded_amount += Number(report.refunded_amount || 0);
-  target.refund_transactions_count += Number(
-    report.refund_transactions_count || 0,
-  );
-  target.payme_refunded_amount += Number(report.payme_refunded_amount || 0);
-  target.uzum_refunded_amount += Number(report.uzum_refunded_amount || 0);
-  target.click_refunded_amount += Number(report.click_refunded_amount || 0);
-  target.net_amount = target.total_amount - target.refunded_amount;
 
   target.activated_cards_count += Number(report.activated_cards_count || 0);
   target.activated_cards_amount += Number(
     report.activated_cards_amount || 0,
   );
   target.returned_cards_count += Number(report.returned_cards_count || 0);
-  target.returned_cards_amount += Number(report.returned_cards_amount || 0);
   target.relationed_cards_count += Number(report.relationed_cards_count || 0);
-  target.transactions_count += Number(report.transactions_count || 0);
   target.xreports_count += Number(report.xreports_count || 0);
 };
 

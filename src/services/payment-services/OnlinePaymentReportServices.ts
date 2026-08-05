@@ -253,23 +253,14 @@ export const OpenOnlineDailyZReportService = async (
 
 const providerAmountField = (provider: PaymentServiceType) => {
   switch (provider) {
+    case PaymentServiceType.ONEQR:
+      return "oneqr_amount" as const;
     case PaymentServiceType.PAYME:
       return "payme_amount" as const;
     case PaymentServiceType.UZUM:
       return "uzum_amount" as const;
     case PaymentServiceType.CLICK:
       return "click_amount" as const;
-  }
-};
-
-const providerRefundField = (provider: PaymentServiceType) => {
-  switch (provider) {
-    case PaymentServiceType.PAYME:
-      return "payme_refunded_amount" as const;
-    case PaymentServiceType.UZUM:
-      return "uzum_refunded_amount" as const;
-    case PaymentServiceType.CLICK:
-      return "click_refunded_amount" as const;
   }
 };
 
@@ -286,31 +277,6 @@ export const AddOnlinePaymentToDailyZReportService = async (
     {
       total_amount: amount,
       online_amount: amount,
-      transactions_count: 1,
-      [providerField]: amount,
-    },
-    { transaction },
-  );
-
-  return {
-    cashbox,
-    report,
-  };
-};
-
-export const AddOnlineRefundToDailyZReportService = async (
-  provider: PaymentServiceType,
-  amount: number,
-  transaction: Transaction,
-) => {
-  const { cashbox, report } =
-    await GetOrCreateOnlineDailyZReportService(transaction);
-  const providerField = providerRefundField(provider);
-
-  await report.increment(
-    {
-      refunded_amount: amount,
-      refund_transactions_count: 1,
       [providerField]: amount,
     },
     { transaction },
