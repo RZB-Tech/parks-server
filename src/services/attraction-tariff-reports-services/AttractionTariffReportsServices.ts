@@ -97,7 +97,12 @@ export const GetAttractionTariffReportsByZReportService = async (
         attraction_tariff: {
           [Op.ne]: null,
         },
-        type: CardTransactionType.PAYMENT,
+        type: {
+          [Op.in]: [
+            CardTransactionType.PAYMENT,
+            CardTransactionType.REFUND,
+          ],
+        },
         status: CardTransactionStatusTypes.SUCCESS,
       },
       include: [
@@ -188,6 +193,7 @@ export const GetAttractionTariffReportsByZReportService = async (
 
         rounds_count: 0,
         total_people: 0,
+        refund_count: 0,
 
         total_virtual: 0,
         total_classic: 0,
@@ -214,6 +220,17 @@ export const GetAttractionTariffReportsByZReportService = async (
     const saleAmount = originalAmount - discountAmount;
     const cardType = transaction.cards?.type;
     const roundID = roundByTransaction.get(Number(transaction.id));
+
+    if (transaction.type === CardTransactionType.REFUND) {
+      report.refund_count += 1;
+
+      if (roundID) {
+        report.round_ids.add(roundID);
+        report.rounds_count = report.round_ids.size;
+      }
+
+      continue;
+    }
 
     report.total_people += peopleCount;
     report.original_amount += originalAmount;

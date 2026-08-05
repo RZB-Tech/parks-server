@@ -629,18 +629,34 @@ export const DeleteAttractionsService = async (body: DeleteAttractionsData) => {
   try {
     const attractionIDs = [...new Set(body.attractionIDs)];
 
-    const existingCount = await AttractionModel.count({
+    const attractions = await AttractionModel.findAll({
       where: {
         id: {
           [Op.in]: attractionIDs,
         },
       },
+      attributes: ["id"],
       transaction,
+      lock: transaction.LOCK.UPDATE,
     });
 
-    if (existingCount !== attractionIDs.length) {
+    if (attractions.length !== attractionIDs.length) {
       throw NotFound("Attraction not found");
     }
+
+    // Soft-deleted rows remain in the table, so release the unique device ID
+    // before archiving the attractions. This lets the device be reassigned.
+    await AttractionModel.update(
+      { device: null },
+      {
+        where: {
+          id: {
+            [Op.in]: attractionIDs,
+          },
+        },
+        transaction,
+      },
+    );
 
     await AttractionModel.destroy({
       where: {
@@ -648,7 +664,6 @@ export const DeleteAttractionsService = async (body: DeleteAttractionsData) => {
           [Op.in]: attractionIDs,
         },
       },
-      force: true,
       transaction,
     });
 

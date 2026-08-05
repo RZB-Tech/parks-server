@@ -31,6 +31,8 @@ export const PromotionReportDTO = (data: PromotionReportPlain) => {
 
     total_people: Number(data.total_people || 0),
 
+    refund_count: Number(data.refund_count || 0),
+
     total_virtual: Number(data.total_virtual || 0),
 
     total_classic: Number(data.total_classic || 0),

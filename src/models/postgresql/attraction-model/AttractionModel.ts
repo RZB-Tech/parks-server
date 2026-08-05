@@ -6,7 +6,7 @@ export class AttractionModel
   implements AttractionModelI
 {
   public id!: number;
-  public device!: number;
+  public device!: number | null;
   public name!: string;
   public manufacturer!: string;
   public status!: import("./enums").AttractionStatusTypes;
@@ -144,7 +144,7 @@ export class AttractionModel
       as: "reports",
       onDelete: "CASCADE",
     });
-    AttractionModel.hasMany(models.AttractionReportModel, {
+    AttractionModel.hasMany(models.AttractionRoundModel, {
       foreignKey: "attraction",
       as: "rounds",
       onDelete: "CASCADE",

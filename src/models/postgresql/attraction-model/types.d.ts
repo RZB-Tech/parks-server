@@ -1,6 +1,6 @@
 declare interface AttractionModelI {
   id: number;
-  device: number;
+  device: number | null;
   name: string;
   manufacturer: string;
   status: import("./enums").AttractionStatusTypes;

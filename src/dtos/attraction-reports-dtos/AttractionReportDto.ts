@@ -81,6 +81,7 @@ export const AttractionReportDTO = (
 
     total_rounds: Number(data.total_rounds || 0),
     total_people: Number(data.total_people || 0),
+    refund_count: Number(data.refund_count || 0),
 
     total_offline: Number(data.total_offline || 0),
     total_online: Number(data.total_online || 0),
@@ -129,6 +130,7 @@ export const emptyAttractionZReportsTotals = (): AttractionZReportTotalsDTO => {
   return {
     total_rounds: 0,
     total_people: 0,
+    refund_count: 0,
 
     total_offline: 0,
     total_online: 0,
@@ -156,6 +158,7 @@ export const addAttractionZReportsTotals = (
 ) => {
   target.total_rounds += Number(report.total_rounds || 0);
   target.total_people += Number(report.total_people || 0);
+  target.refund_count += Number(report.refund_count || 0);
 
   target.total_offline += Number(report.total_offline || 0);
   target.total_online += Number(report.total_online || 0);
@@ -180,6 +183,7 @@ export const emptyPromotionReportTotals = (): PromotionReportTotalsDTO => {
   return {
     rounds_count: 0,
     total_people: 0,
+    refund_count: 0,
 
     total_virtual: 0,
     total_classic: 0,
@@ -210,6 +214,7 @@ export const addPromotionReportTotals = (
   target.rounds_count += Number(report.rounds_count || 0);
 
   target.total_people += Number(report.total_people || 0);
+  target.refund_count += Number(report.refund_count || 0);
 
   target.total_virtual += Number(report.total_virtual || 0);
   target.total_classic += Number(report.total_classic || 0);
@@ -232,6 +237,7 @@ export const addPromotionToAttractionZReportsTotals = (
 ) => {
   target.total_rounds += Number(report.rounds_count || 0);
   target.total_people += Number(report.total_people || 0);
+  target.refund_count += Number(report.refund_count || 0);
   target.total_offline += Number(report.total_offline || 0);
   target.total_online += Number(report.total_online || 0);
   target.total_virtual += Number(report.total_virtual || 0);
@@ -298,6 +304,7 @@ export const AttractionZReportAttractionDTO = (
 
     totalReports.total_rounds += reportTotals.total_rounds;
     totalReports.total_people += reportTotals.total_people;
+    totalReports.refund_count += reportTotals.refund_count;
     totalReports.total_offline += reportTotals.total_offline;
     totalReports.total_online += reportTotals.total_online;
     totalReports.total_virtual += reportTotals.total_virtual;

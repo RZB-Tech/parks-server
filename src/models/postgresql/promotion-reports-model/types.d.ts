@@ -24,6 +24,7 @@ declare interface PromotionReportModelI {
 
   rounds_count: number;
   total_people: number;
+  refund_count: number;
 
   total_virtual: number;
   total_classic: number;

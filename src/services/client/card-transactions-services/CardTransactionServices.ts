@@ -699,6 +699,7 @@ export const GetClientTransactionsService = async (
 
   const attractions = attractionIDs.length
     ? await AttractionModel.findAll({
+        paranoid: false,
         where: {
           id: {
             [Op.in]: attractionIDs,

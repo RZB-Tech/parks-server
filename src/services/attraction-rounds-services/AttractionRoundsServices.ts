@@ -320,6 +320,7 @@ export const GetTodayRoundsService = async (
       {
         model: AttractionModel,
         as: "attractions",
+        paranoid: false,
       },
     ],
 

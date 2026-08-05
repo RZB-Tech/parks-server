@@ -76,6 +76,7 @@ declare interface PromotionReportPlain {
 
   rounds_count: number | string;
   total_people: number | string;
+  refund_count: number | string;
 
   total_virtual: number | string;
   total_classic: number | string;

@@ -62,3 +62,115 @@ export const ApplyCardsSchemaMigrations = async (sequelize: Sequelize) => {
       AND batch."returned_cards" IS DISTINCT FROM counts."returned_cards"
   `);
 };
+
+/**
+ * Adds persisted attraction refund counters without recalculating them on
+ * every report request. Existing refunds are backfilled only when the columns
+ * are introduced; later refunds update the counters in the refund transaction.
+ */
+export const ApplyAttractionReportSchemaMigrations = async (
+  sequelize: Sequelize,
+) => {
+  await sequelize.query(`
+    DO $migration$
+    DECLARE
+      attraction_reports_column_added BOOLEAN := FALSE;
+      promotion_reports_column_added BOOLEAN := FALSE;
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'attraction_reports'
+          AND column_name = 'refund_count'
+      ) THEN
+        ALTER TABLE "attraction_reports"
+          ADD COLUMN "refund_count" BIGINT NOT NULL DEFAULT 0;
+
+        attraction_reports_column_added := TRUE;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'promotion_reports'
+          AND column_name = 'refund_count'
+      ) THEN
+        ALTER TABLE "promotion_reports"
+          ADD COLUMN "refund_count" BIGINT NOT NULL DEFAULT 0;
+
+        promotion_reports_column_added := TRUE;
+      END IF;
+
+      IF attraction_reports_column_added THEN
+        WITH xreport_refunds AS (
+          SELECT
+            report."id" AS "report_id",
+            COUNT(refund."id") FILTER (
+              WHERE original_transaction."promotion" IS NULL
+            )::BIGINT AS "refund_count"
+          FROM "attraction_reports" AS report
+          LEFT JOIN "card_transactions" AS original_transaction
+            ON original_transaction."xreport" = report."id"
+          LEFT JOIN "attraction_round_refunds" AS refund
+            ON refund."original_transaction" = original_transaction."id"
+          WHERE report."report_type"::TEXT = 'xreport'
+          GROUP BY report."id"
+        )
+        UPDATE "attraction_reports" AS report
+        SET "refund_count" = counts."refund_count"
+        FROM xreport_refunds AS counts
+        WHERE report."id" = counts."report_id";
+
+        WITH zreport_refunds AS (
+          SELECT
+            zreport."id" AS "report_id",
+            COUNT(refund."id") FILTER (
+              WHERE original_transaction."promotion" IS NULL
+            )::BIGINT AS "refund_count"
+          FROM "attraction_reports" AS zreport
+          LEFT JOIN "attraction_reports" AS xreport
+            ON xreport."zreport" = zreport."id"
+            AND xreport."report_type"::TEXT = 'xreport'
+          LEFT JOIN "card_transactions" AS original_transaction
+            ON original_transaction."xreport" = xreport."id"
+          LEFT JOIN "attraction_round_refunds" AS refund
+            ON refund."original_transaction" = original_transaction."id"
+          WHERE zreport."report_type"::TEXT = 'zreport'
+          GROUP BY zreport."id"
+        )
+        UPDATE "attraction_reports" AS report
+        SET "refund_count" = counts."refund_count"
+        FROM zreport_refunds AS counts
+        WHERE report."id" = counts."report_id";
+      END IF;
+
+      IF promotion_reports_column_added THEN
+        WITH promotion_refunds AS (
+          SELECT
+            report."id" AS "report_id",
+            COUNT(refund."id")::BIGINT AS "refund_count"
+          FROM "promotion_reports" AS report
+          LEFT JOIN "card_transactions" AS original_transaction
+            ON original_transaction."xreport" = report."xreport"
+            AND original_transaction."promotion" = report."promotion"
+            AND original_transaction."discount_percent" =
+              report."discount_percent"
+            AND original_transaction."original_unit_price" =
+              report."original_unit_price"
+            AND original_transaction."sale_unit_price" =
+              report."sale_unit_price"
+          LEFT JOIN "attraction_round_refunds" AS refund
+            ON refund."original_transaction" = original_transaction."id"
+          GROUP BY report."id"
+        )
+        UPDATE "promotion_reports" AS report
+        SET "refund_count" = counts."refund_count"
+        FROM promotion_refunds AS counts
+        WHERE report."id" = counts."report_id";
+      END IF;
+    END;
+    $migration$;
+  `);
+};

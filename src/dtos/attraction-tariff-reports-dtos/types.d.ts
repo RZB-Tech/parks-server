@@ -14,6 +14,7 @@ declare interface AttractionTariffReportPlain {
 
   rounds_count: number | string;
   total_people: number | string;
+  refund_count: number | string;
 
   total_virtual: number | string;
   total_classic: number | string;
@@ -45,6 +46,7 @@ declare interface AttractionTariffReportResponseDTO {
 
   rounds_count: number;
   total_people: number;
+  refund_count: number;
 
   total_virtual: number;
   total_classic: number;

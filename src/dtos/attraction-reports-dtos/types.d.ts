@@ -65,6 +65,7 @@ declare interface AttractionReportResponseDTO {
 
   total_rounds: number;
   total_people: number;
+  refund_count: number;
 
   total_offline: number;
   total_online: number;
@@ -110,6 +111,7 @@ declare interface AttractionReportsTodayDto {
 declare interface AttractionZReportTotalsDTO {
   total_rounds: number;
   total_people: number;
+  refund_count: number;
 
   total_offline: number;
   total_online: number;
@@ -138,6 +140,7 @@ declare type AttractionZReportTotalsWithTariffsDTO =
 declare interface PromotionReportTotalsDTO {
   rounds_count: number;
   total_people: number;
+  refund_count: number;
 
   total_virtual: number;
   total_classic: number;

@@ -1,7 +1,10 @@
 import { FastifyInstance, FastifyPluginAsync } from "fastify";
 import fp from "fastify-plugin";
 import { sequelize } from "./db";
-import { ApplyCardsSchemaMigrations } from "./schemaMigrations";
+import {
+  ApplyAttractionReportSchemaMigrations,
+  ApplyCardsSchemaMigrations,
+} from "./schemaMigrations";
 
 const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   try {
@@ -10,6 +13,7 @@ const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     await sequelize.sync();
 
     await ApplyCardsSchemaMigrations(sequelize);
+    await ApplyAttractionReportSchemaMigrations(sequelize);
 
     fastify.decorate("sequelize", sequelize);
 

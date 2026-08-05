@@ -37,6 +37,7 @@ export class PromotionReportModel
    */
   public rounds_count!: number;
   public total_people!: number;
+  public refund_count!: number;
 
   /*
    * Card type bo‘yicha odamlar soni
@@ -160,6 +161,12 @@ export class PromotionReportModel
         },
 
         total_people: {
+          type: DataTypes.BIGINT,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        refund_count: {
           type: DataTypes.BIGINT,
           allowNull: false,
           defaultValue: 0,

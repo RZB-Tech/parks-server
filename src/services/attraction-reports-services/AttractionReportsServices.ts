@@ -832,6 +832,7 @@ export const GetTodayAttractionReportsService = async (
             "sale_unit_price",
             [fn("SUM", col("rounds_count")), "rounds_count"],
             [fn("SUM", col("total_people")), "total_people"],
+            [fn("SUM", col("refund_count")), "refund_count"],
             [fn("SUM", col("total_virtual")), "total_virtual"],
             [fn("SUM", col("total_classic")), "total_classic"],
             [fn("SUM", col("total_vip")), "total_vip"],
@@ -989,6 +990,8 @@ export const GetAttractionZReportsService = async (
 
             [fn("SUM", col("total_people")), "total_people"],
 
+            [fn("SUM", col("refund_count")), "refund_count"],
+
             [fn("SUM", col("total_virtual")), "total_virtual"],
 
             [fn("SUM", col("total_classic")), "total_classic"],
@@ -1046,6 +1049,7 @@ export const GetAttractionZReportsService = async (
       : [];
 
   let attractions = await AttractionModel.findAll({
+    paranoid: false,
     where: search
       ? {
           name: {
@@ -1456,6 +1460,8 @@ export const GetAccountingAttractionReportsService = async (
 
           [fn("SUM", col("total_people")), "total_people"],
 
+          [fn("SUM", col("refund_count")), "refund_count"],
+
           [fn("SUM", col("total_virtual")), "total_virtual"],
 
           [fn("SUM", col("total_classic")), "total_classic"],
@@ -1537,6 +1543,7 @@ export const GetAccountingAttractionReportsService = async (
 
   const attractions = attractionIDs.length
     ? await AttractionModel.findAll({
+        paranoid: false,
         where: {
           id: {
             [Op.in]: attractionIDs,

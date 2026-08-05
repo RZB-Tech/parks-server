@@ -96,6 +96,29 @@ const DecrementedCounterValues = (
   return values;
 };
 
+const IncrementedRefundCount = (
+  source: object,
+  increment: number,
+  errorMessage: string,
+) => {
+  const current = Number(
+    (source as Record<string, unknown>).refund_count ?? 0,
+  );
+  const next = current + increment;
+
+  if (
+    !Number.isSafeInteger(current) ||
+    current < 0 ||
+    !Number.isSafeInteger(increment) ||
+    increment <= 0 ||
+    !Number.isSafeInteger(next)
+  ) {
+    throw Conflict(errorMessage);
+  }
+
+  return next;
+};
+
 const AddPaymentRefundCounters = (
   target: NumericCounters,
   payment: CardTransactionModelI,
@@ -241,6 +264,7 @@ export const GetAttractionRoundRefundsService = async (
         model: AttractionModel,
         as: "attractions",
         required: false,
+        paranoid: false,
       },
       {
         model: EmployeeModel,
@@ -444,6 +468,8 @@ export const RefundFinishedAttractionRoundService = async (
     const roundCounters = EmptyRoundRefundCounters();
     const standardReportCounters = EmptyReportRefundCounters();
     const promotionCounters = new Map<string, NumericCounters>();
+    const promotionRefundCounts = new Map<string, number>();
+    let standardRefundCount = 0;
     let refundedAmount = 0;
     let refundedPeople = 0;
 
@@ -459,6 +485,7 @@ export const RefundFinishedAttractionRoundService = async (
       refundedPeople += totals.peopleCount;
 
       if (payment.promotion === null) {
+        standardRefundCount += 1;
         AddPaymentRefundCounters(
           standardReportCounters,
           payment,
@@ -494,6 +521,10 @@ export const RefundFinishedAttractionRoundService = async (
       counters.paid_amount += totals.paidAmount;
 
       promotionCounters.set(promotionKey, counters);
+      promotionRefundCounts.set(
+        promotionKey,
+        (promotionRefundCounts.get(promotionKey) ?? 0) + 1,
+      );
     }
 
     if (
@@ -512,18 +543,32 @@ export const RefundFinishedAttractionRoundService = async (
     );
     const hasStandardPayments = standardReportCounters.total_people > 0;
     const xReportUpdate = hasStandardPayments
-      ? DecrementedCounterValues(
-          xReport,
-          standardReportCounters,
-          "X_REPORT_TOTALS_MISMATCH",
-        )
+      ? {
+          ...DecrementedCounterValues(
+            xReport,
+            standardReportCounters,
+            "X_REPORT_TOTALS_MISMATCH",
+          ),
+          refund_count: IncrementedRefundCount(
+            xReport,
+            standardRefundCount,
+            "X_REPORT_REFUND_COUNT_IS_INVALID",
+          ),
+        }
       : null;
     const zReportUpdate = hasStandardPayments
-      ? DecrementedCounterValues(
-          zReport,
-          standardReportCounters,
-          "Z_REPORT_TOTALS_MISMATCH",
-        )
+      ? {
+          ...DecrementedCounterValues(
+            zReport,
+            standardReportCounters,
+            "Z_REPORT_TOTALS_MISMATCH",
+          ),
+          refund_count: IncrementedRefundCount(
+            zReport,
+            standardRefundCount,
+            "Z_REPORT_REFUND_COUNT_IS_INVALID",
+          ),
+        }
       : null;
     const promotionUpdates: Array<{
       report: PromotionReportModel;
@@ -548,11 +593,18 @@ export const RefundFinishedAttractionRoundService = async (
 
       promotionUpdates.push({
         report: promotionReport,
-        values: DecrementedCounterValues(
-          promotionReport,
-          counters,
-          "PROMOTION_REPORT_TOTALS_MISMATCH",
-        ),
+        values: {
+          ...DecrementedCounterValues(
+            promotionReport,
+            counters,
+            "PROMOTION_REPORT_TOTALS_MISMATCH",
+          ),
+          refund_count: IncrementedRefundCount(
+            promotionReport,
+            promotionRefundCounts.get(promotionKey) ?? 0,
+            "PROMOTION_REPORT_REFUND_COUNT_IS_INVALID",
+          ),
+        },
       });
     }
 

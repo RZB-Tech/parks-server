@@ -13,6 +13,7 @@ declare interface AttractionReportModelI {
   confirmed_by: number | null;
   total_rounds: number;
   total_people: number;
+  refund_count: number;
   total_offline: number;
   total_online: number;
   total_virtual: number;

@@ -24,6 +24,7 @@ export class AttractionReportModel
 
   public total_rounds!: number;
   public total_people!: number;
+  public refund_count!: number;
 
   public total_offline!: number;
   public total_online!: number;
@@ -117,6 +118,12 @@ export class AttractionReportModel
 
         total_people: {
           type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
+
+        refund_count: {
+          type: DataTypes.BIGINT,
           allowNull: false,
           defaultValue: 0,
         },

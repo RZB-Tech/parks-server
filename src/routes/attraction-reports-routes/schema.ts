@@ -128,6 +128,10 @@ export const promotionReportProperties = {
     type: "number",
   },
 
+  refund_count: {
+    type: "number",
+  },
+
   total_virtual: {
     type: "number",
   },
@@ -207,6 +211,10 @@ export const attractionTariffReportProperties = {
   },
 
   total_people: {
+    type: "number",
+  },
+
+  refund_count: {
     type: "number",
   },
 
@@ -341,6 +349,10 @@ export const attractionReportProperties = {
   },
 
   total_people: {
+    type: "number",
+  },
+
+  refund_count: {
     type: "number",
   },
 
@@ -601,6 +613,10 @@ export const attractionZReportsTotalsProperties = {
   },
 
   total_people: {
+    type: "number",
+  },
+
+  refund_count: {
     type: "number",
   },
 
@@ -931,6 +947,10 @@ export const accountingAttractionZReportProperties = {
     type: "number",
   },
 
+  refund_count: {
+    type: "number",
+  },
+
   total_offline: {
     type: "number",
   },
@@ -970,6 +990,10 @@ export const promotionReportTotalsProperties = {
   },
 
   total_people: {
+    type: "number",
+  },
+
+  refund_count: {
     type: "number",
   },
 

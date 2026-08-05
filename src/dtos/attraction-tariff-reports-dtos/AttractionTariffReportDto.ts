@@ -19,6 +19,7 @@ export const AttractionTariffReportDTO = (
 
   rounds_count: Number(data.rounds_count || 0),
   total_people: Number(data.total_people || 0),
+  refund_count: Number(data.refund_count || 0),
 
   total_virtual: Number(data.total_virtual || 0),
   total_classic: Number(data.total_classic || 0),
@@ -62,6 +63,7 @@ export const CombineAttractionTariffReportsDTO = (
 
     current.rounds_count += report.rounds_count;
     current.total_people += report.total_people;
+    current.refund_count += report.refund_count;
 
     current.total_virtual += report.total_virtual;
     current.total_classic += report.total_classic;
