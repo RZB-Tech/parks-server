@@ -49,6 +49,9 @@ import { UpsertPromotionReportService } from "../promotion-reports-services/Prom
 import { CARD_ACTIVATION_AMOUNT } from "../../consts/card";
 import { ResolveAttractionPricingService } from "../attraction-tariffs-services/AttractionTariffsServices";
 import { CalculateAttractionSalePrice } from "../../utils/attractionPricing";
+import { CardReturnModel } from "../../models/postgresql/card-return-model/CardReturnModel";
+import { CashboxModel } from "../../models/postgresql/cashbox-model/CashboxModel";
+import { CardReturnListItemDTO } from "../../dtos/card-return-dtos/CardReturnDto";
 
 export const CheckNfcCardService = async (
   operatorID: number,
@@ -362,6 +365,11 @@ export const CardRefundTransactionService = async (
   }
 
   const description = body?.description?.trim() || null;
+
+  if (description && description.length > 500) {
+    throw BadRequest("RETURN_DESCRIPTION_IS_TOO_LONG");
+  }
+
   const sequelize = CardTransactionModel.sequelize!;
 
   return sequelize.transaction(async (dbTransaction) => {
@@ -468,6 +476,25 @@ export const CardRefundTransactionService = async (
       },
     );
 
+    const cardReturn = await CardReturnModel.create(
+      {
+        operator: normalizedOperatorID,
+        cashbox: Number(openXReport.cashbox),
+        xreport: Number(openXReport.id),
+        zreport: Number(openXReport.zreport),
+        old_card: Number(oldCard.id),
+        new_card: Number(newCard.id),
+        old_card_number: oldCard.card,
+        new_card_number: newCard.card,
+        amount: transferAmount,
+        description,
+        returned_at: returnedAt,
+      },
+      {
+        transaction: dbTransaction,
+      },
+    );
+
     if (Number(oldCard.batch) === Number(newCard.batch)) {
       await CardBatchModel.increment(
         {
@@ -529,6 +556,13 @@ export const CardRefundTransactionService = async (
     });
 
     return {
+      id: Number(cardReturn.id),
+      operator: normalizedOperatorID,
+      cashbox: Number(openXReport.cashbox),
+      xreport: Number(openXReport.id),
+      zreport: Number(openXReport.zreport),
+      returned_at: returnedAt,
+      description,
       old_card: {
         id: Number(oldCard.id),
         card: oldCard.card,
@@ -546,6 +580,86 @@ export const CardRefundTransactionService = async (
       amount: transferAmount,
     };
   });
+};
+
+export const GetCardReturnsService = async (query: GetCardReturnsQuery) => {
+  const page = Number(query.page ?? 1);
+  const limit = Number(query.limit ?? 20);
+
+  if (!Number.isInteger(page) || page <= 0) {
+    throw BadRequest("PAGE_IS_INVALID");
+  }
+
+  if (!Number.isInteger(limit) || limit <= 0 || limit > 100) {
+    throw BadRequest("LIMIT_IS_INVALID");
+  }
+
+  const where: Record<string | symbol, unknown> = {};
+
+  if (query.date !== undefined) {
+    const date = query.date.trim();
+
+    if (!date) {
+      throw BadRequest("DATE_IS_INVALID");
+    }
+
+    const { startDate, endDate } = getTashkentDayRangeUTC(date);
+
+    where.returned_at = {
+      [Op.between]: [startDate, endDate],
+    };
+  }
+
+  if (query.cashbox !== undefined) {
+    const cashboxID = Number(query.cashbox);
+
+    if (!Number.isInteger(cashboxID) || cashboxID <= 0) {
+      throw BadRequest("CASHBOX_ID_IS_INVALID");
+    }
+
+    where.cashbox = cashboxID;
+  }
+
+  const { rows, count } = await CardReturnModel.findAndCountAll({
+    where,
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+        attributes: ["id", "firstname", "lastname"],
+        required: false,
+        paranoid: false,
+      },
+      {
+        model: CashboxModel,
+        as: "cashboxes",
+        attributes: ["id", "name"],
+        required: false,
+        paranoid: false,
+      },
+    ],
+    distinct: true,
+    limit,
+    offset: (page - 1) * limit,
+    order: [
+      ["returned_at", "DESC"],
+      ["id", "DESC"],
+    ],
+  });
+
+  return {
+    refunds: rows.map((refund) =>
+      CardReturnListItemDTO(
+        refund.get({
+          plain: true,
+        }) as CardReturnListPlain,
+      ),
+    ),
+    total: count,
+    page,
+    limit,
+    totalPages: Math.ceil(count / limit),
+  };
 };
 
 export const GetCardTransactionsService = async (

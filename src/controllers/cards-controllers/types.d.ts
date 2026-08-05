@@ -4,9 +4,9 @@ declare interface CardsParams {
 
 declare interface GetCardsQuery {
   search?: string;
-  statuses?: string;
+  statuses?: CardStatusTypes | CardStatusTypes[];
   batch?: number;
-  type?: string;
+  type?: CardType;
 
   page?: number;
   limit?: number;

@@ -4,6 +4,7 @@ import {
   ReqData,
   RouteWithData,
   RouteWithParamsAndQuery,
+  RouteWithQuery,
 } from "../../types/routes";
 import { Unauthorized } from "../../exceptions";
 import {
@@ -12,6 +13,7 @@ import {
   GetCardTransactionsService,
   CardPaymentTransactionService,
   CardRefundTransactionService,
+  GetCardReturnsService,
 } from "../../services/card-transactions-services/CardTransactionsServices";
 
 export const CheckNfcCardController = makeReplyingController(
@@ -38,11 +40,28 @@ export const CardTopUpTransactionController = makeReplyingController(
 
 export const CardRefundTransactionController = makeReplyingController(
   "return",
-  async (request: FastifyRequest) => {
+  async (request: FastifyRequest<RouteWithData<ReqData<CardRefundData>>>) => {
     const operatorID = request.employee?.id;
-    const body = request.body as ReqData<CardRefundData>;
+    const body = request.body.data;
 
-    return CardRefundTransactionService(Number(operatorID), body.data);
+    return CardRefundTransactionService(Number(operatorID), body);
+  },
+);
+
+export const GetCardReturnsController = makeReplyingController(
+  ["refunds", "pagination"],
+  async (request: FastifyRequest<RouteWithQuery<GetCardReturnsQuery>>) => {
+    const result = await GetCardReturnsService(request.query);
+
+    return [
+      result.refunds,
+      {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      },
+    ];
   },
 );
 

@@ -26,6 +26,7 @@ import { ClickTransactionModel } from "../../../models/postgresql/click-transact
 import { UzumTransactionModel } from "../../../models/postgresql/uzum-transactions-model/UzumTransactionModel";
 import { AttractionRoundRefundModel } from "../../../models/postgresql/attraction-round-refund-model/AttractionRoundRefundModel";
 import { AttractionTariffModel } from "../../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
+import { CardReturnModel } from "../../../models/postgresql/card-return-model/CardReturnModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -68,6 +69,7 @@ const models = {
   ClickTransactionModel,
   UzumTransactionModel,
   AttractionRoundRefundModel,
+  CardReturnModel,
 };
 
 export type ModelsType = typeof models;
@@ -112,4 +114,5 @@ export {
   ClickTransactionModel,
   UzumTransactionModel,
   AttractionRoundRefundModel,
+  CardReturnModel,
 };

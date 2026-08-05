@@ -12,7 +12,7 @@ import {
 } from "../../plugins/db/postgresql/db";
 import { ParseCardExcel, ValidateCardExcel } from "../../utils/excelHelpers";
 import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
-import { col, fn, Op } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
 import {
@@ -365,76 +365,127 @@ export const VerifyCardRelationOtpService = async (
 
 export const GetCardStatsService = async (query: GetCardsQuery) => {
   const batchWhere: Record<string, unknown> = {};
-  const cardWhere: Record<string, unknown> = {};
 
   if (query.type) {
     batchWhere.type = query.type;
-    cardWhere.type = query.type;
   }
 
   if (query.batch) {
     batchWhere.id = Number(query.batch);
-    cardWhere.batch = Number(query.batch);
   }
 
-  const [cardBatches, balanceResult] = await Promise.all([
+  const [cardBatches, aggregateRows] = await Promise.all([
     CardBatchModel.findAll({
       where: batchWhere,
+      attributes: ["id", "name", "type", "tethered_cards"],
       raw: true,
       order: [["id", "ASC"]],
     }),
 
-    CardModel.findOne({
-      where: cardWhere,
-      attributes: [[fn("SUM", col("balance")), "total_balance"]],
-      raw: true,
-    }),
+    sequelize.query<{
+      status: CardStatusTypes | null;
+      type: CardType | null;
+      batch: string | number | null;
+      count: string | number;
+      total_balance: string | number;
+      status_grouping: string | number;
+      type_grouping: string | number;
+      batch_grouping: string | number;
+    }>(
+      `
+        SELECT
+          "status"::text AS "status",
+          "type"::text AS "type",
+          "batch",
+          COUNT(*) AS "count",
+          COALESCE(SUM("balance"), 0) AS "total_balance",
+          GROUPING("status") AS "status_grouping",
+          GROUPING("type") AS "type_grouping",
+          GROUPING("batch") AS "batch_grouping"
+        FROM "cards"
+        WHERE "deleted_at" IS NULL
+          AND (:cardType IS NULL OR "type"::text = :cardType)
+          AND (:batchID IS NULL OR "batch" = :batchID)
+        GROUP BY GROUPING SETS (
+          (),
+          ("status"),
+          ("type"),
+          ("batch")
+        )
+      `,
+      {
+        replacements: {
+          cardType: query.type ?? null,
+          batchID: query.batch ? Number(query.batch) : null,
+        },
+        type: QueryTypes.SELECT,
+      },
+    ),
   ]);
 
-  const totalBalance = Number(
-    (
-      balanceResult as unknown as {
-        total_balance: string | number | null;
-      }
-    )?.total_balance ?? 0,
+  const isGrouping = (
+    row: (typeof aggregateRows)[number],
+    status: number,
+    type: number,
+    batch: number,
+  ) =>
+    Number(row.status_grouping) === status &&
+    Number(row.type_grouping) === type &&
+    Number(row.batch_grouping) === batch;
+
+  const summaryRow = aggregateRows.find((row) => isGrouping(row, 1, 1, 1));
+
+  const statusCounts = new Map(
+    aggregateRows
+      .filter(
+        (row): row is typeof row & { status: CardStatusTypes } =>
+          isGrouping(row, 0, 1, 1) && row.status !== null,
+      )
+      .map((row) => [row.status, Number(row.count || 0)]),
+  );
+
+  const typeCounts = new Map(
+    aggregateRows
+      .filter(
+        (row): row is typeof row & { type: CardType } =>
+          isGrouping(row, 1, 0, 1) && row.type !== null,
+      )
+      .map((row) => [row.type, Number(row.count || 0)]),
+  );
+
+  const batchCounts = new Map(
+    aggregateRows
+      .filter(
+        (row): row is typeof row & { batch: string | number } =>
+          isGrouping(row, 1, 1, 0) && row.batch !== null,
+      )
+      .map((row) => [Number(row.batch), Number(row.count || 0)]),
   );
 
   const stats = {
-    total: 0,
-    active: 0,
-    inactive: 0,
-    blocked: 0,
-    lost: 0,
-    frozen: 0,
+    total: Number(summaryRow?.count || 0),
+    active: statusCounts.get(CardStatusTypes.ACTIVE) ?? 0,
+    inactive: statusCounts.get(CardStatusTypes.INACTIVE) ?? 0,
+    blocked: statusCounts.get(CardStatusTypes.BLOCKED) ?? 0,
+    lost: statusCounts.get(CardStatusTypes.LOST) ?? 0,
+    frozen: statusCounts.get(CardStatusTypes.FROZEN) ?? 0,
     tethered: 0,
-    returned: 0,
+    returned: statusCounts.get(CardStatusTypes.RETURNED) ?? 0,
 
-    totalBalance,
+    totalBalance: Number(summaryRow?.total_balance || 0),
 
-    types: {} as Record<string, number>,
+    types: Object.fromEntries(typeCounts) as Record<string, number>,
 
     batches: cardBatches.map((batch) => ({
       id: Number(batch.id),
       name: batch.name,
       type: batch.type,
-      total: Number(batch.total_cards || 0),
+      total: batchCounts.get(Number(batch.id)) ?? 0,
     })),
   };
 
   for (const batch of cardBatches) {
-    stats.total += Number(batch.total_cards || 0);
-    stats.active += Number(batch.active_cards || 0);
-    stats.inactive += Number(batch.inactive_cards || 0);
-    stats.blocked += Number(batch.blocked_cards || 0);
-    stats.lost += Number(batch.lost_cards || 0);
-    stats.frozen += Number(batch.frozen_cards || 0);
     stats.tethered += Number(batch.tethered_cards || 0);
-    stats.returned += Number(batch.returned_cards || 0);
-
-    const type = String(batch.type);
-
-    stats.types[type] =
-      Number(stats.types[type] || 0) + Number(batch.total_cards || 0);
   }
 
   return stats;
@@ -473,11 +524,13 @@ export const GetCardsService = async (query: GetCardsQuery) => {
   }
 
   if (query.statuses) {
-    where.status = Array.isArray(query.statuses)
-      ? {
-          [Op.in]: query.statuses,
-        }
-      : query.statuses;
+    const statuses = Array.isArray(query.statuses)
+      ? query.statuses
+      : [query.statuses];
+
+    where.status = {
+      [Op.in]: statuses,
+    };
   }
 
   const { rows, count } = await CardModel.findAndCountAll({
@@ -486,6 +539,7 @@ export const GetCardsService = async (query: GetCardsQuery) => {
       {
         model: CardBatchModel,
         as: "batches",
+        attributes: ["id", "name", "type"],
       },
       {
         model: UserModel,
