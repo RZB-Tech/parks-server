@@ -1,6 +1,9 @@
-import { Op, Transaction } from "sequelize";
+import { Op, QueryTypes, Transaction } from "sequelize";
+import { VIRTUAL_CARD_BONUS_AMOUNT } from "../../consts/card";
+import { OnlinePaymentDailyReportDTO } from "../../dtos/online-payment-reports-dtos/OnlinePaymentReportDto";
 import { InternalServerError } from "../../exceptions";
 import { PaymentServiceType } from "../../models/postgresql/card-transactions-model/enums";
+import { CardType } from "../../models/postgresql/cards-model/enums";
 import {
   CashboxStatusTypes,
   CashboxTypes,
@@ -10,13 +13,110 @@ import {
   CashboxReportStatusTypes,
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
-import { CashboxModel } from "../../plugins/db/postgresql/db";
+import {
+  CardModel,
+  CashboxModel,
+  UserModel,
+} from "../../plugins/db/postgresql/db";
 import {
   getMostRecentTashkentCutoffUTC,
+  getTashkentDateOnly,
   getTashkentDayRangeUTC,
 } from "../../utils/date";
+import { GetOnlinePaymentDailyReportQuery } from "../../controllers/online-payment-reports-controllers/types";
 
 export const ONLINE_PAYMENTS_CASHBOX_KEY = "online_payments";
+
+type CountRow = {
+  count: string | number;
+};
+
+export const GetOnlinePaymentDailyReportService = async (
+  query: GetOnlinePaymentDailyReportQuery = {},
+) => {
+  const date = query.date ?? getTashkentDateOnly();
+  const { startDate, endDate } = getTashkentDayRangeUTC(date);
+  const sequelize = CashboxReportModel.sequelize!;
+
+  const cashbox = await CashboxModel.findOne({
+    where: {
+      system_key: ONLINE_PAYMENTS_CASHBOX_KEY,
+      type: CashboxTypes.VIRTUAL,
+    },
+    attributes: ["id"],
+  });
+
+  if (!cashbox) {
+    throw InternalServerError("ONLINE_PAYMENTS_CASHBOX_NOT_CONFIGURED");
+  }
+
+  const [
+    report,
+    registeredUsersCount,
+    virtualCardsOpenedCount,
+    registeredUsersWithVirtualCardRows,
+  ] = await Promise.all([
+    CashboxReportModel.findOne({
+      where: {
+        cashbox: cashbox.id,
+        report_type: CashboxReportTypes.ZREPORT,
+        report_date: {
+          [Op.between]: [startDate, endDate],
+        },
+      },
+      order: [["id", "DESC"]],
+    }),
+    UserModel.count({
+      where: {
+        registered_at: {
+          [Op.between]: [startDate, endDate],
+        },
+      },
+      paranoid: false,
+    }),
+    CardModel.count({
+      where: {
+        type: CardType.VIRTUAL,
+        activated_at: {
+          [Op.between]: [startDate, endDate],
+        },
+      },
+      paranoid: false,
+    }),
+    sequelize.query<CountRow>(
+      `
+        SELECT COUNT(DISTINCT users.id) AS count
+        FROM users
+        INNER JOIN cards
+          ON cards."user" = users.id
+        WHERE users.registered_at BETWEEN :startDate AND :endDate
+          AND cards.type = :virtualCardType
+          AND cards.activated_at BETWEEN :startDate AND :endDate
+      `,
+      {
+        replacements: {
+          startDate,
+          endDate,
+          virtualCardType: CardType.VIRTUAL,
+        },
+        type: QueryTypes.SELECT,
+      },
+    ),
+  ]);
+
+  const registeredUsersWithVirtualCardCount = Number(
+    registeredUsersWithVirtualCardRows[0]?.count ?? 0,
+  );
+  return OnlinePaymentDailyReportDTO({
+    date,
+    report,
+    registered_users_count: registeredUsersCount,
+    virtual_cards_opened_count: virtualCardsOpenedCount,
+    registered_users_with_virtual_card_count:
+      registeredUsersWithVirtualCardCount,
+    bonus_per_virtual_card: VIRTUAL_CARD_BONUS_AMOUNT,
+  });
+};
 
 export const GetOrCreateOnlineDailyZReportService = async (
   transaction: Transaction,
@@ -163,11 +263,7 @@ export const CloseOnlineDailyZReportService = async (
     }
 
     const now = new Date();
-    const cutoff = getMostRecentTashkentCutoffUTC(
-      referenceTime,
-      23,
-      59,
-    );
+    const cutoff = getMostRecentTashkentCutoffUTC(referenceTime, 23, 59);
 
     const [closedReports] = await CashboxReportModel.update(
       {
@@ -239,8 +335,10 @@ export const OpenOnlineDailyZReportService = async (
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
-    const { cashbox, report } =
-      await GetOrCreateOnlineDailyZReportService(transaction, referenceTime);
+    const { cashbox, report } = await GetOrCreateOnlineDailyZReportService(
+      transaction,
+      referenceTime,
+    );
 
     return {
       cashbox: Number(cashbox.id),

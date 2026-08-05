@@ -124,6 +124,7 @@ export class UserModel
           { fields: ["status"] },
           { fields: ["telegram_username"] },
           { fields: ["created_at"] },
+          { fields: ["registered_at"] },
         ],
       },
     );

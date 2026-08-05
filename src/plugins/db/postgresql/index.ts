@@ -1,16 +1,12 @@
 import { FastifyInstance, FastifyPluginAsync } from "fastify";
 import fp from "fastify-plugin";
 import { sequelize } from "./db";
-import { ApplyCashboxReportSchemaMigration } from "./cashboxReportSchemaMigration";
-import { ApplyAttractionRoundRefundSchemaMigration } from "./attractionRoundRefundSchemaMigration";
 
 const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   try {
     await sequelize.authenticate();
 
     await sequelize.sync();
-    await ApplyCashboxReportSchemaMigration(sequelize);
-    await ApplyAttractionRoundRefundSchemaMigration(sequelize);
 
     fastify.decorate("sequelize", sequelize);
 

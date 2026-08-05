@@ -1528,13 +1528,11 @@ export const GetAccountingAttractionReportsService = async (
   ].sort((first, second) => first.localeCompare(second));
 
   /*
-   * promotion_code filter bo‘lsa faqat shu aksiya
-   * ishlatilgan attractionlar qaytadi.
-   *
-   * Filter bo‘lmasa confirmed ZReport mavjud
-   * attractionlar qaytadi.
+   * Promotion filter ishlatilganda report va totalsga faqat
+   * tanlangan promotion ishlatilgan attractionlar kiradi.
+   * Filter bo‘lmasa barcha confirmed reportlar tanlanadi.
    */
-  const attractionIDs = requestedPromotionCodes.length
+  const selectedAttractionIDs = requestedPromotionCodes.length
     ? [
         ...new Set(
           promotionReportsPlain.map((report) => Number(report.attraction)),
@@ -1542,28 +1540,39 @@ export const GetAccountingAttractionReportsService = async (
       ]
     : [...new Set(reportsPlain.map((report) => Number(report.attraction)))];
 
-  const attractions = attractionIDs.length
-    ? await AttractionModel.findAll({
-        paranoid: false,
-        where: {
-          id: {
-            [Op.in]: attractionIDs,
-          },
-        },
-
-        order: [["id", "ASC"]],
-      })
-    : [];
-
-  const selectedAttractionIDs = new Set(attractionIDs);
+  const selectedAttractionIDSet = new Set(selectedAttractionIDs);
 
   /*
    * Filter ishlatilganda faqat topilgan
    * attractionlarning ZReportlari totalsga kiradi.
    */
   const selectedReports = reportsPlain.filter((report) =>
-    selectedAttractionIDs.has(Number(report.attraction)),
+    selectedAttractionIDSet.has(Number(report.attraction)),
   );
+
+  /*
+   * Accounting ro‘yxatida barcha mavjud attractionlar ko‘rsatiladi.
+   * Soft-delete qilingan attraction esa faqat tanlangan davr/filterda
+   * reporti bo‘lsa tarixiy accounting uchun ro‘yxatda qoladi.
+   */
+  const attractionWhere: any = selectedAttractionIDs.length
+    ? {
+        [Op.or]: [
+          { deletedAt: null },
+          {
+            id: {
+              [Op.in]: selectedAttractionIDs,
+            },
+          },
+        ],
+      }
+    : { deletedAt: null };
+
+  const attractions = await AttractionModel.findAll({
+    paranoid: false,
+    where: attractionWhere,
+    order: [["id", "ASC"]],
+  });
 
   return AccountingAttractionReportsDTO({
     start_date: start,
