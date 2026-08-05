@@ -124,20 +124,45 @@ const AddPaymentRefundCounters = (
   payment: CardTransactionModelI,
   cardType: CardType,
   roundCounters: boolean,
+  refundPeopleCount: number,
 ) => {
-  const peopleCount = Number(payment.people_count || 0);
-  const amount = Number(payment.amount || 0);
-  const totalAmount = Number(payment.sale_unit_price || 0) * peopleCount;
+  const paymentPeopleCount = Number(payment.people_count || 0);
+  const paymentAmount = Number(payment.amount || 0);
+  const originalUnitPrice = Number(payment.original_unit_price || 0);
+  const saleUnitPrice = Number(payment.sale_unit_price || 0);
+  const discountUnitPrice = originalUnitPrice - saleUnitPrice;
   const isOnline = payment.payment_type === PaymentType.ONLINE;
+  const unitPaymentAmount = paymentAmount / paymentPeopleCount;
+  const amount = unitPaymentAmount * refundPeopleCount;
+  const originalAmount = originalUnitPrice * refundPeopleCount;
+  const discountAmount = discountUnitPrice * refundPeopleCount;
+  const totalAmount = saleUnitPrice * refundPeopleCount;
   const paidAmount =
     cardType === CardType.CLASSIC || cardType === CardType.VIRTUAL ? amount : 0;
 
   if (
-    !Number.isSafeInteger(peopleCount) ||
-    peopleCount <= 0 ||
+    !Number.isSafeInteger(paymentPeopleCount) ||
+    paymentPeopleCount <= 0 ||
+    !Number.isSafeInteger(refundPeopleCount) ||
+    refundPeopleCount <= 0 ||
+    refundPeopleCount > paymentPeopleCount ||
+    !Number.isSafeInteger(paymentAmount) ||
+    paymentAmount < 0 ||
+    !Number.isSafeInteger(unitPaymentAmount) ||
+    unitPaymentAmount < 0 ||
+    !Number.isSafeInteger(originalUnitPrice) ||
+    originalUnitPrice < 0 ||
+    !Number.isSafeInteger(saleUnitPrice) ||
+    saleUnitPrice < 0 ||
+    !Number.isSafeInteger(discountUnitPrice) ||
+    discountUnitPrice < 0 ||
     !Number.isSafeInteger(amount) ||
-    amount < 0 ||
+    !Number.isSafeInteger(originalAmount) ||
+    !Number.isSafeInteger(discountAmount) ||
     !Number.isSafeInteger(totalAmount) ||
+    amount < 0 ||
+    originalAmount < 0 ||
+    discountAmount < 0 ||
     totalAmount < 0
   ) {
     throw Conflict("REFUND_TRANSACTION_TOTALS_ARE_INVALID");
@@ -153,20 +178,24 @@ const AddPaymentRefundCounters = (
     ? "organization_count"
     : "total_organization";
 
-  target[peopleField] += peopleCount;
-  target[offlineField] += isOnline ? 0 : peopleCount;
-  target[onlineField] += isOnline ? peopleCount : 0;
-  target[virtualField] += cardType === CardType.VIRTUAL ? peopleCount : 0;
-  target[classicField] += cardType === CardType.CLASSIC ? peopleCount : 0;
-  target[vipField] += cardType === CardType.VIP ? peopleCount : 0;
+  target[peopleField] += refundPeopleCount;
+  target[offlineField] += isOnline ? 0 : refundPeopleCount;
+  target[onlineField] += isOnline ? refundPeopleCount : 0;
+  target[virtualField] +=
+    cardType === CardType.VIRTUAL ? refundPeopleCount : 0;
+  target[classicField] +=
+    cardType === CardType.CLASSIC ? refundPeopleCount : 0;
+  target[vipField] += cardType === CardType.VIP ? refundPeopleCount : 0;
   target[organizationField] +=
-    cardType === CardType.ORGANIZATION ? peopleCount : 0;
+    cardType === CardType.ORGANIZATION ? refundPeopleCount : 0;
   target.paid_amount += paidAmount;
   target.total_amount += totalAmount;
 
   return {
-    peopleCount,
+    peopleCount: refundPeopleCount,
     amount,
+    originalAmount,
+    discountAmount,
     totalAmount,
     paidAmount,
     isOnline,
@@ -323,9 +352,22 @@ export const RefundFinishedAttractionRoundService = async (
   const transactionIDs = Array.isArray(body.transactionIDs)
     ? body.transactionIDs.map(Number)
     : [];
+  const requestedPeopleCount =
+    body.people_count === undefined ? null : Number(body.people_count);
 
   if (new Set(transactionIDs).size !== transactionIDs.length) {
     throw BadRequest("DUPLICATE_TRANSACTION_IDS_ARE_NOT_ALLOWED");
+  }
+
+  if (
+    requestedPeopleCount !== null &&
+    (!Number.isSafeInteger(requestedPeopleCount) || requestedPeopleCount <= 0)
+  ) {
+    throw BadRequest("REFUND_PEOPLE_COUNT_IS_INVALID");
+  }
+
+  if (requestedPeopleCount !== null && transactionIDs.length !== 1) {
+    throw BadRequest("PARTIAL_REFUND_REQUIRES_SINGLE_TRANSACTION");
   }
 
   if (!description || description.length < 3 || description.length > 500) {
@@ -461,8 +503,28 @@ export const RefundFinishedAttractionRoundService = async (
       lock: transaction.LOCK.UPDATE,
     });
 
-    if (existingRefunds.length > 0) {
-      throw Conflict("TRANSACTION_ALREADY_REFUNDED");
+    const refundedPeopleByTransaction = new Map<number, number>();
+
+    for (const existingRefund of existingRefunds) {
+      const originalTransactionID = Number(
+        existingRefund.original_transaction,
+      );
+      const existingRefundedPeople = Number(existingRefund.people_count || 0);
+
+      if (
+        !Number.isSafeInteger(originalTransactionID) ||
+        originalTransactionID <= 0 ||
+        !Number.isSafeInteger(existingRefundedPeople) ||
+        existingRefundedPeople <= 0
+      ) {
+        throw Conflict("EXISTING_REFUND_TOTALS_ARE_INVALID");
+      }
+
+      refundedPeopleByTransaction.set(
+        originalTransactionID,
+        (refundedPeopleByTransaction.get(originalTransactionID) ?? 0) +
+          existingRefundedPeople,
+      );
     }
 
     const roundCounters = EmptyRoundRefundCounters();
@@ -472,17 +534,61 @@ export const RefundFinishedAttractionRoundService = async (
     let standardRefundCount = 0;
     let refundedAmount = 0;
     let refundedPeople = 0;
+    const refundPlans: Array<{
+      payment: CardTransactionModel;
+      peopleCount: number;
+      amount: number;
+      originalAmount: number;
+      discountAmount: number;
+      fullyRefunded: boolean;
+    }> = [];
 
     for (const payment of orderedPayments) {
+      const paymentID = Number(payment.id);
+      const paymentPeopleCount = Number(payment.people_count || 0);
+      const previouslyRefundedPeople =
+        refundedPeopleByTransaction.get(paymentID) ?? 0;
+      const remainingPeople = paymentPeopleCount - previouslyRefundedPeople;
+
+      if (
+        !Number.isSafeInteger(paymentPeopleCount) ||
+        paymentPeopleCount <= 0 ||
+        !Number.isSafeInteger(previouslyRefundedPeople) ||
+        previouslyRefundedPeople < 0 ||
+        !Number.isSafeInteger(remainingPeople) ||
+        remainingPeople < 0
+      ) {
+        throw Conflict("REFUND_PEOPLE_TOTALS_ARE_INVALID");
+      }
+
+      if (remainingPeople === 0) {
+        throw Conflict("TRANSACTION_ALREADY_REFUNDED");
+      }
+
+      const refundPeopleCount = requestedPeopleCount ?? remainingPeople;
+
+      if (refundPeopleCount > remainingPeople) {
+        throw Conflict("REFUND_PEOPLE_COUNT_EXCEEDS_REMAINING_PEOPLE");
+      }
+
       const totals = AddPaymentRefundCounters(
         roundCounters,
         payment,
         card.type,
         true,
+        refundPeopleCount,
       );
 
       refundedAmount += totals.amount;
       refundedPeople += totals.peopleCount;
+      refundPlans.push({
+        payment,
+        peopleCount: totals.peopleCount,
+        amount: totals.amount,
+        originalAmount: totals.originalAmount,
+        discountAmount: totals.discountAmount,
+        fullyRefunded: refundPeopleCount === remainingPeople,
+      });
 
       if (payment.promotion === null) {
         standardRefundCount += 1;
@@ -491,6 +597,7 @@ export const RefundFinishedAttractionRoundService = async (
           payment,
           card.type,
           false,
+          refundPeopleCount,
         );
         continue;
       }
@@ -515,8 +622,8 @@ export const RefundFinishedAttractionRoundService = async (
         card.type === CardType.ORGANIZATION ? totals.peopleCount : 0;
       counters.total_online += totals.isOnline ? totals.peopleCount : 0;
       counters.total_offline += totals.isOnline ? 0 : totals.peopleCount;
-      counters.original_amount += Number(payment.original_amount || 0);
-      counters.discount_amount += Number(payment.discount_amount || 0);
+      counters.original_amount += totals.originalAmount;
+      counters.discount_amount += totals.discountAmount;
       counters.total_amount += totals.totalAmount;
       counters.paid_amount += totals.paidAmount;
 
@@ -614,24 +721,30 @@ export const RefundFinishedAttractionRoundService = async (
       throw Conflict("CARD_BALANCE_IS_INVALID");
     }
 
-    const [cancelledPayments] = await CardTransactionModel.update(
-      {
-        status: CardTransactionStatusTypes.CANCELLED,
-      },
-      {
-        where: {
-          id: {
-            [Op.in]: transactionIDs,
-          },
-          type: CardTransactionType.PAYMENT,
-          status: CardTransactionStatusTypes.SUCCESS,
-        },
-        transaction,
-      },
-    );
+    const fullyRefundedPaymentIDs = refundPlans
+      .filter((plan) => plan.fullyRefunded)
+      .map((plan) => Number(plan.payment.id));
 
-    if (cancelledPayments !== transactionIDs.length) {
-      throw Conflict("SOME_TRANSACTIONS_WERE_ALREADY_REFUNDED");
+    if (fullyRefundedPaymentIDs.length > 0) {
+      const [cancelledPayments] = await CardTransactionModel.update(
+        {
+          status: CardTransactionStatusTypes.CANCELLED,
+        },
+        {
+          where: {
+            id: {
+              [Op.in]: fullyRefundedPaymentIDs,
+            },
+            type: CardTransactionType.PAYMENT,
+            status: CardTransactionStatusTypes.SUCCESS,
+          },
+          transaction,
+        },
+      );
+
+      if (cancelledPayments !== fullyRefundedPaymentIDs.length) {
+        throw Conflict("SOME_TRANSACTIONS_WERE_ALREADY_REFUNDED");
+      }
     }
 
     let nextBalance = balanceBefore;
@@ -639,9 +752,10 @@ export const RefundFinishedAttractionRoundService = async (
       [];
     const refundTransactionIDs: number[] = [];
 
-    for (const payment of orderedPayments) {
-      const paymentAmount = Number(payment.amount || 0);
-      const paymentPeople = Number(payment.people_count || 0);
+    for (const refundPlan of refundPlans) {
+      const payment = refundPlan.payment;
+      const paymentAmount = refundPlan.amount;
+      const paymentPeople = refundPlan.peopleCount;
       const refundBalanceBefore = nextBalance;
       const refundBalanceAfter = refundBalanceBefore + paymentAmount;
 
@@ -673,8 +787,8 @@ export const RefundFinishedAttractionRoundService = async (
           people_count: paymentPeople,
           original_unit_price: Number(payment.original_unit_price || 0),
           sale_unit_price: Number(payment.sale_unit_price || 0),
-          original_amount: Number(payment.original_amount || 0),
-          discount_amount: Number(payment.discount_amount || 0),
+          original_amount: refundPlan.originalAmount,
+          discount_amount: refundPlan.discountAmount,
           payment_type: payment.payment_type,
           payment_card_type: payment.payment_card_type,
           payment_service: payment.payment_service,

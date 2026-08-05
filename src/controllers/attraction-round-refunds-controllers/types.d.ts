@@ -6,6 +6,7 @@ declare interface AttractionRoundRefundParams {
 declare interface RefundAttractionRoundData {
   card_id: number;
   transactionIDs: number[];
+  people_count?: number;
   description: string;
 }
 

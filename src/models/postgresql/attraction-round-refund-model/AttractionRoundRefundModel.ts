@@ -46,7 +46,6 @@ export class AttractionRoundRefundModel
         original_transaction: {
           type: DataTypes.BIGINT,
           allowNull: false,
-          unique: true,
         },
         refund_transaction: {
           type: DataTypes.BIGINT,
@@ -76,6 +75,7 @@ export class AttractionRoundRefundModel
           { fields: ["attraction"] },
           { fields: ["operator"] },
           { fields: ["card"] },
+          { fields: ["original_transaction"] },
           { fields: ["created_at"] },
           { fields: ["attraction", "created_at"] },
         ],

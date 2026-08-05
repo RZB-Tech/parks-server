@@ -280,6 +280,12 @@ export const refundFinishedAttractionRoundSchema = {
           minimum: 1,
         },
       },
+      people_count: {
+        type: "integer",
+        minimum: 1,
+        description:
+          "Optional partial refund people count. Allowed only with one transaction ID. Omit to refund all remaining people in selected transactions.",
+      },
       description: {
         type: "string",
         minLength: 3,
