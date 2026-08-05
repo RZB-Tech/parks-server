@@ -660,59 +660,40 @@ export const GetClientTransactionsService = async (
 
   /*
    * Summary type tabga bog‘liq emas.
+   * Refund va CANCELLED original transactionlar faqat historyda ko‘rinadi;
+   * ular income/expense summaryga qayta qo‘shilmaydi.
    *
    * Masalan payment tab ochiq bo‘lsa ham,
    * shu oy uchun umumiy income va expense qaytadi.
    */
-  const [
-    transactionResult,
-    topupIncomeResult,
-    refundIncomeResult,
-    paymentExpenseResult,
-    refundExpenseResult,
-  ] = await Promise.all([
-    CardTransactionModel.findAndCountAll({
-      where: transactionWhere,
-      order: [
-        ["createdAt", "DESC"],
-        ["id", "DESC"],
-      ],
-      limit,
-      offset,
-    }),
+  const [transactionResult, topupIncomeResult, paymentExpenseResult] =
+    await Promise.all([
+      CardTransactionModel.findAndCountAll({
+        where: transactionWhere,
+        order: [
+          ["createdAt", "DESC"],
+          ["id", "DESC"],
+        ],
+        limit,
+        offset,
+      }),
 
-    CardTransactionModel.sum("amount", {
-      where: {
-        ...baseWhere,
-        type: CardTransactionType.TOPUP,
-      },
-    }),
-
-    CardTransactionModel.sum("amount", {
-      where: {
-        ...baseWhere,
-        type: CardTransactionType.REFUND,
-        attraction: {
-          [Op.ne]: null,
+      CardTransactionModel.sum("amount", {
+        where: {
+          ...baseWhere,
+          type: CardTransactionType.TOPUP,
+          status: CardTransactionStatusTypes.SUCCESS,
         },
-      },
-    }),
+      }),
 
-    CardTransactionModel.sum("amount", {
-      where: {
-        ...baseWhere,
-        type: CardTransactionType.PAYMENT,
-      },
-    }),
-
-    CardTransactionModel.sum("amount", {
-      where: {
-        ...baseWhere,
-        type: CardTransactionType.REFUND,
-        attraction: null,
-      },
-    }),
-  ]);
+      CardTransactionModel.sum("amount", {
+        where: {
+          ...baseWhere,
+          type: CardTransactionType.PAYMENT,
+          status: CardTransactionStatusTypes.SUCCESS,
+        },
+      }),
+    ]);
 
   const transactions = transactionResult.rows;
 
@@ -830,10 +811,8 @@ export const GetClientTransactionsService = async (
     cards: cardsResponse,
     period: { month: query.month },
     summary: {
-      income:
-        Number(topupIncomeResult || 0) + Number(refundIncomeResult || 0),
-      expense:
-        Number(paymentExpenseResult || 0) + Number(refundExpenseResult || 0),
+      income: Number(topupIncomeResult || 0),
+      expense: Number(paymentExpenseResult || 0),
     },
     transactions: transactionDTOs,
     pagination: {
