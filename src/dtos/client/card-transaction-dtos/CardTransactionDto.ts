@@ -29,17 +29,23 @@ export const ClientTransactionDTO = (
   cashbox: CashboxModelI | null,
 ): ClientTransactionResponseDTO => {
   const amount = Number(transaction.amount || 0);
+  const balanceBefore = Number(transaction.balance_before || 0);
+  const balanceAfter = Number(transaction.balance_after || 0);
 
   const isTopup = transaction.type === CardTransactionType.TOPUP;
+  const isRefundIncome =
+    transaction.type === CardTransactionType.REFUND &&
+    balanceAfter >= balanceBefore;
+  const isIncome = isTopup || isRefundIncome;
 
   return {
     id: Number(transaction.id),
     type: transaction.type,
-    direction: isTopup ? "income" : "expense",
+    direction: isIncome ? "income" : "expense",
     amount,
-    signed_amount: isTopup ? amount : -amount,
-    balance_before: Number(transaction.balance_before || 0),
-    balance_after: Number(transaction.balance_after || 0),
+    signed_amount: isIncome ? amount : -amount,
+    balance_before: balanceBefore,
+    balance_after: balanceAfter,
     payment_type: transaction.payment_type ?? null,
     payment_service: transaction.payment_service ?? null,
     status: transaction.status,

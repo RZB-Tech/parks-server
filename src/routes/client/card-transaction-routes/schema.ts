@@ -86,7 +86,7 @@ export const getClientTransactionsSchema = {
   tags: ["Clients|Transactions"],
   summary: "Get client transaction history",
   description:
-    "Returns successful payment and top-up transactions for all user cards or one selected card within one required calendar month.",
+    "Returns payment, top-up and refund transactions for all user cards or one selected card within one required calendar month.",
 
   security: [
     {
@@ -114,9 +114,13 @@ export const getClientTransactionsSchema = {
 
       type: {
         type: "string",
-        enum: [CardTransactionType.PAYMENT, CardTransactionType.TOPUP],
+        enum: [
+          CardTransactionType.PAYMENT,
+          CardTransactionType.TOPUP,
+          CardTransactionType.REFUND,
+        ],
         description:
-          "Optional transaction type. Omit to get payment and top-up transactions.",
+          "Optional transaction type. Omit to get payment, top-up and refund transactions.",
       },
 
       page: {
@@ -175,7 +179,11 @@ export const getClientTransactionsSchema = {
             id: { type: "integer" },
             type: {
               type: "string",
-              enum: [CardTransactionType.PAYMENT, CardTransactionType.TOPUP],
+              enum: [
+                CardTransactionType.PAYMENT,
+                CardTransactionType.TOPUP,
+                CardTransactionType.REFUND,
+              ],
             },
             direction: {
               type: "string",

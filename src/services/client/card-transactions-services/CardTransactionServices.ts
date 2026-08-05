@@ -530,7 +530,11 @@ export const GetClientTransactionsService = async (
     throw BadRequest("INVALID_CARD_ID");
   }
 
-  const allowedTypes = [CardTransactionType.PAYMENT, CardTransactionType.TOPUP];
+  const allowedTypes = [
+    CardTransactionType.PAYMENT,
+    CardTransactionType.TOPUP,
+    CardTransactionType.REFUND,
+  ];
 
   if (requestedType && !allowedTypes.includes(requestedType)) {
     throw BadRequest("INVALID_TRANSACTION_TYPE");
@@ -627,7 +631,12 @@ export const GetClientTransactionsService = async (
       [Op.in]: selectedCardIDs,
     },
 
-    status: CardTransactionStatusTypes.SUCCESS,
+    status: {
+      [Op.in]: [
+        CardTransactionStatusTypes.SUCCESS,
+        CardTransactionStatusTypes.CANCELLED,
+      ],
+    },
 
     createdAt: {
       [Op.gte]: startUTC,
@@ -643,7 +652,7 @@ export const GetClientTransactionsService = async (
     : {
         ...baseWhere,
         type: {
-          [Op.in]: [CardTransactionType.PAYMENT, CardTransactionType.TOPUP],
+          [Op.in]: allowedTypes,
         },
       };
 
@@ -655,7 +664,13 @@ export const GetClientTransactionsService = async (
    * Masalan payment tab ochiq bo‘lsa ham,
    * shu oy uchun umumiy income va expense qaytadi.
    */
-  const [transactionResult, incomeResult, expenseResult] = await Promise.all([
+  const [
+    transactionResult,
+    topupIncomeResult,
+    refundIncomeResult,
+    paymentExpenseResult,
+    refundExpenseResult,
+  ] = await Promise.all([
     CardTransactionModel.findAndCountAll({
       where: transactionWhere,
       order: [
@@ -676,7 +691,25 @@ export const GetClientTransactionsService = async (
     CardTransactionModel.sum("amount", {
       where: {
         ...baseWhere,
+        type: CardTransactionType.REFUND,
+        attraction: {
+          [Op.ne]: null,
+        },
+      },
+    }),
+
+    CardTransactionModel.sum("amount", {
+      where: {
+        ...baseWhere,
         type: CardTransactionType.PAYMENT,
+      },
+    }),
+
+    CardTransactionModel.sum("amount", {
+      where: {
+        ...baseWhere,
+        type: CardTransactionType.REFUND,
+        attraction: null,
       },
     }),
   ]);
@@ -797,8 +830,10 @@ export const GetClientTransactionsService = async (
     cards: cardsResponse,
     period: { month: query.month },
     summary: {
-      income: Number(incomeResult || 0),
-      expense: Number(expenseResult || 0),
+      income:
+        Number(topupIncomeResult || 0) + Number(refundIncomeResult || 0),
+      expense:
+        Number(paymentExpenseResult || 0) + Number(refundExpenseResult || 0),
     },
     transactions: transactionDTOs,
     pagination: {
