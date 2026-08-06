@@ -14,19 +14,19 @@ const EmployeesRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/employee/:employeeID",
-    { schema: getEmployeeSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
+    { schema: getEmployeeSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "head_cashier"])] },
     GetEmployeeController,
   );
 
   fastify.get(
     "/employee/stats",
-    { schema: getEmployeeStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
+    { schema: getEmployeeStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "head_cashier"])] },
     GetEmployeeStatsController,
   );
 
   fastify.get(
     "/employees",
-    { schema: getEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
+    { schema: getEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "head_cashier"])] },
     GetEmployeesController,
   );
 
