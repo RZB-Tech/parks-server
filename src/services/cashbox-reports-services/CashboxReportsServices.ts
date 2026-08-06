@@ -1,5 +1,7 @@
 import { Op, QueryTypes, Transaction } from "sequelize";
-import { BadRequest, Conflict, NotFound } from "../../exceptions";
+import { BadRequest, Conflict, Forbidden, NotFound } from "../../exceptions";
+import { CashboxOperatorModel } from "../../models/postgresql/cashbox-operator-model/CashboxOperatorModel";
+import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
 import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
 import {
   CashboxReportStatusTypes,
@@ -56,6 +58,20 @@ export const OpenCashboxReportService = async (
 
     if (cashbox.type === CashboxTypes.VIRTUAL) {
       throw BadRequest("VIRTUAL_CASHBOX_OPERATION_NOT_ALLOWED");
+    }
+
+    const cashboxOperator = await CashboxOperatorModel.findOne({
+      where: {
+        cashbox: cashboxID,
+        operator: operatorID,
+        status: CashboxOperatorStatusTypes.ACTIVE,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!cashboxOperator) {
+      throw Forbidden("Operator is not assigned to this cashbox!");
     }
 
     const { startDate, endDate } = getTashkentDayRangeUTC();
