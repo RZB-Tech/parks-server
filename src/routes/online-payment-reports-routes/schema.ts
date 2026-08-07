@@ -21,7 +21,7 @@ const applicationStatsProperties = {
 export const getOnlinePaymentDailyReportSchema = {
   summary: "Get online payments daily report",
   description:
-    "Returns the online payments Z-report and daily application statistics. Defaults to the current Asia/Tashkent date.",
+    "Returns online payment Z-reports and application statistics for a date or an inclusive from/to range in Asia/Tashkent. Defaults to the current date.",
   tags: ["Online Payment Reports route"],
   querystring: {
     type: "object",
@@ -31,13 +31,38 @@ export const getOnlinePaymentDailyReportSchema = {
         type: "string",
         format: "date",
         pattern: "^\\d{4}-\\d{2}-\\d{2}$",
-        description: "Optional date in YYYY-MM-DD format.",
+        description:
+          "Optional date in YYYY-MM-DD format. Cannot be used with from/to.",
+      },
+      from: {
+        type: "string",
+        format: "date",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description:
+          "Inclusive range start in YYYY-MM-DD format. Must be used with to.",
+      },
+      to: {
+        type: "string",
+        format: "date",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description:
+          "Inclusive range end in YYYY-MM-DD format. Must be used with from.",
       },
     },
   },
   response: {
     200: successAnswerTemplate({
       date: {
+        oneOf: [
+          { type: "string", format: "date" },
+          { type: "null" },
+        ],
+      },
+      from: {
+        type: "string",
+        format: "date",
+      },
+      to: {
         type: "string",
         format: "date",
       },
@@ -65,6 +90,27 @@ export const getOnlinePaymentDailyReportSchema = {
           },
           { type: "null" },
         ],
+      },
+      z_reports: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "number" },
+            date: { type: "string", format: "date" },
+            status: {
+              type: "string",
+              enum: Object.values(CashboxReportStatusTypes),
+            },
+            opened_at: { type: "string", format: "date-time" },
+            closed_at: {
+              oneOf: [
+                { type: "string", format: "date-time" },
+                { type: "null" },
+              ],
+            },
+          },
+        },
       },
       payments: {
         type: "object",

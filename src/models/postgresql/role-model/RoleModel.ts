@@ -32,6 +32,7 @@ export class RoleModel
             "admin",
             "owner",
             "director",
+            "hr",
             "cashier",
             "head_cashier",
             "operator",

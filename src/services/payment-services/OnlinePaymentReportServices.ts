@@ -1,7 +1,7 @@
 import { Op, QueryTypes, Transaction } from "sequelize";
 import { VIRTUAL_CARD_BONUS_AMOUNT } from "../../consts/card";
 import { OnlinePaymentDailyReportDTO } from "../../dtos/online-payment-reports-dtos/OnlinePaymentReportDto";
-import { InternalServerError } from "../../exceptions";
+import { BadRequest, InternalServerError } from "../../exceptions";
 import { PaymentServiceType } from "../../models/postgresql/card-transactions-model/enums";
 import { CardType } from "../../models/postgresql/cards-model/enums";
 import {
@@ -22,6 +22,7 @@ import {
   getMostRecentTashkentCutoffUTC,
   getTashkentDateOnly,
   getTashkentDayRangeUTC,
+  getTashkentRangeUTC,
 } from "../../utils/date";
 import { GetOnlinePaymentDailyReportQuery } from "../../controllers/online-payment-reports-controllers/types";
 
@@ -34,8 +35,44 @@ type CountRow = {
 export const GetOnlinePaymentDailyReportService = async (
   query: GetOnlinePaymentDailyReportQuery = {},
 ) => {
-  const date = query.date ?? getTashkentDateOnly();
-  const { startDate, endDate } = getTashkentDayRangeUTC(date);
+  const hasDate = query.date !== undefined;
+  const hasFrom = query.from !== undefined;
+  const hasTo = query.to !== undefined;
+
+  if (hasDate && (hasFrom || hasTo)) {
+    throw BadRequest("DATE_AND_DATE_RANGE_CANNOT_BE_USED_TOGETHER");
+  }
+
+  let from: string;
+  let to: string;
+  let startDate: Date;
+  let endDate: Date;
+
+  if (hasFrom || hasTo) {
+    if (!hasFrom || !hasTo) {
+      throw BadRequest("FROM_AND_TO_ARE_REQUIRED_TOGETHER");
+    }
+
+    from = query.from!.trim();
+    to = query.to!.trim();
+
+    if (!from || !to) {
+      throw BadRequest("DATE_RANGE_IS_INVALID");
+    }
+
+    ({ startDate, endDate } = getTashkentRangeUTC(from, to));
+  } else {
+    const date = hasDate ? query.date!.trim() : getTashkentDateOnly();
+
+    if (!date) {
+      throw BadRequest("DATE_IS_INVALID");
+    }
+
+    from = date;
+    to = date;
+    ({ startDate, endDate } = getTashkentDayRangeUTC(date));
+  }
+
   const sequelize = CashboxReportModel.sequelize!;
 
   const cashbox = await CashboxModel.findOne({
@@ -51,12 +88,12 @@ export const GetOnlinePaymentDailyReportService = async (
   }
 
   const [
-    report,
+    reports,
     registeredUsersCount,
     virtualCardsOpenedCount,
     registeredUsersWithVirtualCardRows,
   ] = await Promise.all([
-    CashboxReportModel.findOne({
+    CashboxReportModel.findAll({
       where: {
         cashbox: cashbox.id,
         report_type: CashboxReportTypes.ZREPORT,
@@ -64,7 +101,10 @@ export const GetOnlinePaymentDailyReportService = async (
           [Op.between]: [startDate, endDate],
         },
       },
-      order: [["id", "DESC"]],
+      order: [
+        ["report_date", "ASC"],
+        ["id", "ASC"],
+      ],
     }),
     UserModel.count({
       where: {
@@ -108,8 +148,9 @@ export const GetOnlinePaymentDailyReportService = async (
     registeredUsersWithVirtualCardRows[0]?.count ?? 0,
   );
   return OnlinePaymentDailyReportDTO({
-    date,
-    report,
+    from,
+    to,
+    reports,
     registered_users_count: registeredUsersCount,
     virtual_cards_opened_count: virtualCardsOpenedCount,
     registered_users_with_virtual_card_count:
