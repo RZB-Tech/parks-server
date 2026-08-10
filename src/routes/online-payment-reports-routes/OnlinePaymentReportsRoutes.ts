@@ -6,6 +6,7 @@ import {
 import { GetOnlinePaymentDailyReportController } from "../../controllers/online-payment-reports-controllers/OnlinePaymentReportsController";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 import { getOnlinePaymentDailyReportSchema } from "./schema";
+import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const OnlinePaymentReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -15,7 +16,7 @@ const OnlinePaymentReportsRouter: FastifyPluginAsync = async (
     "/online-payments/reports/daily",
     {
       schema: getOnlinePaymentDailyReportSchema,
-      preHandler: [AuthMiddleware],
+      preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'owner', 'director', 'head_accountant', 'head_marketing','head_cashier'])],
     },
     GetOnlinePaymentDailyReportController,
   );

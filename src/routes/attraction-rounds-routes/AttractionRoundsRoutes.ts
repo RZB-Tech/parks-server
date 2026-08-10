@@ -16,6 +16,7 @@ import {
   GetTodayAttractionRoundsController,
   GetTodayRoundsController,
 } from "../../controllers/attraction-round-controllers/AttractionRoundController";
+import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const AttractionRoundsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -23,25 +24,25 @@ const AttractionRoundsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/attractions/:attractionID/rounds/current",
-    { schema: getCurrentAttractionRoundSchema, preHandler: [AuthMiddleware] },
+    { schema: getCurrentAttractionRoundSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'operator', 'head_cashier'])] },
     GetCurrentAttractionRoundController,
   );
 
   fastify.get(
     "/attractions/:attractionID/rounds/today",
-    { schema: getTodayAttractionRoundsSchema, preHandler: [AuthMiddleware] },
+    { schema: getTodayAttractionRoundsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'operator', 'head_cashier'])] },
     GetTodayAttractionRoundsController,
   );
 
   fastify.get(
     "/attractions/rounds/today",
-    { schema: getTodayRoundsSchema, preHandler: [AuthMiddleware] },
+    { schema: getTodayRoundsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'operator', 'head_cashier'])] },
     GetTodayRoundsController,
   );
 
   fastify.post(
     "/attractions/:attractionID/rounds/:roundID/close",
-    { schema: closeCurrentAttractionRoundSchema, preHandler: [AuthMiddleware] },
+    { schema: closeCurrentAttractionRoundSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'head_operator', 'operator', 'head_cashier'])] },
     CloseCurrentAttractionRoundController,
   );
 

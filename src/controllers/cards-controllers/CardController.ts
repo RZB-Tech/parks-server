@@ -5,9 +5,7 @@ import {
   DeleteCardsService,
   GetCardsService,
   GetCardStatsService,
-  SendCardRelationOtpService,
   UpdateCardsService,
-  VerifyCardRelationOtpService,
 } from "../../services/card-services/CardsServices";
 import {
   ReqData,
@@ -17,29 +15,6 @@ import {
 } from "../../types/routes";
 import { BadRequest } from "../../exceptions";
 import { CardType } from "../../models/postgresql/cards-model/enums";
-
-export const SendCardRelationOtpController = makeReplyingController(
-  "otp",
-  async (
-    request: FastifyRequest<RouteWithData<ReqData<SendCardRelationOtpData>>>,
-  ) => {
-    const body = request.body.data;
-
-    return await SendCardRelationOtpService(body);
-  },
-);
-
-export const VerifyCardRelationOtpController = makeReplyingController(
-  "card",
-  async (
-    request: FastifyRequest<RouteWithData<ReqData<VerifyCardRelationOtpData>>>,
-  ) => {
-    const operatorID = Number(request.employee?.id);
-    const body = request.body.data;
-
-    return await VerifyCardRelationOtpService(operatorID, body);
-  },
-);
 
 export const GetCardStatsController = makeReplyingController(
   "card_stats",
@@ -71,6 +46,7 @@ export const CreateCardsController = makeReplyingController(
   "cards",
   async (request: FastifyRequest) => {
     const employeeID = request.employee?.id;
+    const employeeRole = request.employee?.role_name;
     let fileBuffer: Buffer | null = null;
     let batchName: string | null = null;
     let type: string | null = null;
@@ -118,12 +94,16 @@ export const CreateCardsController = makeReplyingController(
       throw BadRequest("Card type is required.");
     }
 
-    return CreateCardsService(Number(employeeID), {
-      file: fileBuffer,
-      batch_name: batchName.trim(),
-      type: type.trim() as CardType,
-      balance: balance ?? null,
-    });
+    return CreateCardsService(
+      Number(employeeID),
+      employeeRole,
+      {
+        file: fileBuffer,
+        batch_name: batchName.trim(),
+        type: type.trim() as CardType,
+        balance: balance ?? null,
+      },
+    );
   },
 );
 
@@ -136,8 +116,9 @@ export const UpdateCardsController = makeReplyingController(
   ) => {
     const params = request.params;
     const body = request.body.data;
+    const employeeRole = request.employee?.role_name;
 
-    return UpdateCardsService(params, body);
+    return UpdateCardsService(params, body, employeeRole);
   },
 );
 
@@ -145,7 +126,8 @@ export const DeleteCardsController = makeReplyingController(
   "success",
   async (request: FastifyRequest<RouteWithData<ReqData<DeleteCardsData>>>) => {
     const body = request.body.data;
+    const employeeRole = request.employee?.role_name;
 
-    return DeleteCardsService(body);
+    return DeleteCardsService(body, employeeRole);
   },
 );

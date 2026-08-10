@@ -14,27 +14,27 @@ const PromotionRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/promotions",
-    { schema: getAllPromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
+    { schema: getAllPromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant",'head_operator','operator','head_cashier','cashier',])]},
     GetAllPromotionsController,
   );
   fastify.get(
     "/promotions/:promotionID",
-    { schema: getPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
+    { schema: getPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant",'head_operator','operator','head_cashier','cashier',])]},
     GetPromotionController,
   );
   fastify.post(
     "/promotion",
-    { schema: createPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
+    { schema: createPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","head_marketing"])]},
     CreatePromotionController,
   );
   fastify.put(
     "/promotion/:promotionID",
-    { schema: updatePromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
+    { schema: updatePromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","head_marketing"])]},
     UpdatePromotionController,
   );
   fastify.delete(
     "/promotions",
-    { schema: deletePromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant"])]},
+    { schema: deletePromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","head_marketing"])]},
     DeletePromotionController,
   );
 };

@@ -1,4 +1,4 @@
-import { BadRequest, NotFound } from "../../exceptions";
+import { BadRequest, Forbidden, NotFound } from "../../exceptions";
 import {
   CardStatusTypes,
   CardType,
@@ -6,7 +6,6 @@ import {
 import {
   CardBatchModel,
   CardModel,
-  CardTransactionModel,
   sequelize,
   UserModel,
 } from "../../plugins/db/postgresql/db";
@@ -15,352 +14,25 @@ import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
 import { Op, QueryTypes } from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
-import {
-  PrepareOtpService,
-  SendPreparedOtpService,
-  VerifyOtpService,
-} from "../otp-services/OtpServices";
-import { SmsTypes } from "../../models/postgresql/client/smslog-model/enums";
-import { OtpTypes } from "../../models/postgresql/client/otp-model/enums";
-import { CardTransactionStatusTypes } from "../../models/postgresql/card-transactions-model/enums";
-import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
-import {
-  CashboxReportStatusTypes,
-  CashboxReportTypes,
-} from "../../models/postgresql/cashbox-report-model/enums";
 
-export const SendCardRelationOtpService = async (
-  body: SendCardRelationOtpData,
-): Promise<SendOtpResponseDTO> => {
-  const nfc = body.nfc?.trim();
-
-  if (!nfc) {
-    throw BadRequest("NFC is required!");
-  }
-
-  if (!body.phone_number?.trim()) {
-    throw BadRequest("Phone number is required!");
-  }
-
-  const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
-
-  const sequelize = CardModel.sequelize!;
-
-  const prepared = await sequelize.transaction(async (transaction) => {
-    const card = await CardModel.findOne({
-      where: {
-        nfc,
-      },
-
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!card) {
-      throw NotFound("Card not found!");
-    }
-
-    /*
-     * Faqat classic va organization
-     * karta ulanadi.
-     */
-    if (![CardType.CLASSIC, CardType.ORGANIZATION].includes(card.type)) {
-      throw BadRequest(
-        "Only classic and organization cards can be attached to a user!",
-      );
-    }
-
-    if (
-      [
-        CardStatusTypes.BLOCKED,
-        CardStatusTypes.LOST,
-        CardStatusTypes.FROZEN,
-      ].includes(card.status)
-    ) {
-      throw BadRequest("Card is not available!");
-    }
-
-    const user = await UserModel.findOne({
-      where: {
-        phone_number: phoneNumber,
-
-        status: UserStatusTypes.ACTIVE,
-      },
-
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!user) {
-      throw NotFound("Active user with this phone number not found!");
-    }
-
-    if (card.user !== null && Number(card.user) !== Number(user.id)) {
-      throw BadRequest("Card is already attached to another user!");
-    }
-
-    if (card.user !== null && Number(card.user) === Number(user.id)) {
-      throw BadRequest("Card is already attached to this user!");
-    }
-
-    return await PrepareOtpService(
-      {
-        phone_number: phoneNumber,
-
-        purpose: OtpTypes.CARD_RELATION,
-
-        /*
-         * OTP aynan shu card bilan
-         * bog‘lanadi.
-         */
-        hash_key: `${phoneNumber}:${card.id}`,
-
-        sms_type: SmsTypes.CARD_RELATION_OTP,
-
-        template: "card_relation_otp",
-
-        masked_message: "Central Park kartani ulash kodi: ******",
-
-        metadata: {
-          card_id: Number(card.id),
-
-          card_nfc: card.nfc,
-
-          user_id: Number(user.id),
-        },
-      },
-      transaction,
-    );
-  });
-
-  if (prepared.blocked) {
-    throw BadRequest("OTP_SEND_BLOCKED");
-  }
-
-  const smsMessage =
-    process.env.ESKIZ_TEST_MODE === "true"
-      ? "Это тест от Eskiz"
-      : `Central Park kartani ulash kodi: ${prepared.otp_code}`;
-
-  return await SendPreparedOtpService(prepared, smsMessage);
+const CARD_MANAGEMENT_ROLES: Record<CardType, readonly string[]> = {
+  [CardType.CLASSIC]: ["superadmin", "admin"],
+  [CardType.ORGANIZATION]: ["superadmin", "head_accountant"],
+  [CardType.VIP]: ["superadmin", "director"],
+  [CardType.VIRTUAL]: ["superadmin"],
 };
 
-export const VerifyCardRelationOtpService = async (
-  operatorID: number,
-  body: VerifyCardRelationOtpData,
-): Promise<CardResponseDTO> => {
-  const parsedOperatorID = Number(operatorID);
+export const AssertCardManagementRole = (
+  roleName: string | undefined,
+  cardType: CardType,
+) => {
+  const allowedRoles = CARD_MANAGEMENT_ROLES[cardType] ?? [];
 
-  if (!Number.isInteger(parsedOperatorID) || parsedOperatorID <= 0) {
-    throw BadRequest("Operator is required!");
-  }
-
-  const nfc = body.nfc?.trim();
-
-  if (!nfc) {
-    throw BadRequest("NFC is required!");
-  }
-
-  if (!body.phone_number?.trim()) {
-    throw BadRequest("Phone number is required!");
-  }
-
-  const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
-
-  const sequelize = CardModel.sequelize!;
-
-  const result = await sequelize.transaction(async (transaction) => {
-    const card = await CardModel.findOne({
-      where: {
-        nfc,
-      },
-
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!card) {
-      throw NotFound("Card not found!");
-    }
-
-    if (![CardType.CLASSIC, CardType.ORGANIZATION].includes(card.type)) {
-      throw BadRequest(
-        "Only classic and organization cards can be attached to a user!",
-      );
-    }
-
-    if (
-      [
-        CardStatusTypes.BLOCKED,
-        CardStatusTypes.LOST,
-        CardStatusTypes.FROZEN,
-      ].includes(card.status)
-    ) {
-      throw BadRequest("Card is not available!");
-    }
-
-    const user = await UserModel.findOne({
-      where: {
-        phone_number: phoneNumber,
-
-        status: UserStatusTypes.ACTIVE,
-      },
-
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!user) {
-      throw NotFound("Active user with this phone number not found!");
-    }
-
-    if (card.user !== null && Number(card.user) !== Number(user.id)) {
-      throw BadRequest("Card is already attached to another user!");
-    }
-
-    if (card.user !== null && Number(card.user) === Number(user.id)) {
-      throw BadRequest("Card is already attached to this user!");
-    }
-
-    const openXReport = await CashboxReportModel.findOne({
-      where: {
-        operator: parsedOperatorID,
-        report_type: CashboxReportTypes.XREPORT,
-        status: CashboxReportStatusTypes.OPEN,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!openXReport) {
-      throw BadRequest("Open cashbox X report required!");
-    }
-
-    if (!openXReport.zreport) {
-      throw BadRequest("Cashbox Z report is required!");
-    }
-
-    const openZReport = await CashboxReportModel.findOne({
-      where: {
-        id: Number(openXReport.zreport),
-        cashbox: Number(openXReport.cashbox),
-        report_type: CashboxReportTypes.ZREPORT,
-        status: CashboxReportStatusTypes.OPEN,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!openZReport) {
-      throw BadRequest("Open cashbox Z report required!");
-    }
-
-    const verifyResult = await VerifyOtpService(
-      {
-        phone_number: phoneNumber,
-
-        purpose: OtpTypes.CARD_RELATION,
-
-        hash_key: `${phoneNumber}:${card.id}`,
-
-        code: body.code,
-      },
-      transaction,
+  if (!roleName || !allowedRoles.includes(roleName)) {
+    throw Forbidden(
+      `You do not have permission to manage ${cardType} cards.`,
     );
-
-    /*
-     * Noto‘g‘ri OTP attempt update rollback
-     * bo‘lmasligi uchun transaction ichida
-     * throw qilinmaydi.
-     */
-    if (!verifyResult.success) {
-      return {
-        success: false as const,
-        error: verifyResult.error,
-      };
-    }
-
-    await card.update(
-      {
-        user: Number(user.id),
-      },
-      {
-        transaction,
-      },
-    );
-
-    await openXReport.increment(
-      {
-        relationed_cards_count: 1,
-      },
-      {
-        transaction,
-      },
-    );
-
-    await openZReport.increment(
-      {
-        relationed_cards_count: 1,
-      },
-      {
-        transaction,
-      },
-    );
-
-    const [batch, lastTransaction] = await Promise.all([
-      CardBatchModel.findByPk(card.batch, {
-        attributes: ["id", "name"],
-        transaction,
-      }),
-
-      CardTransactionModel.findOne({
-        where: {
-          card: card.id,
-          status: CardTransactionStatusTypes.SUCCESS,
-        },
-
-        order: [["id", "DESC"]],
-
-        transaction,
-      }),
-    ]);
-
-    const cardData = card.get({
-      plain: true,
-    }) as CardWithTransactionDto;
-
-    const userData = user.get({
-      plain: true,
-    }) as CardUserDto;
-
-    return {
-      success: true as const,
-      card: CardDTO({
-        ...cardData,
-        batches: batch
-          ? {
-              id: Number(batch.id),
-
-              name: batch.name,
-            }
-          : null,
-
-        users: userData,
-
-        transaction: lastTransaction
-          ? lastTransaction.get({
-              plain: true,
-            })
-          : null,
-      }),
-    };
-  });
-
-  if (!result.success) {
-    throw BadRequest(result.error);
   }
-
-  return result.card;
 };
 
 export const GetCardStatsService = async (query: GetCardsQuery) => {
@@ -568,6 +240,7 @@ export const GetCardsService = async (query: GetCardsQuery) => {
 
 export const CreateCardsService = async (
   employeeID: number,
+  roleName: string | undefined,
   data: UploadCardsFromFile,
 ) => {
   if (!data.file) {
@@ -587,6 +260,8 @@ export const CreateCardsService = async (
   if (!allowedCardTypes.includes(data.type)) {
     throw BadRequest("Invalid card type.");
   }
+
+  AssertCardManagementRole(roleName, data.type);
 
   const isOrganizationCard = data.type === CardType.ORGANIZATION;
 
@@ -691,6 +366,7 @@ const CARD_BATCH_COUNTER = {
 export const UpdateCardsService = async (
   params: CardsParams,
   body: UpdateCardsData,
+  roleName: string | undefined,
 ) => {
   const cardID = Number(params.cardID);
 
@@ -707,6 +383,8 @@ export const UpdateCardsService = async (
     if (!card) {
       throw NotFound("Card not found");
     }
+
+    AssertCardManagementRole(roleName, card.type);
 
     const hasFullname = Boolean(body.fullname?.trim());
     const hasPhoneNumber = Boolean(body.phone_number?.trim());
@@ -858,7 +536,10 @@ export const UpdateCardsService = async (
   });
 };
 
-export const DeleteCardsService = async (body: DeleteCardsData) => {
+export const DeleteCardsService = async (
+  body: DeleteCardsData,
+  roleName: string | undefined,
+) => {
   const transaction = await sequelize.transaction();
 
   try {
@@ -869,9 +550,14 @@ export const DeleteCardsService = async (body: DeleteCardsData) => {
         },
       },
       transaction,
+      lock: transaction.LOCK.UPDATE,
     });
 
     if (!cards.length) return;
+
+    for (const cardType of new Set(cards.map((card) => card.type))) {
+      AssertCardManagementRole(roleName, cardType);
+    }
 
     const batchId = cards[0].batch;
     const statusCountMap: Record<string, number> = {};

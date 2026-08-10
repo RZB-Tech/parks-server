@@ -16,10 +16,10 @@ const AttractionPnlRouter: FastifyPluginAsync = async (
         AuthMiddleware,
         RoleMiddleware([
           "superadmin",
-          "admin",
           "owner",
           "director",
           "head_accountant",
+          "head_marketing",
         ]),
       ],
     },

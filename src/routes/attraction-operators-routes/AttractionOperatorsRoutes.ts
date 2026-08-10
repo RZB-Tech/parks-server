@@ -20,13 +20,13 @@ const AttractionOperatorsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.post(
     "/attractions/:attractionID/operators",
-    { schema: createAttractionOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
+    { schema: createAttractionOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'admin', 'head_cashier', 'head_operator'])] },
     CreateAttractionOperatorsController,
   );
 
   fastify.delete(
     "/attractions/:attractionID/operators/:operatorID",
-    { schema: deleteAttractionOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_operator"])] },
+    { schema: deleteAttractionOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'admin', 'head_cashier', 'head_operator'])] },
     DeleteAttractionOperatorsController,
   );
 };

@@ -12,6 +12,7 @@ import {
   getAttractionRoundRefundsSchema,
   refundFinishedAttractionRoundSchema,
 } from "./schema";
+import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const AttractionRoundRefundRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -21,7 +22,7 @@ const AttractionRoundRefundRouter: FastifyPluginAsync = async (
     "/attractions/rounds/refunds",
     {
       schema: getAttractionRoundRefundsSchema,
-      preHandler: [AuthMiddleware],
+      preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'operator', 'head_cashier'])],
     },
     GetAttractionRoundRefundsController,
   );
@@ -30,7 +31,7 @@ const AttractionRoundRefundRouter: FastifyPluginAsync = async (
     "/attractions/:attractionID/rounds/:roundID/refunds",
     {
       schema: refundFinishedAttractionRoundSchema,
-      preHandler: [AuthMiddleware],
+      preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'owner', 'head_operator', 'operator', 'head_cashier'])],
     },
     RefundFinishedAttractionRoundController,
   );

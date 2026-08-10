@@ -28,37 +28,37 @@ const AttractionsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/attraction",
-    { schema: getAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant',  "head_operator", "operator"])] },
+    { schema: getAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant', "head_operator", "hr", 'operator'])] },
     GetAttractionController,
   );
 
   fastify.get(
     "/attraction/stats",
-    { schema: getAttractionsStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant',  "head_operator", "operator"])] },
+    { schema: getAttractionsStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant', "head_operator", "hr", 'operator'])] },
     GetAttractionStatsController,
   );
 
   fastify.get(
     "/attractions",
-    { schema: getAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant',  "head_operator", "operator"])] },
+    { schema: getAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant',  "head_operator", "hr", 'operator'])] },
     GetAttractionsController,
   );
 
   fastify.post(
     "/attractions",
-    { schema: createAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", 'head_accountant',  "head_operator"])] },
+    { schema: createAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing"])] },
     CreateAttractionsController,
   );
 
   fastify.put(
     "/attractions/:attractionID",
-    { schema: updateAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", 'head_accountant',  "head_operator"])] },
+    { schema: updateAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing"])] },
     UpdateAttractionsController,
   );
 
   fastify.delete(
     "/attractions",
-    { schema: deleteAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", 'head_accountant',  "head_operator"])] },
+    { schema: deleteAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing"])] },
     DeleteAttractionsController,
   );
 };

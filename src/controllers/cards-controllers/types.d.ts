@@ -32,14 +32,3 @@ declare interface UploadCardsFromFile {
   type?: CardType;
   balance?: number | null;
 }
-
-declare interface SendCardRelationOtpData {
-  nfc: string;
-  phone_number: string;
-}
-
-declare interface VerifyCardRelationOtpData {
-  nfc: string;
-  phone_number: string;
-  code: string;
-}

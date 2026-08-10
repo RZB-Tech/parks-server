@@ -28,37 +28,37 @@ const CashboxesRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/cashbox",
-    { schema: getCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant', 'head_cashier', 'cashier'])] },
+    { schema: getCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'hr', 'head_marketing', 'head_accountant', 'head_cashier', 'cashier'])] },
     GetCashboxController,
   );
 
   fastify.get(
     "/cashbox/stats",
-    { schema: getCashboxStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant', 'head_cashier', 'cashier'])] },
+    { schema: getCashboxStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'hr', 'head_marketing', 'head_accountant', 'head_cashier', 'cashier'])] },
     GetCashboxStatsController,
   );
 
   fastify.get(
     "/cashboxes",
-    { schema: getCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant', 'head_cashier', 'cashier'])] },
+    { schema: getCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'hr', 'head_marketing', 'head_accountant', 'head_cashier', 'cashier'])] },
     GetCashboxesController,
   );
 
   fastify.post(
     "/cashbox",
-    { schema: createCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier', 'head_accountant'])] },
+    { schema: createCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_accountant'])] },
     CreateCashboxesController,
   );
 
   fastify.put(
     "/cashbox/:cashboxID",
-    { schema: updateCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier', 'head_accountant'])] },
+    { schema: updateCashboxSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_accountant'])] },
     UpdateCashboxesController,
   );
 
   fastify.delete(
     "/cashbox",
-    { schema: deleteCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_marketing', 'head_cashier', 'head_accountant'])] },
+    { schema: deleteCashboxesSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_accountant'])] },
     DeleteCashboxesController,
   );
 };

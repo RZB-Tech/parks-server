@@ -21,6 +21,7 @@ import {
   getCardReturnsSchema,
   getCardTransactionsSchema,
 } from "./schema";
+import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 
 const CardTransactionsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -28,31 +29,31 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.post(
     "/cards/nfc/check",
-    { schema: checkNfcCardSchema, preHandler: [AuthMiddleware] },
+    { schema: checkNfcCardSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])] },
     CheckNfcCardController,
   );
 
   fastify.post(
     "/cards/topup",
-    { schema: cardTopUpTransactionSchema, preHandler: [AuthMiddleware]},
+    { schema: cardTopUpTransactionSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'cashier', 'head_cashier', 'head_operator'])]},
     CardTopUpTransactionController,
   );
 
   fastify.post(
     "/cards/refund",
-    { schema: cardRefundTransactionSchema, preHandler: [AuthMiddleware] },
+    { schema: cardRefundTransactionSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])] },
     CardRefundTransactionController,
   );
 
-  fastify.get<RouteWithQuery<GetCardReturnsQuery>>(
+  fastify.get(
     "/cards/refunds",
-    { schema: getCardReturnsSchema, preHandler: [AuthMiddleware] },
+    { schema: getCardReturnsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])] },
     GetCardReturnsController,
   );
 
   fastify.post(
     "/cards/payment",
-    { schema: cardPaymentTransactionSchema, preHandler: [AuthMiddleware] },
+    { schema: cardPaymentTransactionSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_cashier', 'head_operator', 'operator'])] },
     CardPaymentTransactionController,
   );
 
@@ -60,7 +61,7 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
     "/cards/cashboxes/:cashboxID/transactions",
     {
       schema: getCardTransactionsSchema,
-      preHandler: [AuthMiddleware],
+      preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])],
     },
     GetCashboxCardTransactionsController,
   );

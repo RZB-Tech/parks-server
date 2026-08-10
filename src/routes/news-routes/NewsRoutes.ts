@@ -14,31 +14,31 @@ const NewsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/news",
-    {schema: getAllNewsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing",'head_accountant',])]},
+    {schema: getAllNewsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing",'head_accountant','head_operator','operator','head_cashier','cashier',])]},
     GetAllNewsController,
   );
 
   fastify.get(
     "/news/:newsID",
-    {schema: getNewsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing",'head_accountant',])]},
+    {schema: getNewsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing",'head_accountant','head_operator','operator','head_cashier','cashier',])]},
     GetNewsController,
   );
 
   fastify.post(
     "/news",
-    { schema: createNewsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing",'head_accountant',])]},
+    { schema: createNewsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","head_marketing"])]},
     CreateNewsController,
   );
 
   fastify.put(
     "/news/:newsID",
-    { schema: updateNewsSchema, preHandler: [ AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing",'head_accountant',])]},
+    { schema: updateNewsSchema, preHandler: [ AuthMiddleware, RoleMiddleware(["superadmin","head_marketing",])]},
     UpdateNewsController,
   );
 
   fastify.delete(
     "/news",
-    { schema: deleteNewsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing",'head_accountant',])]},
+    { schema: deleteNewsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","head_marketing",])]},
     DeleteNewsController,
   );
 };
