@@ -47,6 +47,7 @@ import TelegramBotRouter from "./routes/telegram-bot-routes/TelegramBotRoutes";
 import OnlinePaymentReportsRouter from "./routes/online-payment-reports-routes/OnlinePaymentReportsRoutes";
 import AuditLogsRouter from "./routes/audit-log-routes/AuditLogRoutes";
 import { AuditContextMiddleware } from "./middlewares/audit-context-middleware/AuditContextMiddleware";
+import AttractionPnlRouter from "./routes/attraction-pnl-routes/AttractionPnlRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -83,6 +84,7 @@ export const build = async () => {
   app.register(AttractionsRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionOperatorsRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionReportsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AttractionPnlRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionRoundsRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionRoundRefundRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxesRouter, { prefix: SERVER.API_PREFIX });

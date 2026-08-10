@@ -1,10 +1,12 @@
-import { FastifyPluginAsync } from "fastify";
+import { FastifyInstance, FastifyPluginAsync, FastifyPluginOptions } from "fastify";
 import { GetAuditLogsController } from "../../controllers/audit-log-controllers/AuditLogController";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
-import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 import { getAuditLogsSchema } from "./schema";
 
-const AuditLogsRouter: FastifyPluginAsync = async (fastify) => {
+const AuditLogsRouter: FastifyPluginAsync = async (
+  fastify: FastifyInstance,
+  options: FastifyPluginOptions,
+) => {
   fastify.get(
     "/audit-logs",
     {

@@ -1,4 +1,7 @@
-import { CardTransactionType } from "../../../models/postgresql/card-transactions-model/enums";
+import {
+  CardTransactionType,
+  PaymentCardType,
+} from "../../../models/postgresql/card-transactions-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../../schemas";
 
 const nullableIntegerSchema = {
@@ -195,6 +198,15 @@ export const getClientTransactionsSchema = {
             balance_after: { type: "number" },
             payment_type: {
               anyOf: [{ type: "string" }, { type: "null" }],
+            },
+            payment_card_type: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: Object.values(PaymentCardType),
+                },
+                { type: "null" },
+              ],
             },
             payment_service: {
               anyOf: [{ type: "string" }, { type: "null" }],
