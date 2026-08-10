@@ -23,6 +23,14 @@ import {
   updateAttractionReportStatusSchema,
 } from "./schema";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParamsAndData,
+  RouteWithParamsAndHeaders,
+  RouteWithParamsAndQuery,
+  RouteWithQuery,
+} from "../../types/routes";
 
 const AttractionReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,

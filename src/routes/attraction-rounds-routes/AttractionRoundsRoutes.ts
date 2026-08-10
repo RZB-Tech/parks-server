@@ -17,6 +17,7 @@ import {
   GetTodayRoundsController,
 } from "../../controllers/attraction-round-controllers/AttractionRoundController";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
+import { RouteWithParams } from "../../types/routes";
 
 const AttractionRoundsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,

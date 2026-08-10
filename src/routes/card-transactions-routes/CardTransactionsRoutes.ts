@@ -4,7 +4,12 @@ import {
   FastifyPluginOptions,
 } from "fastify";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
-import { RouteWithQuery } from "../../types/routes";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParamsAndQuery,
+  RouteWithQuery,
+} from "../../types/routes";
 import {
   CardPaymentTransactionController,
   CardRefundTransactionController,
@@ -39,19 +44,19 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
     CardTopUpTransactionController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<CardRefundData>>>(
     "/cards/refund",
     { schema: cardRefundTransactionSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])] },
     CardRefundTransactionController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithQuery<GetCardReturnsQuery>>(
     "/cards/refunds",
     { schema: getCardReturnsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])] },
     GetCardReturnsController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<CardPaymentTransactionData>>>(
     "/cards/payment",
     { schema: cardPaymentTransactionSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'head_cashier', 'head_operator', 'operator'])] },
     CardPaymentTransactionController,

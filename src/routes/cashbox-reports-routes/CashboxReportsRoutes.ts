@@ -8,6 +8,13 @@ import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware
 import { CashboxReportOpenController, CashboxReportsTodayController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetNotConfirmedZReportDatesController, GetZReportsController, StatusCashboxReportController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
 import { cashboxReportsTodaySchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getNotConfirmedZReportDatesSchema, getZReportsSchema, openReportSchema, statusCashboxReportSchema } from "./schema";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParams,
+  RouteWithParamsAndData,
+  RouteWithQuery,
+} from "../../types/routes";
 
 const CashboxReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,

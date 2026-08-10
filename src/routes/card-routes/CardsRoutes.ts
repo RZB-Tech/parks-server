@@ -18,7 +18,7 @@ const CardsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.get(
+  fastify.get<RouteWithQuery<GetCardsQuery>>(
     "/cards/stats",
     { schema: getCardStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant', 'head_cashier'])] },
     GetCardStatsController,
