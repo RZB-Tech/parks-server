@@ -21,19 +21,19 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
 
   fastify.get(
     "/cashboxes/:cashboxID/reports",
-    { schema: cashboxReportsTodaySchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'head_cashier', 'cashier', 'head_accountant', 'head_marketing' ])] },
+    { schema: cashboxReportsTodaySchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_cashier', 'cashier', 'head_accountant', 'head_marketing' ])] },
     CashboxReportsTodayController,
   );
 
   fastify.put(
     "/cashboxes/:cashboxID/reports/status",
-    { schema: statusCashboxReportSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'head_cashier', 'cashier', 'head_accountant', 'head_marketing' ])] },
+    { schema: statusCashboxReportSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_cashier', 'cashier', 'head_accountant', 'head_marketing' ])] },
     StatusCashboxReportController,
   );
 
    fastify.get(
      "/cashbox/zreports",
-     { schema: getZReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'head_cashier', 'cashier', 'head_accountant', 'head_marketing' ])] },
+     { schema: getZReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_cashier', 'cashier', 'head_accountant', 'head_marketing' ])] },
      GetZReportsController,
    );
 
@@ -47,14 +47,14 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
      "/accounting/cashbox-reports",
      {
        schema: getAccountingCashboxReportsSchema,
-       preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'head_accountant','head_marketing' ])],
+       preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_accountant','head_marketing' ])],
      },
      GetAccountingCashboxReportsController,
    );
 
    fastify.get(
      "/cashbox/notconfirmed/zreports/dates",
-     { schema: getNotConfirmedZReportDatesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'head_accountant', 'head_marketing', 'head_cashier' ])] },
+     { schema: getNotConfirmedZReportDatesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_accountant', 'head_marketing', 'head_cashier' ])] },
      GetNotConfirmedZReportDatesController,
    );
 };
