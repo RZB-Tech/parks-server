@@ -1,0 +1,72 @@
+##
+# Отдельный постоянный Temporal-стек (server + UI + собственная БД).
+# Не пересобирается и не трогается при обычном деплое `docker compose` из
+# deploy-dev.yml / deploy-prod.yml — поднимается один раз на VDS вручную:
+#
+#   cd /opt/apps/temporal
+#   docker compose -f docker-compose.temporal.yml --env-file .env up -d
+#
+# Каждое окружение (dev VDS и prod VDS) держит свой независимый экземпляр —
+# .env в этой папке задаёт только TEMPORAL_POSTGRES_PASSWORD (и опционально
+# TEMPORAL_UI_PORT). Приложение (`parks-server`) находит его по имени
+# сервиса `temporal` через общую внешнюю сеть `parks-net`
+# (см. TEMPORAL_ADDRESS=temporal:7233 в .env.example приложения).
+##
+services:
+  temporal-postgresql:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_POSTGRES_PASSWORD:?TEMPORAL_POSTGRES_PASSWORD is required}
+    volumes:
+      - temporal_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  temporal:
+    image: temporalio/auto-setup:1.24
+    restart: unless-stopped
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_POSTGRES_PASSWORD:?TEMPORAL_POSTGRES_PASSWORD is required}
+      POSTGRES_SEEDS: temporal-postgresql
+    depends_on:
+      temporal-postgresql:
+        condition: service_healthy
+    networks:
+      - internal
+      - parks-net
+    # Не публикуется на 127.0.0.1/nginx — доступен только контейнерам
+    # приложения внутри сети parks-net.
+
+  temporal-ui:
+    image: temporalio/ui:2.31.2
+    restart: unless-stopped
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://127.0.0.1:${TEMPORAL_UI_PORT:-8088}
+    ports:
+      # Порт для UI открыт только на loopback, как и остальные сервисы —
+      # наружу при желании публикуется через тот же host nginx (см. стратегию).
+      - "127.0.0.1:${TEMPORAL_UI_PORT:-8088}:8080"
+    depends_on:
+      - temporal
+    networks:
+      - internal
+      - parks-net
+
+networks:
+  internal:
+  parks-net:
+    external: true
+
+volumes:
+  temporal_pgdata:
