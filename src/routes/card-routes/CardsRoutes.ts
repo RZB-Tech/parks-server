@@ -14,13 +14,13 @@ const CardsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get(
     "/cards/stats",
-    { schema: getCardStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant'])] },
+    { schema: getCardStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant', 'head_cashier'])] },
     GetCardStatsController,
   );
 
   fastify.get(
     "/cards",
-    { schema: getCardsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant'])] },
+    { schema: getCardsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant', 'head_cashier'])] },
     GetCardsController,
   );
 
