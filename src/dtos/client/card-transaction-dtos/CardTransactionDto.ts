@@ -7,6 +7,11 @@ export const ClientAttractionPaymentTransactionDTO = (
     id: Number(data.id),
     card: Number(data.card),
     attraction: Number(data.attraction),
+    attraction_tariff:
+      data.attraction_tariff !== null && data.attraction_tariff !== undefined
+        ? Number(data.attraction_tariff)
+        : null,
+    tariff_name: data.tariff_name ?? null,
     type: data.type,
     amount: Number(data.amount || 0),
     balance_before: Number(data.balance_before || 0),
@@ -21,33 +26,56 @@ export const ClientTransactionDTO = (
   card: CardsModelI,
   attraction: AttractionModelI | null,
   round: AttractionRoundModelI | null,
+  cashbox: CashboxModelI | null,
 ): ClientTransactionResponseDTO => {
   const amount = Number(transaction.amount || 0);
+  const balanceBefore = Number(transaction.balance_before || 0);
+  const balanceAfter = Number(transaction.balance_after || 0);
 
   const isTopup = transaction.type === CardTransactionType.TOPUP;
+  const isRefundIncome =
+    transaction.type === CardTransactionType.REFUND &&
+    balanceAfter >= balanceBefore;
+  const isIncome = isTopup || isRefundIncome;
 
   return {
     id: Number(transaction.id),
     type: transaction.type,
-    direction: isTopup ? "income" : "expense",
+    direction: isIncome ? "income" : "expense",
     amount,
-    signed_amount: isTopup ? amount : -amount,
-    balance_before: Number(transaction.balance_before || 0),
-    balance_after: Number(transaction.balance_after || 0),
+    signed_amount: isIncome ? amount : -amount,
+    balance_before: balanceBefore,
+    balance_after: balanceAfter,
     payment_type: transaction.payment_type ?? null,
+    payment_card_type: transaction.payment_card_type ?? null,
     payment_service: transaction.payment_service ?? null,
     status: transaction.status,
     people_count: Number(transaction.people_count || 0),
+    tariff:
+      transaction.attraction_tariff !== null &&
+      transaction.attraction_tariff !== undefined
+        ? {
+            id: Number(transaction.attraction_tariff),
+            name: transaction.tariff_name ?? "",
+          }
+        : null,
     card: {
       id: Number(card.id),
       card: card.card,
       type: card.type,
     },
+    cashbox: cashbox
+      ? {
+          id: Number(cashbox.id),
+          name: cashbox.name,
+        }
+      : null,
     attraction: attraction
       ? {
           id: Number(attraction.id),
           name: attraction.name,
           main_file: attraction.main_file ? Number(attraction.main_file) : null,
+          size: Number(attraction.size || 1),
         }
       : null,
     round: round

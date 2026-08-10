@@ -29,6 +29,7 @@ import CardTransactionsRouter from "./routes/card-transactions-routes/CardTransa
 import CashboxReportsRouter from "./routes/cashbox-reports-routes/CashboxReportsRoutes";
 import AttractionReportsRouter from "./routes/attraction-reports-routes/AttractionReportsRoutes";
 import AttractionRoundsRouter from "./routes/attraction-rounds-routes/AttractionRoundsRoutes";
+import AttractionRoundRefundRouter from "./routes/attraction-round-refunds-routes/AttractionRoundRefundRoutes";
 import SosRouter from "./routes/sos-routes/SosRoutes";
 import UserRouter from "./routes/client/user-routes/UserRoutes";
 import ClientAuthRouter from "./routes/client/auth-route/AuthRoutes";
@@ -42,10 +43,17 @@ import PromotionRouter from "./routes/promotion-routes/PromotionRoutes";
 import ClientPromotionsRouter from "./routes/client/promotion-routes/PromotionRoutes";
 import PaymentsRouter from "./routes/payment-routes/PaymentsRoutes";
 import ClientPaymentsRouter from "./routes/client/payment-routes/PaymentRoutes";
+import TelegramBotRouter from "./routes/telegram-bot-routes/TelegramBotRoutes";
+import OnlinePaymentReportsRouter from "./routes/online-payment-reports-routes/OnlinePaymentReportsRoutes";
+import AuditLogsRouter from "./routes/audit-log-routes/AuditLogRoutes";
+import { AuditContextMiddleware } from "./middlewares/audit-context-middleware/AuditContextMiddleware";
+import AttractionPnlRouter from "./routes/attraction-pnl-routes/AttractionPnlRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
   await checkServerEnv(app as any);
+
+  app.addHook("onRequest", AuditContextMiddleware);
 
   // connecting plugins
   app.register(require("@fastify/cors"), corsConfigs);
@@ -76,7 +84,9 @@ export const build = async () => {
   app.register(AttractionsRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionOperatorsRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionReportsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AttractionPnlRouter, { prefix: SERVER.API_PREFIX });
   app.register(AttractionRoundsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AttractionRoundRefundRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxesRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxOperatorsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxReportsRouter, { prefix: SERVER.API_PREFIX });
@@ -86,6 +96,9 @@ export const build = async () => {
   app.register(NewsRouter, { prefix: SERVER.API_PREFIX });
   app.register(PromotionRouter, { prefix: SERVER.API_PREFIX });
   app.register(PaymentsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(OnlinePaymentReportsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AuditLogsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(TelegramBotRouter, { prefix: SERVER.API_PREFIX });
 
   // Client routes (Telegram Mini App)
   app.register(ClientAuthRouter, { prefix: SERVER.CLIENT_PREFIX });
@@ -123,7 +136,7 @@ async function checkServerEnv(app: FastifyInstance) {
     process.exit(1);
   }
 
-  // if (!process.env.BOT_TOKEN) {
+  // if (!process.env.TELEGRAM_BOT_TOKEN) {
   //   app.log.fatal(
   //     "The environment variable responsible for bot token is not set",
   //   );

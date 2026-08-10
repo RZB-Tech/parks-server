@@ -25,6 +25,15 @@ import {
   StopPromotionWorkflow,
 } from "../../temporal/helpers/promotion.helper";
 import { getTashkentDateOnly } from "../../utils/date";
+import { AttractionTariffModel } from "../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
+import { AttractionTariffStatusTypes } from "../../models/postgresql/attraction-tariff-model/enums";
+
+const ActiveAttractionTariffsInclude = () => ({
+  model: AttractionTariffModel,
+  as: "tariffs",
+  required: false,
+  where: { status: AttractionTariffStatusTypes.ACTIVE },
+});
 
 export const FindBestActivePromotionsForAttractionsService = async (
   attractionIDs: number[],
@@ -258,6 +267,7 @@ export const GetAllPromotionsService = async (query: GetPromotionsQuery) => {
             model: AttractionModel,
             as: "attractions",
             required: false,
+            include: [ActiveAttractionTariffsInclude()],
           },
         ],
       },
@@ -307,6 +317,7 @@ export const GetPromotionService = async (params: PromotionParams) => {
             model: AttractionModel,
             as: "attractions",
             required: false,
+            include: [ActiveAttractionTariffsInclude()],
           },
         ],
       },
@@ -521,6 +532,7 @@ export const CreatePromotionService = async (body: CreatePromotionData) => {
                 model: AttractionModel,
                 as: "attractions",
                 required: true,
+                include: [ActiveAttractionTariffsInclude()],
               },
             ],
           },
@@ -875,6 +887,7 @@ export const UpdatePromotionService = async (
             model: AttractionModel,
             as: "attractions",
             required: true,
+            include: [ActiveAttractionTariffsInclude()],
           },
         ],
       },

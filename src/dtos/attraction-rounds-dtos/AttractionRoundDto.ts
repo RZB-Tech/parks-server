@@ -52,7 +52,7 @@ export const AttractionRoundAttractionDTO = (
 
     files: Array.isArray(data.files) ? data.files.map(Number) : [],
 
-    price: Number(data.price || 0),
+    price: data.price === null ? null : Number(data.price),
 
     duration: Number(data.duration || 0),
 
@@ -119,6 +119,13 @@ export const AttractionRoundTransactionDTO = (
     payment_source: operator === null ? "client" : "operator",
 
     operator,
+
+    attraction_tariff:
+      data.attraction_tariff !== null && data.attraction_tariff !== undefined
+        ? Number(data.attraction_tariff)
+        : null,
+
+    tariff_name: data.tariff_name ?? null,
 
     payment_type: data.payment_type,
 

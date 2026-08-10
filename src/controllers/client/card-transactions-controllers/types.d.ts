@@ -5,7 +5,10 @@ declare interface ClientAttractionPaymentParams {
 declare interface GetClientTransactionsQuery {
   month: string;
   card?: number;
-  type?: CardTransactionType.PAYMENT | CardTransactionType.TOPUP;
+  type?:
+    | CardTransactionType.PAYMENT
+    | CardTransactionType.TOPUP
+    | CardTransactionType.REFUND;
   page?: number;
   limit?: number;
 }

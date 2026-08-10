@@ -1,4 +1,4 @@
-import { BadRequest, NotFound } from "../../exceptions";
+import { BadRequest, Forbidden, NotFound } from "../../exceptions";
 import {
   CardStatusTypes,
   CardType,
@@ -6,435 +6,158 @@ import {
 import {
   CardBatchModel,
   CardModel,
-  CardTransactionModel,
   sequelize,
   UserModel,
 } from "../../plugins/db/postgresql/db";
 import { ParseCardExcel, ValidateCardExcel } from "../../utils/excelHelpers";
 import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
-import { col, fn, Op } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
-import {
-  PrepareOtpService,
-  SendPreparedOtpService,
-  VerifyOtpService,
-} from "../otp-services/OtpServices";
-import { SmsTypes } from "../../models/postgresql/client/smslog-model/enums";
-import { OtpTypes } from "../../models/postgresql/client/otp-model/enums";
-import { CardTransactionStatusTypes } from "../../models/postgresql/card-transactions-model/enums";
-import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
-import {
-  CashboxReportStatusTypes,
-  CashboxReportTypes,
-} from "../../models/postgresql/cashbox-report-model/enums";
 
-export const SendCardRelationOtpService = async (
-  body: SendCardRelationOtpData,
-): Promise<SendOtpResponseDTO> => {
-  const nfc = body.nfc?.trim();
-
-  if (!nfc) {
-    throw BadRequest("NFC is required!");
-  }
-
-  if (!body.phone_number?.trim()) {
-    throw BadRequest("Phone number is required!");
-  }
-
-  const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
-
-  const sequelize = CardModel.sequelize!;
-
-  const prepared = await sequelize.transaction(async (transaction) => {
-    const card = await CardModel.findOne({
-      where: {
-        nfc,
-      },
-
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!card) {
-      throw NotFound("Card not found!");
-    }
-
-    /*
-     * Faqat classic va organization
-     * karta ulanadi.
-     */
-    if (![CardType.CLASSIC, CardType.ORGANIZATION].includes(card.type)) {
-      throw BadRequest(
-        "Only classic and organization cards can be attached to a user!",
-      );
-    }
-
-    if (
-      [
-        CardStatusTypes.BLOCKED,
-        CardStatusTypes.LOST,
-        CardStatusTypes.FROZEN,
-      ].includes(card.status)
-    ) {
-      throw BadRequest("Card is not available!");
-    }
-
-    const user = await UserModel.findOne({
-      where: {
-        phone_number: phoneNumber,
-
-        status: UserStatusTypes.ACTIVE,
-      },
-
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!user) {
-      throw NotFound("Active user with this phone number not found!");
-    }
-
-    if (card.user !== null && Number(card.user) !== Number(user.id)) {
-      throw BadRequest("Card is already attached to another user!");
-    }
-
-    if (card.user !== null && Number(card.user) === Number(user.id)) {
-      throw BadRequest("Card is already attached to this user!");
-    }
-
-    return await PrepareOtpService(
-      {
-        phone_number: phoneNumber,
-
-        purpose: OtpTypes.CARD_RELATION,
-
-        /*
-         * OTP aynan shu card bilan
-         * bog‘lanadi.
-         */
-        hash_key: `${phoneNumber}:${card.id}`,
-
-        sms_type: SmsTypes.CARD_RELATION_OTP,
-
-        template: "card_relation_otp",
-
-        masked_message: "Central Park kartani ulash kodi: ******",
-
-        metadata: {
-          card_id: Number(card.id),
-
-          card_nfc: card.nfc,
-
-          user_id: Number(user.id),
-        },
-      },
-      transaction,
-    );
-  });
-
-  if (prepared.blocked) {
-    throw BadRequest("OTP_SEND_BLOCKED");
-  }
-
-  const smsMessage =
-    process.env.ESKIZ_TEST_MODE === "true"
-      ? "Это тест от Eskiz"
-      : `Central Park kartani ulash kodi: ${prepared.otp_code}`;
-
-  return await SendPreparedOtpService(prepared, smsMessage);
+const CARD_MANAGEMENT_ROLES: Record<CardType, readonly string[]> = {
+  [CardType.CLASSIC]: ["superadmin", "admin"],
+  [CardType.ORGANIZATION]: ["superadmin", "head_accountant"],
+  [CardType.VIP]: ["superadmin", "director"],
+  [CardType.VIRTUAL]: ["superadmin"],
 };
 
-export const VerifyCardRelationOtpService = async (
-  operatorID: number,
-  body: VerifyCardRelationOtpData,
-): Promise<CardResponseDTO> => {
-  const parsedOperatorID = Number(operatorID);
+export const AssertCardManagementRole = (
+  roleName: string | undefined,
+  cardType: CardType,
+) => {
+  const allowedRoles = CARD_MANAGEMENT_ROLES[cardType] ?? [];
 
-  if (!Number.isInteger(parsedOperatorID) || parsedOperatorID <= 0) {
-    throw BadRequest("Operator is required!");
-  }
-
-  const nfc = body.nfc?.trim();
-
-  if (!nfc) {
-    throw BadRequest("NFC is required!");
-  }
-
-  if (!body.phone_number?.trim()) {
-    throw BadRequest("Phone number is required!");
-  }
-
-  const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
-
-  const sequelize = CardModel.sequelize!;
-
-  const result = await sequelize.transaction(async (transaction) => {
-    const card = await CardModel.findOne({
-      where: {
-        nfc,
-      },
-
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!card) {
-      throw NotFound("Card not found!");
-    }
-
-    if (![CardType.CLASSIC, CardType.ORGANIZATION].includes(card.type)) {
-      throw BadRequest(
-        "Only classic and organization cards can be attached to a user!",
-      );
-    }
-
-    if (
-      [
-        CardStatusTypes.BLOCKED,
-        CardStatusTypes.LOST,
-        CardStatusTypes.FROZEN,
-      ].includes(card.status)
-    ) {
-      throw BadRequest("Card is not available!");
-    }
-
-    const user = await UserModel.findOne({
-      where: {
-        phone_number: phoneNumber,
-
-        status: UserStatusTypes.ACTIVE,
-      },
-
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!user) {
-      throw NotFound("Active user with this phone number not found!");
-    }
-
-    if (card.user !== null && Number(card.user) !== Number(user.id)) {
-      throw BadRequest("Card is already attached to another user!");
-    }
-
-    if (card.user !== null && Number(card.user) === Number(user.id)) {
-      throw BadRequest("Card is already attached to this user!");
-    }
-
-    const openXReport = await CashboxReportModel.findOne({
-      where: {
-        operator: parsedOperatorID,
-        report_type: CashboxReportTypes.XREPORT,
-        status: CashboxReportStatusTypes.OPEN,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!openXReport) {
-      throw BadRequest("Open cashbox X report required!");
-    }
-
-    if (!openXReport.zreport) {
-      throw BadRequest("Cashbox Z report is required!");
-    }
-
-    const openZReport = await CashboxReportModel.findOne({
-      where: {
-        id: Number(openXReport.zreport),
-        cashbox: Number(openXReport.cashbox),
-        report_type: CashboxReportTypes.ZREPORT,
-        status: CashboxReportStatusTypes.OPEN,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!openZReport) {
-      throw BadRequest("Open cashbox Z report required!");
-    }
-
-    const verifyResult = await VerifyOtpService(
-      {
-        phone_number: phoneNumber,
-
-        purpose: OtpTypes.CARD_RELATION,
-
-        hash_key: `${phoneNumber}:${card.id}`,
-
-        code: body.code,
-      },
-      transaction,
+  if (!roleName || !allowedRoles.includes(roleName)) {
+    throw Forbidden(
+      `You do not have permission to manage ${cardType} cards.`,
     );
-
-    /*
-     * Noto‘g‘ri OTP attempt update rollback
-     * bo‘lmasligi uchun transaction ichida
-     * throw qilinmaydi.
-     */
-    if (!verifyResult.success) {
-      return {
-        success: false as const,
-        error: verifyResult.error,
-      };
-    }
-
-    await card.update(
-      {
-        user: Number(user.id),
-      },
-      {
-        transaction,
-      },
-    );
-
-    await openXReport.increment(
-      {
-        relationed_cards_count: 1,
-      },
-      {
-        transaction,
-      },
-    );
-
-    await openZReport.increment(
-      {
-        relationed_cards_count: 1,
-      },
-      {
-        transaction,
-      },
-    );
-
-    const [batch, lastTransaction] = await Promise.all([
-      CardBatchModel.findByPk(card.batch, {
-        attributes: ["id", "name"],
-        transaction,
-      }),
-
-      CardTransactionModel.findOne({
-        where: {
-          card: card.id,
-          status: CardTransactionStatusTypes.SUCCESS,
-        },
-
-        order: [["id", "DESC"]],
-
-        transaction,
-      }),
-    ]);
-
-    const cardData = card.get({
-      plain: true,
-    }) as CardWithTransactionDto;
-
-    const userData = user.get({
-      plain: true,
-    }) as CardUserDto;
-
-    return {
-      success: true as const,
-      card: CardDTO({
-        ...cardData,
-        batches: batch
-          ? {
-              id: Number(batch.id),
-
-              name: batch.name,
-            }
-          : null,
-
-        users: userData,
-
-        transaction: lastTransaction
-          ? lastTransaction.get({
-              plain: true,
-            })
-          : null,
-      }),
-    };
-  });
-
-  if (!result.success) {
-    throw BadRequest(result.error);
   }
-
-  return result.card;
 };
 
 export const GetCardStatsService = async (query: GetCardsQuery) => {
   const batchWhere: Record<string, unknown> = {};
-  const cardWhere: Record<string, unknown> = {};
 
   if (query.type) {
     batchWhere.type = query.type;
-    cardWhere.type = query.type;
   }
 
   if (query.batch) {
     batchWhere.id = Number(query.batch);
-    cardWhere.batch = Number(query.batch);
   }
 
-  const [cardBatches, balanceResult] = await Promise.all([
+  const [cardBatches, aggregateRows] = await Promise.all([
     CardBatchModel.findAll({
       where: batchWhere,
+      attributes: ["id", "name", "type", "tethered_cards"],
       raw: true,
       order: [["id", "ASC"]],
     }),
 
-    CardModel.findOne({
-      where: cardWhere,
-      attributes: [[fn("SUM", col("balance")), "total_balance"]],
-      raw: true,
-    }),
+    sequelize.query<{
+      status: CardStatusTypes | null;
+      type: CardType | null;
+      batch: string | number | null;
+      count: string | number;
+      total_balance: string | number;
+      status_grouping: string | number;
+      type_grouping: string | number;
+      batch_grouping: string | number;
+    }>(
+      `
+        SELECT
+          "status"::text AS "status",
+          "type"::text AS "type",
+          "batch",
+          COUNT(*) AS "count",
+          COALESCE(SUM("balance"), 0) AS "total_balance",
+          GROUPING("status") AS "status_grouping",
+          GROUPING("type") AS "type_grouping",
+          GROUPING("batch") AS "batch_grouping"
+        FROM "cards"
+        WHERE "deleted_at" IS NULL
+          AND (:cardType IS NULL OR "type"::text = :cardType)
+          AND (:batchID IS NULL OR "batch" = :batchID)
+        GROUP BY GROUPING SETS (
+          (),
+          ("status"),
+          ("type"),
+          ("batch")
+        )
+      `,
+      {
+        replacements: {
+          cardType: query.type ?? null,
+          batchID: query.batch ? Number(query.batch) : null,
+        },
+        type: QueryTypes.SELECT,
+      },
+    ),
   ]);
 
-  const totalBalance = Number(
-    (
-      balanceResult as unknown as {
-        total_balance: string | number | null;
-      }
-    )?.total_balance ?? 0,
+  const isGrouping = (
+    row: (typeof aggregateRows)[number],
+    status: number,
+    type: number,
+    batch: number,
+  ) =>
+    Number(row.status_grouping) === status &&
+    Number(row.type_grouping) === type &&
+    Number(row.batch_grouping) === batch;
+
+  const summaryRow = aggregateRows.find((row) => isGrouping(row, 1, 1, 1));
+
+  const statusCounts = new Map(
+    aggregateRows
+      .filter(
+        (row): row is typeof row & { status: CardStatusTypes } =>
+          isGrouping(row, 0, 1, 1) && row.status !== null,
+      )
+      .map((row) => [row.status, Number(row.count || 0)]),
+  );
+
+  const typeCounts = new Map(
+    aggregateRows
+      .filter(
+        (row): row is typeof row & { type: CardType } =>
+          isGrouping(row, 1, 0, 1) && row.type !== null,
+      )
+      .map((row) => [row.type, Number(row.count || 0)]),
+  );
+
+  const batchCounts = new Map(
+    aggregateRows
+      .filter(
+        (row): row is typeof row & { batch: string | number } =>
+          isGrouping(row, 1, 1, 0) && row.batch !== null,
+      )
+      .map((row) => [Number(row.batch), Number(row.count || 0)]),
   );
 
   const stats = {
-    total: 0,
-    active: 0,
-    inactive: 0,
-    blocked: 0,
-    lost: 0,
-    frozen: 0,
+    total: Number(summaryRow?.count || 0),
+    active: statusCounts.get(CardStatusTypes.ACTIVE) ?? 0,
+    inactive: statusCounts.get(CardStatusTypes.INACTIVE) ?? 0,
+    blocked: statusCounts.get(CardStatusTypes.BLOCKED) ?? 0,
+    lost: statusCounts.get(CardStatusTypes.LOST) ?? 0,
+    frozen: statusCounts.get(CardStatusTypes.FROZEN) ?? 0,
     tethered: 0,
-    returned: 0,
+    returned: statusCounts.get(CardStatusTypes.RETURNED) ?? 0,
 
-    totalBalance,
+    totalBalance: Number(summaryRow?.total_balance || 0),
 
-    types: {} as Record<string, number>,
+    types: Object.fromEntries(typeCounts) as Record<string, number>,
 
     batches: cardBatches.map((batch) => ({
       id: Number(batch.id),
       name: batch.name,
       type: batch.type,
-      total: Number(batch.total_cards || 0),
+      total: batchCounts.get(Number(batch.id)) ?? 0,
     })),
   };
 
   for (const batch of cardBatches) {
-    stats.total += Number(batch.total_cards || 0);
-    stats.active += Number(batch.active_cards || 0);
-    stats.inactive += Number(batch.inactive_cards || 0);
-    stats.blocked += Number(batch.blocked_cards || 0);
-    stats.lost += Number(batch.lost_cards || 0);
-    stats.frozen += Number(batch.frozen_cards || 0);
     stats.tethered += Number(batch.tethered_cards || 0);
-    stats.returned += Number(batch.returned_cards || 0);
-
-    const type = String(batch.type);
-
-    stats.types[type] =
-      Number(stats.types[type] || 0) + Number(batch.total_cards || 0);
   }
 
   return stats;
@@ -473,11 +196,13 @@ export const GetCardsService = async (query: GetCardsQuery) => {
   }
 
   if (query.statuses) {
-    where.status = Array.isArray(query.statuses)
-      ? {
-          [Op.in]: query.statuses,
-        }
-      : query.statuses;
+    const statuses = Array.isArray(query.statuses)
+      ? query.statuses
+      : [query.statuses];
+
+    where.status = {
+      [Op.in]: statuses,
+    };
   }
 
   const { rows, count } = await CardModel.findAndCountAll({
@@ -486,6 +211,7 @@ export const GetCardsService = async (query: GetCardsQuery) => {
       {
         model: CardBatchModel,
         as: "batches",
+        attributes: ["id", "name", "type"],
       },
       {
         model: UserModel,
@@ -514,6 +240,7 @@ export const GetCardsService = async (query: GetCardsQuery) => {
 
 export const CreateCardsService = async (
   employeeID: number,
+  roleName: string | undefined,
   data: UploadCardsFromFile,
 ) => {
   if (!data.file) {
@@ -533,6 +260,8 @@ export const CreateCardsService = async (
   if (!allowedCardTypes.includes(data.type)) {
     throw BadRequest("Invalid card type.");
   }
+
+  AssertCardManagementRole(roleName, data.type);
 
   const isOrganizationCard = data.type === CardType.ORGANIZATION;
 
@@ -637,6 +366,7 @@ const CARD_BATCH_COUNTER = {
 export const UpdateCardsService = async (
   params: CardsParams,
   body: UpdateCardsData,
+  roleName: string | undefined,
 ) => {
   const cardID = Number(params.cardID);
 
@@ -653,6 +383,8 @@ export const UpdateCardsService = async (
     if (!card) {
       throw NotFound("Card not found");
     }
+
+    AssertCardManagementRole(roleName, card.type);
 
     const hasFullname = Boolean(body.fullname?.trim());
     const hasPhoneNumber = Boolean(body.phone_number?.trim());
@@ -804,7 +536,10 @@ export const UpdateCardsService = async (
   });
 };
 
-export const DeleteCardsService = async (body: DeleteCardsData) => {
+export const DeleteCardsService = async (
+  body: DeleteCardsData,
+  roleName: string | undefined,
+) => {
   const transaction = await sequelize.transaction();
 
   try {
@@ -815,9 +550,14 @@ export const DeleteCardsService = async (body: DeleteCardsData) => {
         },
       },
       transaction,
+      lock: transaction.LOCK.UPDATE,
     });
 
     if (!cards.length) return;
+
+    for (const cardType of new Set(cards.map((card) => card.type))) {
+      AssertCardManagementRole(roleName, cardType);
+    }
 
     const batchId = cards[0].batch;
     const statusCountMap: Record<string, number> = {};

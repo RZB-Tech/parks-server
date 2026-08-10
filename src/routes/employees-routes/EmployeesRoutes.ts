@@ -21,37 +21,37 @@ const EmployeesRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get<RouteWithParams<EmployeeParams>>(
     "/employee/:employeeID",
-    { schema: getEmployeeSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
+    { schema: getEmployeeSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "head_cashier", 'head_accountant', "hr"])] },
     GetEmployeeController,
   );
 
   fastify.get(
     "/employee/stats",
-    { schema: getEmployeeStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
+    { schema: getEmployeeStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "head_cashier", 'head_accountant', "hr"])] },
     GetEmployeeStatsController,
   );
 
   fastify.get<RouteWithQuery<GetEmployeesQuery>>(
     "/employees",
-    { schema: getEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing"])] },
+    { schema: getEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", "head_operator", "head_cashier", 'head_accountant', "hr"])] },
     GetEmployeesController,
   );
 
   fastify.post<RouteWithData<ReqData<CreateEmployeeData>>>(
     "/employees",
-    { schema: createEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin"])] },
+    { schema: createEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "hr"])] },
     CreateEmployeesController,
   );
 
   fastify.put<RouteWithParamsAndData<EmployeeParams, ReqData<CreateEmployeeData>>>(
     "/employee/:employeeID",
-    { schema: updateEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin"])] },
+    { schema: updateEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "hr"])] },
     UpdateEmployeesController,
   );
 
   fastify.delete<RouteWithData<ReqData<DeleteEmployeesData>>>(
     "/employees",
-    { schema: deleteEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin"])] },
+    { schema: deleteEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "hr"])] },
     DeleteEmployeesController,
   );
 };

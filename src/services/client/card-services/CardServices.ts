@@ -11,6 +11,7 @@ import {
   CardStatusTypes,
   CardType,
 } from "../../../models/postgresql/cards-model/enums";
+import { VIRTUAL_CARD_BONUS_AMOUNT } from "../../../consts/card";
 import {
   GenerateVirtualCardNfc,
   GenerateVirtualCardNumber,
@@ -157,7 +158,7 @@ export const CreateVirtualCardService = async (
         nfc: nfcNumber,
         status: CardStatusTypes.ACTIVE,
         type: CardType.VIRTUAL,
-        balance: 30000,
+        balance: VIRTUAL_CARD_BONUS_AMOUNT,
         imported_at: now,
         activated_at: now,
       },

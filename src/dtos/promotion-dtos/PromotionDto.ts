@@ -1,4 +1,5 @@
 import { PromotionModel } from "../../models/postgresql/promotion-model/PromotionModel";
+import { CalculateAttractionSalePrice } from "../../utils/attractionPricing";
 
 export const PromotionDTO = (promotion: PromotionModel) => {
   const data = promotion.toJSON() as any;
@@ -34,16 +35,45 @@ export const PromotionDTO = (promotion: PromotionModel) => {
     file: data.file ? data.file : null,
 
     attractions:
-      data.promotion_attractions?.map((item: any) => ({
-        id: Number(item.attractions.id),
-        name: item.attractions.name,
+      data.promotion_attractions
+        ?.filter((item: any) => item.attractions)
+        .map((item: any) => {
+          const attractionPrice = item.attractions.price;
+          const isTariffPricing = attractionPrice === null;
+          const discountPercent = Number(data.discount_percent);
 
-        original_price: Number(item.original_price),
-
-        discounted_price: Number(item.discounted_price),
-
-        sort_order: Number(item.sort_order),
-      })) ?? [],
+          return {
+            id: Number(item.attractions.id),
+            name: item.attractions.name,
+            size: Number(item.attractions.size || 1),
+            pricing_type: isTariffPricing ? "tariff" : "single",
+            original_price: isTariffPricing ? null : Number(attractionPrice),
+            discounted_price: isTariffPricing
+              ? null
+              : CalculateAttractionSalePrice(
+                  Number(attractionPrice),
+                  discountPercent,
+                ),
+            tariffs: (item.attractions.tariffs ?? [])
+              .map((tariff: AttractionTariffModelI) => ({
+                id: Number(tariff.id),
+                name: tariff.name,
+                original_price: Number(tariff.price),
+                discounted_price: CalculateAttractionSalePrice(
+                  Number(tariff.price),
+                  discountPercent,
+                ),
+                sort_order: Number(tariff.sort_order || 0),
+              }))
+              .sort(
+                (
+                  first: { sort_order: number },
+                  second: { sort_order: number },
+                ) => first.sort_order - second.sort_order,
+              ),
+            sort_order: Number(item.sort_order),
+          };
+        }) ?? [],
 
     created_at: data.createdAt,
   };

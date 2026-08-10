@@ -1,5 +1,6 @@
 import { PromotionModel } from "../../../models/postgresql/promotion-model/PromotionModel";
 import { PromotionTypes } from "../../../models/postgresql/promotion-model/enums";
+import { CalculateAttractionSalePrice } from "../../../utils/attractionPricing";
 
 export const ClientPromotionDTO = (
   promotion: PromotionModel,
@@ -42,12 +43,39 @@ export const ClientPromotionDTO = (
     attractions:
       data.promotion_attractions
         ?.filter((item) => item.attractions)
-        .map((item) => ({
-          id: Number(item.attractions!.id),
-          name: item.attractions!.name,
-          original_price: Number(item.original_price),
-          discounted_price: Number(item.discounted_price),
-          sort_order: Number(item.sort_order),
-        })) ?? [],
+        .map((item) => {
+          const attraction = item.attractions!;
+          const isTariffPricing = attraction.price === null;
+          const discountPercent = Number(data.discount_percent);
+
+          return {
+            id: Number(attraction.id),
+            name: attraction.name,
+            size: Number(attraction.size || 1),
+            pricing_type: isTariffPricing ? "tariff" : "single",
+            original_price: isTariffPricing
+              ? null
+              : Number(attraction.price),
+            discounted_price: isTariffPricing
+              ? null
+              : CalculateAttractionSalePrice(
+                  Number(attraction.price),
+                  discountPercent,
+                ),
+            tariffs: (attraction.tariffs ?? [])
+              .map((tariff) => ({
+                id: Number(tariff.id),
+                name: tariff.name,
+                original_price: Number(tariff.price),
+                discounted_price: CalculateAttractionSalePrice(
+                  Number(tariff.price),
+                  discountPercent,
+                ),
+                sort_order: Number(tariff.sort_order || 0),
+              }))
+              .sort((first, second) => first.sort_order - second.sort_order),
+            sort_order: Number(item.sort_order),
+          };
+        }) ?? [],
   };
 };

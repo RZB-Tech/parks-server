@@ -20,7 +20,7 @@ if (!process.env.DEV_MODE) {
     options: {
       // host: process.env.LOKI_URL || "http://127.0.0.1:3100",
       labels: {
-        app: "qubnix-server",
+        app: "parks-server",
       },
       batching: true,
       interval: 5,
@@ -34,7 +34,7 @@ if (!process.env.DEV_MODE) {
 export const fastifyConfig = {
   logger: {
     level: "info",
-    base: { app: "qubnix-server" },
+    base: { app: "parks-server" },
     timestamp: pino.stdTimeFunctions.isoTime,
     transport: {
       targets,

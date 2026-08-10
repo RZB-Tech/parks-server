@@ -3,6 +3,7 @@ export enum RoleTypes {
   ADMIN = "admin",
   OWNER = "owner",
   DIRECTOR = "director",
+  HR = "hr",
   HEADCASHIER = "head_cashier",
   CASHIER = "cashier",
   HEADOPERATOR = "head_operator",

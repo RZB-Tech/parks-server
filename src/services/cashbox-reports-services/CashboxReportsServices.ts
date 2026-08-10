@@ -1,5 +1,7 @@
-import { Op, Transaction } from "sequelize";
-import { BadRequest, NotFound } from "../../exceptions";
+import { Op, QueryTypes, Transaction } from "sequelize";
+import { BadRequest, Conflict, Forbidden, NotFound } from "../../exceptions";
+import { CashboxOperatorModel } from "../../models/postgresql/cashbox-operator-model/CashboxOperatorModel";
+import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
 import { CashboxReportModel } from "../../models/postgresql/cashbox-report-model/CashboxReportModel";
 import {
   CashboxReportStatusTypes,
@@ -8,6 +10,7 @@ import {
 import {
   getAccountingDateRange,
   getDateRange,
+  getMostRecentTashkentCutoffUTC,
   getTashkentDayRangeUTC,
   getTodayRange,
 } from "../../utils/date";
@@ -57,6 +60,20 @@ export const OpenCashboxReportService = async (
       throw BadRequest("VIRTUAL_CASHBOX_OPERATION_NOT_ALLOWED");
     }
 
+    const cashboxOperator = await CashboxOperatorModel.findOne({
+      where: {
+        cashbox: cashboxID,
+        operator: operatorID,
+        status: CashboxOperatorStatusTypes.ACTIVE,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!cashboxOperator) {
+      throw Forbidden("Operator is not assigned to this cashbox!");
+    }
+
     const { startDate, endDate } = getTashkentDayRangeUTC();
 
     const openedXReport = await CashboxReportModel.findOne({
@@ -85,6 +102,12 @@ export const OpenCashboxReportService = async (
       where: {
         cashbox: cashboxID,
         report_type: CashboxReportTypes.ZREPORT,
+        status: {
+          [Op.in]: [
+            CashboxReportStatusTypes.OPEN,
+            CashboxReportStatusTypes.STOPPED,
+          ],
+        },
         created_at: {
           [Op.between]: [startDate, endDate],
         },
@@ -656,55 +679,37 @@ export const ConfirmZReportsService = async (
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
-    const { startDate, endDate } = getTashkentDayRangeUTC();
-
-    const todayZReports = await CashboxReportModel.findAll({
-      where: {
-        report_type: CashboxReportTypes.ZREPORT,
-        created_at: {
-          [Op.between]: [startDate, endDate],
-        },
-      },
-      transaction: dbTransaction,
-      lock: dbTransaction.LOCK.UPDATE,
-    });
-
-    if (todayZReports.length === 0) {
-      throw BadRequest("Today Z reports not found!");
-    }
-
-    const todayZReportIDs = todayZReports.map((report) => Number(report.id));
     const bodyZReportIDs = body.zreports.map((report) => Number(report.id));
-
     const uniqueBodyIDs = new Set(bodyZReportIDs);
+
+    if (
+      bodyZReportIDs.some(
+        (reportID) => !Number.isInteger(reportID) || reportID <= 0,
+      )
+    ) {
+      throw BadRequest("Invalid Z report ids sent!");
+    }
 
     if (uniqueBodyIDs.size !== bodyZReportIDs.length) {
       throw BadRequest("Duplicate Z report ids are not allowed!");
     }
 
-    if (todayZReportIDs.length !== bodyZReportIDs.length) {
-      throw BadRequest("All today Z reports must be sent!");
-    }
+    const selectedZReports = await CashboxReportModel.findAll({
+      where: {
+        id: {
+          [Op.in]: bodyZReportIDs,
+        },
+        report_type: CashboxReportTypes.ZREPORT,
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
 
-    const missingIDs = todayZReportIDs.filter((id) => !uniqueBodyIDs.has(id));
-
-    if (missingIDs.length > 0) {
-      throw BadRequest("Some today Z reports are missing!");
-    }
-
-    const todayIDSet = new Set(todayZReportIDs);
-
-    const invalidIDs = bodyZReportIDs.filter((id) => !todayIDSet.has(id));
-
-    if (invalidIDs.length > 0) {
+    if (selectedZReports.length !== uniqueBodyIDs.size) {
       throw BadRequest("Invalid Z report ids sent!");
     }
 
-    for (const zReport of todayZReports) {
-      if (zReport.status === CashboxReportStatusTypes.OPEN) {
-        throw BadRequest("All Z reports must be closed first!");
-      }
-
+    for (const zReport of selectedZReports) {
       if (zReport.status === CashboxReportStatusTypes.CONFIRMED) {
         throw BadRequest("Some Z reports are already confirmed!");
       }
@@ -712,10 +717,14 @@ export const ConfirmZReportsService = async (
       if (zReport.status === CashboxReportStatusTypes.CANCELLED) {
         throw BadRequest("Some Z reports are already cancelled!");
       }
+
+      if (zReport.status !== CashboxReportStatusTypes.CLOSED) {
+        throw BadRequest("All Z reports must be closed first!");
+      }
     }
 
     for (const item of body.zreports) {
-      await CashboxReportModel.update(
+      const [updatedReportsCount] = await CashboxReportModel.update(
         {
           status: item.status,
           checked_by: operatorID,
@@ -730,6 +739,10 @@ export const ConfirmZReportsService = async (
           transaction: dbTransaction,
         },
       );
+
+      if (updatedReportsCount !== 1) {
+        throw Conflict("Z report status was changed. Try again!");
+      }
     }
 
     return true;
@@ -772,40 +785,79 @@ export const GetAccountingCashboxReportsService = async (
 };
 
 export const GetNotConfirmedZReportDatesService = async () => {
-  const reports = await CashboxReportModel.findAll({
-    where: {
-      report_type: CashboxReportTypes.ZREPORT,
-      status: {
-        [Op.ne]: CashboxReportStatusTypes.CONFIRMED,
+  const sequelize = CashboxReportModel.sequelize!;
+  const reports = await sequelize.query<{ report_date: string }>(
+    `
+      SELECT DISTINCT
+        DATE(report_date AT TIME ZONE 'Asia/Tashkent') AS report_date
+      FROM cashbox_reports
+      WHERE deleted_at IS NULL
+        AND report_type = :reportType
+        AND status != :confirmedStatus
+        AND report_date IS NOT NULL
+      ORDER BY report_date DESC
+    `,
+    {
+      replacements: {
+        reportType: CashboxReportTypes.ZREPORT,
+        confirmedStatus: CashboxReportStatusTypes.CONFIRMED,
       },
+      type: QueryTypes.SELECT,
     },
-    attributes: ["report_date"],
-    group: ["report_date"],
-    order: [["report_date", "DESC"]],
-  });
+  );
 
-  return reports.map((report) => report.get("report_date"));
+  return reports.map((report) => report.report_date);
 };
 
-export const AutoCloseUnclosedXReportsService = async () => {
+export const AutoCloseUnclosedXReportsService = async (
+  referenceTime: string | Date = new Date(),
+) => {
   const sequelize = CashboxReportModel.sequelize!;
   return await sequelize.transaction(async (transaction) => {
     const now = new Date();
+    const cutoff = getMostRecentTashkentCutoffUTC(referenceTime, 3, 0);
 
     const notClosedStatuses = [
       CashboxReportStatusTypes.OPEN,
       CashboxReportStatusTypes.STOPPED,
     ];
 
+    /*
+     * Virtual cashbox Z-reportlari online payments uchun kun davomida ishlaydi.
+     * Nightly auto-close faqat operator ishlatadigan physical cashboxlarga tegadi.
+     */
+    const physicalCashboxes = await CashboxModel.findAll({
+      where: {
+        type: CashboxTypes.PHYSICAL,
+      },
+      attributes: ["id"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    const physicalCashboxIDs = physicalCashboxes.map((cashbox) =>
+      Number(cashbox.id),
+    );
+
+    if (physicalCashboxIDs.length === 0) {
+      return {
+        closed_xreports: 0,
+        closed_zreports: 0,
+        message: "No physical cashboxes found.",
+      };
+    }
+
     const xreports = await CashboxReportModel.findAll({
       where: {
+        cashbox: {
+          [Op.in]: physicalCashboxIDs,
+        },
         report_type: CashboxReportTypes.XREPORT,
         status: {
           [Op.in]: notClosedStatuses,
         },
-        closed_at: null,
         opened_at: {
-          [Op.lte]: now,
+          [Op.lt]: cutoff,
         },
       },
       attributes: ["id", "zreport"],
@@ -813,107 +865,130 @@ export const AutoCloseUnclosedXReportsService = async () => {
       lock: transaction.LOCK.UPDATE,
     });
 
-    if (xreports.length === 0) {
-      return {
-        closed_xreports: 0,
-        message: "No unclosed X reports found.",
-      };
+    const xreportIDs = xreports.map((item) => Number(item.id));
+    let closedXreports = 0;
+
+    if (xreportIDs.length > 0) {
+      [closedXreports] = await CashboxReportModel.update(
+        {
+          status: CashboxReportStatusTypes.CLOSED,
+          closed_at: now,
+        },
+        {
+          where: {
+            id: {
+              [Op.in]: xreportIDs,
+            },
+            report_type: CashboxReportTypes.XREPORT,
+            status: {
+              [Op.in]: notClosedStatuses,
+            },
+          },
+          transaction,
+        },
+      );
     }
 
-    const xreportIDs = xreports.map((item) => Number(item.id));
-
-    const [closedCount] = await CashboxReportModel.update(
-      {
-        status: CashboxReportStatusTypes.CLOSED,
-        closed_at: now,
-      },
-      {
-        where: {
-          id: {
-            [Op.in]: xreportIDs,
-          },
-          report_type: CashboxReportTypes.XREPORT,
-          status: {
-            [Op.in]: notClosedStatuses,
-          },
-          closed_at: null,
+    /*
+     * Z allaqachon qo‘lda yopilgan X-reportlardan keyin ham OPEN/STOPPED
+     * qolib ketishi mumkin. Shuning uchun Z-reportlarni X ro‘yxatidan emas,
+     * barcha physical cashboxlardan alohida olamiz.
+     */
+    const zreports = await CashboxReportModel.findAll({
+      where: {
+        cashbox: {
+          [Op.in]: physicalCashboxIDs,
         },
-        transaction,
+        report_type: CashboxReportTypes.ZREPORT,
+        status: {
+          [Op.in]: notClosedStatuses,
+        },
+        opened_at: {
+          [Op.lt]: cutoff,
+        },
       },
-    );
+      attributes: ["id", "cashbox"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
 
-    const zreportIDs = [
-      ...new Set(
-        xreports
-          .map((item) => Number(item.zreport))
-          .filter((id) => Number.isFinite(id) && id > 0),
-      ),
-    ];
-
+    const zreportIDs = zreports.map((report) => Number(report.id));
     let closedZreports = 0;
 
-    for (const zreportID of zreportIDs) {
-      const openedXReportsCount = await CashboxReportModel.count({
-        where: {
-          zreport: zreportID,
-          report_type: CashboxReportTypes.XREPORT,
-          status: {
-            [Op.in]: notClosedStatuses,
-          },
-          closed_at: null,
-        },
-        transaction,
-      });
-
-      if (openedXReportsCount > 0) {
-        continue;
-      }
-
-      const zReport = await CashboxReportModel.findOne({
-        where: {
-          id: zreportID,
-          report_type: CashboxReportTypes.ZREPORT,
-          status: {
-            [Op.in]: notClosedStatuses,
-          },
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (!zReport) {
-        continue;
-      }
-
-      await zReport.update(
+    if (zreportIDs.length > 0) {
+      [closedZreports] = await CashboxReportModel.update(
         {
           operator: null,
           status: CashboxReportStatusTypes.CLOSED,
           closed_at: now,
         },
         {
-          transaction,
-        },
-      );
-
-      await CashboxModel.update(
-        {
-          status: CashboxStatusTypes.INACTIVE,
-        },
-        {
           where: {
-            id: zReport.cashbox,
+            id: {
+              [Op.in]: zreportIDs,
+            },
+            report_type: CashboxReportTypes.ZREPORT,
+            status: {
+              [Op.in]: notClosedStatuses,
+            },
           },
           transaction,
         },
       );
-
-      closedZreports += 1;
     }
 
+    /*
+     * Legacy data can contain an ACTIVE cashbox with no OPEN/STOPPED report
+     * (for example, when its Z-report was closed before the cashbox update).
+     * Reconcile every physical cashbox, not only the ones closed in this run.
+     */
+    const remainingActiveReports = await CashboxReportModel.findAll({
+      where: {
+        cashbox: {
+          [Op.in]: physicalCashboxIDs,
+        },
+        status: {
+          [Op.in]: notClosedStatuses,
+        },
+      },
+      attributes: ["cashbox"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    const remainingActiveCashboxIDs = [
+      ...new Set(
+        remainingActiveReports.map((report) => Number(report.cashbox)),
+      ),
+    ];
+
+    const [reconciledCashboxes] = await CashboxModel.update(
+      {
+        status: CashboxStatusTypes.INACTIVE,
+      },
+      {
+        where: {
+          type: CashboxTypes.PHYSICAL,
+          status: CashboxStatusTypes.ACTIVE,
+          id:
+            remainingActiveCashboxIDs.length > 0
+              ? {
+                  [Op.in]: physicalCashboxIDs,
+                  [Op.notIn]: remainingActiveCashboxIDs,
+                }
+              : {
+                  [Op.in]: physicalCashboxIDs,
+                },
+        },
+        transaction,
+      },
+    );
+
     return {
-      closed_xreports: closedCount,
+      closed_xreports: closedXreports,
       closed_zreports: closedZreports,
+      reconciled_cashboxes: reconciledCashboxes,
+      cutoff: cutoff.toISOString(),
       message: "Unclosed X reports and Z reports closed successfully.",
     };
   });

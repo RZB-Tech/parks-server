@@ -2,12 +2,15 @@ declare interface ClientAttractionPaymentData {
   totalAmount: number;
   membersCount: number;
   card: number;
+  tariffID?: number;
 }
 
 declare interface ClientAttractionPaymentTransactionDTO {
   id: number;
   card: number;
   attraction: number;
+  attraction_tariff: number | null;
+  tariff_name: string | null;
   type: string;
   amount: number;
   balance_before: number;
@@ -32,6 +35,12 @@ declare interface ClientTransactionAttractionDTO {
   id: number;
   name: string;
   main_file: number | null;
+  size: number;
+}
+
+declare interface ClientTransactionCashboxDTO {
+  id: number;
+  name: string;
 }
 
 declare interface ClientTransactionRoundDTO {
@@ -64,11 +73,19 @@ declare interface ClientTransactionResponseDTO {
   balance_after: number;
 
   payment_type: string | null;
+  payment_card_type:
+    | import("../../../models/postgresql/card-transactions-model/enums").PaymentCardType
+    | null;
   payment_service: string | null;
   status: string;
   people_count: number;
+  tariff: {
+    id: number;
+    name: string;
+  } | null;
 
   card: ClientTransactionCardDTO;
+  cashbox: ClientTransactionCashboxDTO | null;
   attraction: ClientTransactionAttractionDTO | null;
   round: ClientTransactionRoundDTO | null;
   promotion: ClientTransactionPromotionDTO | null;

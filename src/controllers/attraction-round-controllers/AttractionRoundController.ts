@@ -1,7 +1,12 @@
 import { FastifyRequest } from "fastify";
 import { makeReplyingController } from "../../utils/controllerHelpers";
 import { RouteWithParams } from "../../types/routes";
-import { CloseCurrentAttractionRoundService, GetCurrentAttractionRoundService, GetTodayAttractionRoundsService, GetTodayRoundsService } from "../../services/attraction-rounds-services/AttractionRoundsServices";
+import {
+  CloseCurrentAttractionRoundService,
+  GetCurrentAttractionRoundService,
+  GetTodayAttractionRoundsService,
+  GetTodayRoundsService,
+} from "../../services/attraction-rounds-services/AttractionRoundsServices";
 
 export const GetCurrentAttractionRoundController = makeReplyingController(
   "attraction-round",
@@ -26,8 +31,9 @@ export const GetTodayAttractionRoundsController = makeReplyingController(
 export const GetTodayRoundsController = makeReplyingController(
   "attraction-rounds",
   async (request: FastifyRequest) => {
+    const query = request.query as GetTodayRoundsQuery;
 
-    return GetTodayRoundsService();
+    return GetTodayRoundsService(query);
   },
 );
 

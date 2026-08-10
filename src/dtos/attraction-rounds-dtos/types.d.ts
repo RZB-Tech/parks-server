@@ -43,7 +43,7 @@ declare interface AttractionRoundAttractionPlain {
 
   files: Array<number | string>;
 
-  price: number | string;
+  price: number | string | null;
   duration: number | string;
   seats: number | string;
 
@@ -67,7 +67,7 @@ declare interface AttractionRoundAttractionResponseDTO {
 
   files: number[];
 
-  price: number;
+  price: number | null;
   duration: number;
   seats: number;
 
@@ -107,6 +107,8 @@ declare interface AttractionRoundTransactionPlain {
 
   card: number | string;
   operator: number | string | null;
+  attraction_tariff: number | string | null;
+  tariff_name: string | null;
 
   type: CardTransactionType;
 
@@ -152,6 +154,8 @@ declare interface AttractionRoundTransactionResponseDTO {
   payment_source: AttractionRoundPaymentSource;
 
   operator: number | null;
+  attraction_tariff: number | null;
+  tariff_name: string | null;
 
   payment_type: CardTransactionModelI["payment_type"];
 

@@ -23,6 +23,12 @@ import { PromotionReportModel } from "../../../models/postgresql/promotion-repor
 import { PaymentOrderModel } from "../../../models/postgresql/payment-orders-model/PaymentOrderModel";
 import { PaymeTransactionModel } from "../../../models/postgresql/payme-transactions-model/PaymeTransactionModel";
 import { ClickTransactionModel } from "../../../models/postgresql/click-transactions-model/ClickTransactionModel";
+import { UzumTransactionModel } from "../../../models/postgresql/uzum-transactions-model/UzumTransactionModel";
+import { AttractionRoundRefundModel } from "../../../models/postgresql/attraction-round-refund-model/AttractionRoundRefundModel";
+import { AttractionTariffModel } from "../../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
+import { CardReturnModel } from "../../../models/postgresql/card-return-model/CardReturnModel";
+import { AuditLogModel } from "../../../models/postgresql/audit-log-model/AuditLogModel";
+import { registerAuditHooks } from "./auditHooks";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -42,6 +48,7 @@ const models = {
   RoleModel,
   EmployeeModel,
   AttractionModel,
+  AttractionTariffModel,
   AttractionOperatorModel,
   CashboxModel,
   CashboxOperatorModel,
@@ -62,6 +69,10 @@ const models = {
   PaymentOrderModel,
   PaymeTransactionModel,
   ClickTransactionModel,
+  UzumTransactionModel,
+  AttractionRoundRefundModel,
+  CardReturnModel,
+  AuditLogModel,
 };
 
 export type ModelsType = typeof models;
@@ -71,6 +82,8 @@ Object.values(models).forEach((m: ModelStatic) => {
     m.initialize!(sequelize);
   }
 });
+
+registerAuditHooks(sequelize);
 
 Object.values(models).forEach((m: ModelStatic) => {
   if (typeof m.associate === "function") {
@@ -83,6 +96,7 @@ export {
   RoleModel,
   EmployeeModel,
   AttractionModel,
+  AttractionTariffModel,
   AttractionOperatorModel,
   CashboxModel,
   CashboxOperatorModel,
@@ -103,4 +117,8 @@ export {
   PaymentOrderModel,
   PaymeTransactionModel,
   ClickTransactionModel,
+  UzumTransactionModel,
+  AttractionRoundRefundModel,
+  CardReturnModel,
+  AuditLogModel,
 };

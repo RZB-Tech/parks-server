@@ -5,6 +5,16 @@ const TASHKENT_OFFSET_MS = TASHKENT_OFFSET_HOURS * 60 * 60 * 1000;
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
+const parseDateTime = (date: string | Date) => {
+  const parsed = date instanceof Date ? new Date(date.getTime()) : new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) {
+    throw BadRequest("Invalid date value");
+  }
+
+  return parsed;
+};
+
 const parseDateOnly = (date: string) => {
   if (!DATE_REGEX.test(date)) {
     throw BadRequest("Invalid date format. Use YYYY-MM-DD");
@@ -58,6 +68,53 @@ export const getTashkentDayRangeUTC = (date?: string | Date) => {
     startDate,
     endDate,
   };
+};
+
+/**
+ * Returns the latest occurrence of a Tashkent wall-clock time at or before
+ * the supplied reference time. Tashkent currently has a fixed UTC+5 offset.
+ *
+ * Scheduled jobs use this cutoff instead of the activity execution time so a
+ * delayed 03:00/23:59 job cannot close reports opened after its boundary.
+ */
+export const getMostRecentTashkentCutoffUTC = (
+  referenceTime: string | Date,
+  hour: number,
+  minute: number,
+) => {
+  if (
+    !Number.isInteger(hour) ||
+    hour < 0 ||
+    hour > 23 ||
+    !Number.isInteger(minute) ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    throw BadRequest("Invalid cutoff time");
+  }
+
+  const reference = parseDateTime(referenceTime);
+  const tashkentReference = new Date(
+    reference.getTime() + TASHKENT_OFFSET_MS,
+  );
+
+  let cutoff = new Date(
+    Date.UTC(
+      tashkentReference.getUTCFullYear(),
+      tashkentReference.getUTCMonth(),
+      tashkentReference.getUTCDate(),
+      hour - TASHKENT_OFFSET_HOURS,
+      minute,
+      0,
+      0,
+    ),
+  );
+
+  if (cutoff.getTime() > reference.getTime()) {
+    cutoff = new Date(cutoff.getTime() - 24 * 60 * 60 * 1000);
+  }
+
+  return cutoff;
 };
 
 export const getTashkentRangeUTC = (startDate: string, endDate: string) => {

@@ -3,7 +3,7 @@ declare interface PaymentOperatorAttractionData
   attractions: {
     id: number;
     name: string;
-    price: number;
+    price: number | null;
     seats: number;
   };
 }

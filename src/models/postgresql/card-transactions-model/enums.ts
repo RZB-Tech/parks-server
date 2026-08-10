@@ -17,6 +17,7 @@ export enum PaymentCardType {
 }
 
 export enum PaymentServiceType {
+  ONEQR = "oneqr",
   UZUM = "uzum",
   PAYME = "payme",
   CLICK = "click",

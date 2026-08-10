@@ -21,27 +21,27 @@ const PromotionRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get<RouteWithQuery<GetPromotionsQuery>>(
     "/promotions",
-    { schema: getAllPromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: getAllPromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant",'head_operator','operator','head_cashier','cashier',])]},
     GetAllPromotionsController,
   );
   fastify.get<RouteWithParams<PromotionParams>>(
     "/promotions/:promotionID",
-    { schema: getPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: getPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing", "head_accountant",'head_operator','operator','head_cashier','cashier',])]},
     GetPromotionController,
   );
   fastify.post<RouteWithData<ReqData<CreatePromotionData>>>(
     "/promotion",
-    { schema: createPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: createPromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","head_marketing"])]},
     CreatePromotionController,
   );
   fastify.put<RouteWithParamsAndData<PromotionParams, ReqData<UpdatePromotionData>>>(
     "/promotion/:promotionID",
-    { schema: updatePromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: updatePromotionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","head_marketing"])]},
     UpdatePromotionController,
   );
   fastify.delete<RouteWithData<ReqData<DeletePromotionsData>>>(
     "/promotions",
-    { schema: deletePromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","admin","owner","director","head_marketing"])]},
+    { schema: deletePromotionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin","head_marketing"])]},
     DeletePromotionController,
   );
 };

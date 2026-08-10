@@ -16,13 +16,33 @@ export const promotionAttractionResponseSchema = {
       type: "string",
       //   example: "Flying Tigers",
     },
-    original_price: {
+    size: {
       type: "number",
+    },
+    pricing_type: {
+      type: "string",
+      enum: ["single", "tariff"],
+    },
+    original_price: {
+      anyOf: [{ type: "number" }, { type: "null" }],
       //   example: 25000,
     },
     discounted_price: {
-      type: "number",
+      anyOf: [{ type: "number" }, { type: "null" }],
       //   example: 20000,
+    },
+    tariffs: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          original_price: { type: "number" },
+          discounted_price: { type: "number" },
+          sort_order: { type: "integer" },
+        },
+      },
     },
     sort_order: {
       type: "integer",

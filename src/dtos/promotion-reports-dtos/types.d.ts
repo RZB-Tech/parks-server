@@ -76,6 +76,7 @@ declare interface PromotionReportPlain {
 
   rounds_count: number | string;
   total_people: number | string;
+  refund_count: number | string;
 
   total_virtual: number | string;
   total_classic: number | string;
@@ -89,6 +90,8 @@ declare interface PromotionReportPlain {
   discount_amount: number | string;
   total_amount: number | string;
   paid_amount: number | string;
+
+  tariff_reports?: AttractionTariffReportPlain[];
 
   createdAt?: Date;
   updatedAt?: Date;

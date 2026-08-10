@@ -19,6 +19,14 @@ declare interface CardTopUpTransactionData {
 }
 
 declare interface GetCashboxCardTransactionsQuery {
+  date?: string;
+  page?: number;
+  limit?: number;
+}
+
+declare interface GetCardReturnsQuery {
+  date?: string;
+  cashbox?: number;
   page?: number;
   limit?: number;
 }
@@ -26,6 +34,7 @@ declare interface GetCashboxCardTransactionsQuery {
 declare interface CardPaymentTransactionData {
   nfc: string;
   attractionID: number;
+  tariffID?: number;
 }
 
 declare interface CardRefundData {

@@ -106,5 +106,10 @@ export class EmployeeModel
       foreignKey: "operator",
       onDelete: "CASCADE",
     });
+    EmployeeModel.hasMany(models.AuditLogModel, {
+      foreignKey: "employee_id",
+      as: "audit_logs",
+      onDelete: "SET NULL",
+    });
   }
 }

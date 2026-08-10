@@ -9,12 +9,30 @@ import {
   AttractionModel,
   AttractionOperatorModel,
   AttractionReportModel,
+  AttractionTariffModel,
   EmployeeModel,
   FileModel,
   sequelize,
 } from "../../plugins/db/postgresql/db";
 import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
+import { AttractionTariffStatusTypes } from "../../models/postgresql/attraction-tariff-model/enums";
+import {
+  CreateAttractionTariffsService,
+  DeactivateAttractionTariffsService,
+  NormalizeAttractionTariffs,
+  SyncAttractionTariffsService,
+} from "../attraction-tariffs-services/AttractionTariffsServices";
+
+const NormalizeAttractionSize = (value: number | undefined): number => {
+  const size = value === undefined ? 1 : Number(value);
+
+  if (!Number.isFinite(size) || size <= 0) {
+    throw BadRequest("Attraction size is invalid!");
+  }
+
+  return size;
+};
 
 export const GetAttractionService = async (query: GetAttractionQuery) => {
   const orWhere: any[] = [];
@@ -53,11 +71,24 @@ export const GetAttractionService = async (query: GetAttractionQuery) => {
           },
         ],
       },
+      {
+        model: AttractionTariffModel,
+        as: "tariffs",
+        required: false,
+        where: {
+          status: AttractionTariffStatusTypes.ACTIVE,
+        },
+      },
     ],
     order: [
       [
         { model: AttractionOperatorModel, as: "attraction_operator" },
         "id",
+        "ASC",
+      ],
+      [
+        { model: AttractionTariffModel, as: "tariffs" },
+        "sort_order",
         "ASC",
       ],
     ],
@@ -174,6 +205,24 @@ export const GetAttractionsService = async (query: GetAttractionsQuery) => {
     operator.get({ plain: true }),
   );
 
+  const tariffs = attractionIDs.length
+    ? await AttractionTariffModel.findAll({
+        where: {
+          attraction: {
+            [Op.in]: attractionIDs,
+          },
+          status: AttractionTariffStatusTypes.ACTIVE,
+        },
+        order: [
+          ["attraction", "ASC"],
+          ["sort_order", "ASC"],
+          ["id", "ASC"],
+        ],
+      })
+    : [];
+
+  const tariffsData = tariffs.map((tariff) => tariff.get({ plain: true }));
+
   const attractionsWithOperators = attractionsData.map((attraction) => {
     const attractionOperators = operatorsData.filter(
       (operator) => Number(operator.attraction) === Number(attraction.id),
@@ -182,6 +231,9 @@ export const GetAttractionsService = async (query: GetAttractionsQuery) => {
     return AttractionWithOperatorsDTO({
       ...attraction,
       attraction_operator: attractionOperators,
+      tariffs: tariffsData.filter(
+        (tariff) => Number(tariff.attraction) === Number(attraction.id),
+      ),
     });
   });
 
@@ -195,61 +247,106 @@ export const GetAttractionsService = async (query: GetAttractionsQuery) => {
 };
 
 export const CreateAttractionsService = async (body: CreateAttractionData) => {
-  const findAttraction = await AttractionModel.findOne({
-    where: {
-      name: body.name,
-    },
-  });
-
-  if (findAttraction !== null)
-    throw Conflict("Attraction already exists at this name");
-
-  const fileIds = [
-    body.dashboard_file,
-    body.main_file,
-    ...(body.files ?? []),
-    ...(body.sub_attraction_files ?? []),
-  ]
-    .filter((id) => id !== null && id !== undefined)
-    .map(Number)
-    .filter((id) => Number.isInteger(id) && id > 0);
-
-  const uniqueFileIds = [...new Set(fileIds)];
-
-  if (uniqueFileIds.length > 0) {
-    const filesCount = await FileModel.count({
-      where: {
-        id: {
-          [Op.in]: uniqueFileIds,
-        },
-      },
-    });
-
-    if (filesCount !== uniqueFileIds.length) {
-      throw NotFound("One or more files not found!");
-    }
+  if (body.price === undefined) {
+    throw BadRequest("Attraction price is required!");
   }
 
-  const attraction = await AttractionModel.create({
-    name: body.name,
-    manufacturer: body.manufacturer,
-    status: AttractionStatusTypes.INACTIVE,
-    dashboard_file: body.dashboard_file ?? null,
-    main_file: body.main_file ?? null,
-    files: body.files ?? null,
-    sub_attraction_files: body.sub_attraction_files ?? null,
-    price: body.price,
-    duration: body.duration,
-    seats: body.seats,
-    age_limit: body.age_limit,
-    min_height: body.min_height,
-    max_weight: body.max_weight,
-    description: body.description,
-    latitude: body.latitude,
-    longitude: body.longitude,
-  });
+  const hasSinglePrice = body.price !== null && body.price !== undefined;
+  const hasTariffs = Array.isArray(body.tariffs) && body.tariffs.length > 0;
 
-  return AttractionDTO(attraction);
+  if (hasSinglePrice === hasTariffs) {
+    throw BadRequest(
+      "Provide either a single attraction price or tariffs with price set to null!",
+    );
+  }
+
+  if (hasSinglePrice) {
+    const price = Number(body.price);
+
+    if (!Number.isSafeInteger(price) || price < 0) {
+      throw BadRequest("Attraction price is invalid!");
+    }
+  } else {
+    NormalizeAttractionTariffs(body.tariffs!);
+  }
+
+  const size = NormalizeAttractionSize(body.size);
+
+  return sequelize.transaction(async (transaction) => {
+    const findAttraction = await AttractionModel.findOne({
+      where: {
+        name: body.name,
+      },
+      transaction,
+    });
+
+    if (findAttraction !== null) {
+      throw Conflict("Attraction already exists at this name");
+    }
+
+    const fileIds = [
+      body.dashboard_file,
+      body.main_file,
+      ...(body.files ?? []),
+      ...(body.sub_attraction_files ?? []),
+    ]
+      .filter((id) => id !== null && id !== undefined)
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    const uniqueFileIds = [...new Set(fileIds)];
+
+    if (uniqueFileIds.length > 0) {
+      const filesCount = await FileModel.count({
+        where: {
+          id: {
+            [Op.in]: uniqueFileIds,
+          },
+        },
+        transaction,
+      });
+
+      if (filesCount !== uniqueFileIds.length) {
+        throw NotFound("One or more files not found!");
+      }
+    }
+
+    const attraction = await AttractionModel.create(
+      {
+        name: body.name,
+        manufacturer: body.manufacturer,
+        status: AttractionStatusTypes.INACTIVE,
+        dashboard_file: body.dashboard_file ?? null,
+        main_file: body.main_file ?? null,
+        files: body.files ?? null,
+        sub_attraction_files: body.sub_attraction_files ?? null,
+        size,
+        price: hasSinglePrice ? Number(body.price) : null,
+        duration: body.duration,
+        seats: body.seats,
+        age_limit: body.age_limit,
+        min_height: body.min_height,
+        max_weight: body.max_weight,
+        description: body.description,
+        latitude: body.latitude,
+        longitude: body.longitude,
+      },
+      { transaction },
+    );
+
+    const tariffs = hasTariffs
+      ? await CreateAttractionTariffsService(
+          Number(attraction.id),
+          body.tariffs!,
+          transaction,
+        )
+      : [];
+
+    return AttractionDTO({
+      ...(attraction.get({ plain: true }) as AttractionModelI),
+      tariffs: tariffs.map((tariff) => tariff.get({ plain: true })),
+    });
+  });
 };
 
 export const UpdateAttractionsService = async (
@@ -320,6 +417,7 @@ export const UpdateAttractionsService = async (
             [Op.in]: uniqueFileIds,
           },
         },
+        transaction,
       });
 
       if (filesCount !== uniqueFileIds.length) {
@@ -379,6 +477,54 @@ export const UpdateAttractionsService = async (
      * Faqat body’da yuborilgan fieldlarni yangilaymiz.
      * undefined fieldlar eski qiymatini saqlab qoladi.
      */
+    const priceWasProvided = body.price !== undefined;
+    const tariffsWereProvided = body.tariffs !== undefined;
+    const size =
+      body.size !== undefined ? NormalizeAttractionSize(body.size) : undefined;
+    let activeTariffs: AttractionTariffModel[] = [];
+
+    if (body.price !== undefined && body.price !== null) {
+      const price = Number(body.price);
+
+      if (!Number.isSafeInteger(price) || price < 0) {
+        throw BadRequest("Attraction price is invalid!");
+      }
+
+      if (tariffsWereProvided) {
+        throw BadRequest(
+          "A single-price attraction cannot contain attraction tariffs!",
+        );
+      }
+
+      await DeactivateAttractionTariffsService(attractionID, transaction);
+    } else if (body.price === null) {
+      if (!tariffsWereProvided) {
+        if (attraction.price !== null) {
+          throw BadRequest(
+            "Attraction tariffs are required when price is null!",
+          );
+        }
+      } else {
+        activeTariffs = await SyncAttractionTariffsService(
+          attractionID,
+          body.tariffs!,
+          transaction,
+        );
+      }
+    } else if (tariffsWereProvided) {
+      if (attraction.price !== null) {
+        throw BadRequest(
+          "Set attraction price to null before providing tariffs!",
+        );
+      }
+
+      activeTariffs = await SyncAttractionTariffsService(
+        attractionID,
+        body.tariffs!,
+        transaction,
+      );
+    }
+
     await attraction.update(
       {
         ...(body.device !== undefined && {
@@ -413,7 +559,11 @@ export const UpdateAttractionsService = async (
           sub_attraction_files: body.sub_attraction_files,
         }),
 
-        ...(body.price !== undefined && {
+        ...(size !== undefined && {
+          size,
+        }),
+
+        ...(priceWasProvided && {
           price: body.price,
         }),
 
@@ -452,11 +602,24 @@ export const UpdateAttractionsService = async (
       },
     );
 
-    return AttractionDTO(
-      attraction.get({
-        plain: true,
-      }),
-    );
+    if (attraction.price === null && activeTariffs.length === 0) {
+      activeTariffs = await AttractionTariffModel.findAll({
+        where: {
+          attraction: attractionID,
+          status: AttractionTariffStatusTypes.ACTIVE,
+        },
+        order: [
+          ["sort_order", "ASC"],
+          ["id", "ASC"],
+        ],
+        transaction,
+      });
+    }
+
+    return AttractionDTO({
+      ...(attraction.get({ plain: true }) as AttractionModelI),
+      tariffs: activeTariffs.map((tariff) => tariff.get({ plain: true })),
+    });
   });
 };
 
@@ -466,18 +629,34 @@ export const DeleteAttractionsService = async (body: DeleteAttractionsData) => {
   try {
     const attractionIDs = [...new Set(body.attractionIDs)];
 
-    const existingCount = await AttractionModel.count({
+    const attractions = await AttractionModel.findAll({
       where: {
         id: {
           [Op.in]: attractionIDs,
         },
       },
+      attributes: ["id"],
       transaction,
+      lock: transaction.LOCK.UPDATE,
     });
 
-    if (existingCount !== attractionIDs.length) {
+    if (attractions.length !== attractionIDs.length) {
       throw NotFound("Attraction not found");
     }
+
+    // Soft-deleted rows remain in the table, so release the unique device ID
+    // before archiving the attractions. This lets the device be reassigned.
+    await AttractionModel.update(
+      { device: null },
+      {
+        where: {
+          id: {
+            [Op.in]: attractionIDs,
+          },
+        },
+        transaction,
+      },
+    );
 
     await AttractionModel.destroy({
       where: {
@@ -485,7 +664,6 @@ export const DeleteAttractionsService = async (body: DeleteAttractionsData) => {
           [Op.in]: attractionIDs,
         },
       },
-      force: true,
       transaction,
     });
 

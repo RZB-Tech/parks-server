@@ -128,6 +128,10 @@ export const promotionReportProperties = {
     type: "number",
   },
 
+  refund_count: {
+    type: "number",
+  },
+
   total_virtual: {
     type: "number",
   },
@@ -174,6 +178,99 @@ export const promotionReportSchema = {
   additionalProperties: false,
 
   properties: promotionReportProperties,
+};
+
+export const attractionTariffReportProperties = {
+  attraction_tariff: {
+    type: "number",
+  },
+
+  tariff_name: {
+    type: "string",
+  },
+
+  promotion: nullableNumber,
+  promotion_code: nullableString,
+  promotion_name: nullableString,
+  promotion_type: nullablePromotionType,
+
+  discount_percent: {
+    type: "number",
+  },
+
+  original_unit_price: {
+    type: "number",
+  },
+
+  sale_unit_price: {
+    type: "number",
+  },
+
+  rounds_count: {
+    type: "number",
+  },
+
+  total_people: {
+    type: "number",
+  },
+
+  refund_count: {
+    type: "number",
+  },
+
+  total_virtual: {
+    type: "number",
+  },
+
+  total_classic: {
+    type: "number",
+  },
+
+  total_vip: {
+    type: "number",
+  },
+
+  total_organization: {
+    type: "number",
+  },
+
+  total_online: {
+    type: "number",
+  },
+
+  total_offline: {
+    type: "number",
+  },
+
+  original_amount: {
+    type: "number",
+  },
+
+  discount_amount: {
+    type: "number",
+  },
+
+  total_amount: {
+    type: "number",
+  },
+
+  paid_amount: {
+    type: "number",
+  },
+};
+
+export const attractionTariffReportSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: attractionTariffReportProperties,
+};
+
+const attractionZPromotionReportProperties = {
+  ...promotionReportProperties,
+  tariff_reports: {
+    type: "array",
+    items: attractionTariffReportSchema,
+  },
 };
 
 export const attractionReportOperatorProperties = {
@@ -255,6 +352,10 @@ export const attractionReportProperties = {
     type: "number",
   },
 
+  refund_count: {
+    type: "number",
+  },
+
   total_offline: {
     type: "number",
   },
@@ -308,8 +409,16 @@ export const attractionReportSchema = {
 
 const {
   promotion_reports: _promotionReports,
-  ...attractionZReportProperties
+  ...attractionZReportBaseProperties
 } = attractionReportProperties;
+
+const attractionZReportProperties = {
+  ...attractionZReportBaseProperties,
+  tariff_reports: {
+    type: "array",
+    items: attractionTariffReportSchema,
+  },
+};
 
 export const openAttractionReportSchema = {
   summary: "Open attraction report",
@@ -507,6 +616,10 @@ export const attractionZReportsTotalsProperties = {
     type: "number",
   },
 
+  refund_count: {
+    type: "number",
+  },
+
   total_offline: {
     type: "number",
   },
@@ -571,8 +684,32 @@ export const attractionWithZReportsProperties = {
     },
   },
 
-  price: {
+  size: {
     type: "number",
+  },
+
+  price: {
+    oneOf: [{ type: "number" }, { type: "null" }],
+  },
+
+  pricing_type: {
+    type: "string",
+    enum: ["single", "tariff"],
+  },
+
+  tariffs: {
+    type: "array",
+    items: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        id: { type: "number" },
+        name: { type: "string" },
+        price: { type: "number" },
+        status: { type: "string", enum: ["active", "inactive"] },
+        sort_order: { type: "number" },
+      },
+    },
   },
 
   duration: {
@@ -611,21 +748,27 @@ export const attractionWithZReportsProperties = {
     items: {
       type: "object",
       additionalProperties: false,
-      properties: promotionReportProperties,
+      properties: attractionZPromotionReportProperties,
     },
   },
 
   total_reports: {
     type: "object",
     additionalProperties: false,
-    properties: attractionZReportsTotalsProperties,
+    properties: {
+      ...attractionZReportsTotalsProperties,
+      tariff_reports: {
+        type: "array",
+        items: attractionTariffReportSchema,
+      },
+    },
   },
 };
 
 export const getAttractionZReportsSchema = {
   summary: "Get attraction Z reports",
   description:
-    "Get attraction Z reports with aggregated promotion statistics by date for admin panel.",
+    "Get attraction Z reports with promotion and tariff breakdowns by date for admin panel.",
   tags: ["Attraction reports route"],
   headers: authorizationHeaders,
   querystring: {
@@ -646,7 +789,7 @@ export const getAttractionZReportsSchema = {
           maxLength: 100,
         },
         description:
-          "Filter by promotion codes. Repeat the query parameter for multiple codes.",
+          "Omit to return all base and promotion reports. Use basic for base Z-reports only, or pass promotion codes to return matching promotion reports with their Z-reports. Repeat the query parameter for multiple values.",
       },
 
       search: {
@@ -764,8 +907,12 @@ export const accountingAttractionProperties = {
     },
   },
 
-  price: {
+  size: {
     type: "number",
+  },
+
+  price: {
+    oneOf: [{ type: "number" }, { type: "null" }],
   },
 
   duration: {
@@ -797,6 +944,10 @@ export const accountingAttractionZReportProperties = {
   },
 
   total_people: {
+    type: "number",
+  },
+
+  refund_count: {
     type: "number",
   },
 
@@ -839,6 +990,10 @@ export const promotionReportTotalsProperties = {
   },
 
   total_people: {
+    type: "number",
+  },
+
+  refund_count: {
     type: "number",
   },
 

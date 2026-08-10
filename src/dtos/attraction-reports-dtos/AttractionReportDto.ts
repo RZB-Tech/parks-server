@@ -1,4 +1,17 @@
 import { PromotionReportDTO } from "../promotion-reports-dtos/PromotionReportDto";
+import {
+  AttractionTariffReportDTO,
+  CombineAttractionTariffReportsDTO,
+} from "../attraction-tariff-reports-dtos/AttractionTariffReportDto";
+
+const AttractionZPromotionReportDTO = (
+  data: PromotionReportPlain,
+): AttractionZPromotionReportResponseDTO => ({
+  ...PromotionReportDTO(data),
+  tariff_reports: Array.isArray(data.tariff_reports)
+    ? data.tariff_reports.map(AttractionTariffReportDTO)
+    : [],
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -68,6 +81,7 @@ export const AttractionReportDTO = (
 
     total_rounds: Number(data.total_rounds || 0),
     total_people: Number(data.total_people || 0),
+    refund_count: Number(data.refund_count || 0),
 
     total_offline: Number(data.total_offline || 0),
     total_online: Number(data.total_online || 0),
@@ -116,6 +130,7 @@ export const emptyAttractionZReportsTotals = (): AttractionZReportTotalsDTO => {
   return {
     total_rounds: 0,
     total_people: 0,
+    refund_count: 0,
 
     total_offline: 0,
     total_online: 0,
@@ -143,6 +158,7 @@ export const addAttractionZReportsTotals = (
 ) => {
   target.total_rounds += Number(report.total_rounds || 0);
   target.total_people += Number(report.total_people || 0);
+  target.refund_count += Number(report.refund_count || 0);
 
   target.total_offline += Number(report.total_offline || 0);
   target.total_online += Number(report.total_online || 0);
@@ -167,6 +183,7 @@ export const emptyPromotionReportTotals = (): PromotionReportTotalsDTO => {
   return {
     rounds_count: 0,
     total_people: 0,
+    refund_count: 0,
 
     total_virtual: 0,
     total_classic: 0,
@@ -197,6 +214,7 @@ export const addPromotionReportTotals = (
   target.rounds_count += Number(report.rounds_count || 0);
 
   target.total_people += Number(report.total_people || 0);
+  target.refund_count += Number(report.refund_count || 0);
 
   target.total_virtual += Number(report.total_virtual || 0);
   target.total_classic += Number(report.total_classic || 0);
@@ -219,6 +237,7 @@ export const addPromotionToAttractionZReportsTotals = (
 ) => {
   target.total_rounds += Number(report.rounds_count || 0);
   target.total_people += Number(report.total_people || 0);
+  target.refund_count += Number(report.refund_count || 0);
   target.total_offline += Number(report.total_offline || 0);
   target.total_online += Number(report.total_online || 0);
   target.total_virtual += Number(report.total_virtual || 0);
@@ -261,6 +280,16 @@ export const AttractionZReportAttractionDTO = (
   const promotionReports = reports.flatMap((report) =>
     Array.isArray(report.promotion_reports) ? report.promotion_reports : [],
   );
+  const tariffReports = reports.flatMap((report) => [
+    ...(Array.isArray(report.tariff_reports) ? report.tariff_reports : []),
+    ...(Array.isArray(report.promotion_reports)
+      ? report.promotion_reports.flatMap((promotionReport) =>
+          Array.isArray(promotionReport.tariff_reports)
+            ? promotionReport.tariff_reports
+            : [],
+        )
+      : []),
+  ]);
   const totalReports = emptyAttractionZReportsTotals();
 
   for (const report of reports) {
@@ -275,6 +304,7 @@ export const AttractionZReportAttractionDTO = (
 
     totalReports.total_rounds += reportTotals.total_rounds;
     totalReports.total_people += reportTotals.total_people;
+    totalReports.refund_count += reportTotals.refund_count;
     totalReports.total_offline += reportTotals.total_offline;
     totalReports.total_online += reportTotals.total_online;
     totalReports.total_virtual += reportTotals.total_virtual;
@@ -306,7 +336,16 @@ export const AttractionZReportAttractionDTO = (
 
     files: Array.isArray(data.files) ? data.files.map(Number) : [],
 
-    price: Number(data.price || 0),
+    size: Number(data.size || 1),
+    price: data.price === null ? null : Number(data.price),
+    pricing_type: data.price === null ? "tariff" : "single",
+    tariffs: (data.tariffs ?? []).map((tariff) => ({
+      id: Number(tariff.id),
+      name: tariff.name,
+      price: Number(tariff.price),
+      status: tariff.status,
+      sort_order: Number(tariff.sort_order || 0),
+    })),
     duration: Number(data.duration || 0),
     seats: Number(data.seats || 0),
 
@@ -322,12 +361,20 @@ export const AttractionZReportAttractionDTO = (
         ...zreport
       } = AttractionReportDTO(report);
 
-      return zreport;
+      return {
+        ...zreport,
+        tariff_reports: Array.isArray(report.tariff_reports)
+          ? report.tariff_reports.map(AttractionTariffReportDTO)
+          : [],
+      };
     }),
 
-    promotion_reports: promotionReports.map(PromotionReportDTO),
+    promotion_reports: promotionReports.map(AttractionZPromotionReportDTO),
 
-    total_reports: totalReports,
+    total_reports: {
+      ...totalReports,
+      tariff_reports: CombineAttractionTariffReportsDTO(tariffReports),
+    },
   };
 };
 
@@ -440,7 +487,9 @@ export const AccountingAttractionReportsDTO = (data: {
             ? attraction.files.map(Number)
             : [],
 
-          price: Number(attraction.price || 0),
+          size: Number(attraction.size || 1),
+          price:
+            attraction.price === null ? null : Number(attraction.price),
           duration: Number(attraction.duration || 0),
           seats: Number(attraction.seats || 0),
 

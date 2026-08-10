@@ -9,6 +9,9 @@ import {
   ClickCompleteController,
   ClickPrepareController,
 } from "../../controllers/payment-controllers/click/ClickController";
+import { UzumCallbackController } from "../../controllers/payment-controllers/uzum/UzumController";
+import { RouteWithData } from "../../types/routes";
+import { uzumCallbackSchema } from "./uzumSchema";
 
 const PaymentsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -16,12 +19,34 @@ const PaymentsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.post(
     "/payments/payme",
-    { preHandler: PaymeAuthMiddleware },
+    {
+      schema: { hide: true } as any,
+      preHandler: PaymeAuthMiddleware,
+    },
     PaymeMerchantController,
   );
 
-  fastify.post("/payments/click/prepare", ClickPrepareController);
-  fastify.post("/payments/click/complete", ClickCompleteController);
+  fastify.post(
+    "/payments/click/prepare",
+    { schema: { hide: true } as any },
+    ClickPrepareController,
+  );
+  fastify.post(
+    "/payments/click/complete",
+    { schema: { hide: true } as any },
+    ClickCompleteController,
+  );
+
+  fastify.post(
+    "/payments/uzum/callback",
+    {
+      schema: {
+        ...uzumCallbackSchema,
+        hide: true,
+      } as any,
+    },
+    UzumCallbackController,
+  );
 };
 
 export default PaymentsRouter;

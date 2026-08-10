@@ -1,4 +1,7 @@
-import { CardTransactionType } from "../../../models/postgresql/card-transactions-model/enums";
+import {
+  CardTransactionType,
+  PaymentCardType,
+} from "../../../models/postgresql/card-transactions-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../../schemas";
 
 const nullableIntegerSchema = {
@@ -47,6 +50,12 @@ export const clientAttractionPaymentSchema = {
         description:
           "Maximum amount confirmed by the client. The server recalculates and applies the current active promotion price.",
       },
+      tariffID: {
+        type: "integer",
+        minimum: 1,
+        description:
+          "Required when the attraction uses tariff pricing; omit it for a single-price attraction.",
+      },
     },
   }),
 
@@ -60,6 +69,10 @@ export const clientAttractionPaymentSchema = {
           id: { type: "integer" },
           card: { type: "integer" },
           attraction: { type: "integer" },
+          attraction_tariff: nullableIntegerSchema,
+          tariff_name: {
+            anyOf: [{ type: "string" }, { type: "null" }],
+          },
           type: { type: "string" },
           amount: { type: "number" },
           balance_before: { type: "number" },
@@ -76,7 +89,7 @@ export const getClientTransactionsSchema = {
   tags: ["Clients|Transactions"],
   summary: "Get client transaction history",
   description:
-    "Returns successful payment and top-up transactions for all user cards or one selected card within one required calendar month.",
+    "Returns payment, top-up and refund transactions for all user cards or one selected card within one required calendar month.",
 
   security: [
     {
@@ -104,9 +117,13 @@ export const getClientTransactionsSchema = {
 
       type: {
         type: "string",
-        enum: [CardTransactionType.PAYMENT, CardTransactionType.TOPUP],
+        enum: [
+          CardTransactionType.PAYMENT,
+          CardTransactionType.TOPUP,
+          CardTransactionType.REFUND,
+        ],
         description:
-          "Optional transaction type. Omit to get payment and top-up transactions.",
+          "Optional transaction type. Omit to get payment, top-up and refund transactions.",
       },
 
       page: {
@@ -165,7 +182,11 @@ export const getClientTransactionsSchema = {
             id: { type: "integer" },
             type: {
               type: "string",
-              enum: [CardTransactionType.PAYMENT, CardTransactionType.TOPUP],
+              enum: [
+                CardTransactionType.PAYMENT,
+                CardTransactionType.TOPUP,
+                CardTransactionType.REFUND,
+              ],
             },
             direction: {
               type: "string",
@@ -178,6 +199,15 @@ export const getClientTransactionsSchema = {
             payment_type: {
               anyOf: [{ type: "string" }, { type: "null" }],
             },
+            payment_card_type: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: Object.values(PaymentCardType),
+                },
+                { type: "null" },
+              ],
+            },
             payment_service: {
               anyOf: [{ type: "string" }, { type: "null" }],
             },
@@ -188,6 +218,18 @@ export const getClientTransactionsSchema = {
               description:
                 "Number of people paid for in this attraction transaction.",
             },
+            tariff: {
+              anyOf: [
+                {
+                  type: "object",
+                  properties: {
+                    id: { type: "integer" },
+                    name: { type: "string" },
+                  },
+                },
+                { type: "null" },
+              ],
+            },
             card: {
               type: "object",
               properties: {
@@ -195,6 +237,20 @@ export const getClientTransactionsSchema = {
                 card: { type: "string" },
                 type: { type: "string" },
               },
+            },
+
+            cashbox: {
+              anyOf: [
+                {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    id: { type: "integer" },
+                    name: { type: "string" },
+                  },
+                },
+                { type: "null" },
+              ],
             },
 
             attraction: {
@@ -205,6 +261,7 @@ export const getClientTransactionsSchema = {
                     id: { type: "integer" },
                     name: { type: "string" },
                     main_file: nullableIntegerSchema,
+                    size: { type: "number" },
                   },
                 },
                 { type: "null" },

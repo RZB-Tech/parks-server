@@ -32,7 +32,8 @@ declare interface AttractionDTO {
   status: string;
   main_file: number | null;
   dashboard_file: number | null;
-  price: number;
+  size: number;
+  price: number | null;
   age_limit: number;
   min_height: number;
   max_weight: number;

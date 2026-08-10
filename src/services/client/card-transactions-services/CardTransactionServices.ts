@@ -6,6 +6,7 @@ import {
   AttractionReportModel,
   AttractionRoundModel,
   CardModel,
+  CashboxModel,
   UserModel,
 } from "../../../plugins/db/postgresql/db";
 import { UserStatusTypes } from "../../../models/postgresql/client/user-model/enums";
@@ -32,6 +33,8 @@ import { getTashkentMonthRangeUTC } from "../../../utils/date";
 import { FindBestActivePromotionForAttractionService } from "../../promotion-services/PromotionServices";
 import { UpsertPromotionReportService } from "../../promotion-reports-services/PromotionReportsServices";
 import { GetOrCreateOpenAttractionRoundService } from "../../attraction-reports-services/AttractionReportsServices";
+import { ResolveAttractionPricingService } from "../../attraction-tariffs-services/AttractionTariffsServices";
+import { CalculateAttractionSalePrice } from "../../../utils/attractionPricing";
 
 export const ClientAttractionPaymentService = async (
   telegramID: number,
@@ -112,12 +115,13 @@ export const ClientAttractionPaymentService = async (
         throw BadRequest("ATTRACTION_NOT_AVAILABLE");
       }
 
-      const attractionPrice = Number(attraction.price ?? 0);
       const totalSeats = Number(attraction.seats ?? 0);
 
-      if (!Number.isSafeInteger(attractionPrice) || attractionPrice < 1) {
-        throw BadRequest("INVALID_ATTRACTION_PRICE");
-      }
+      const resolvedPricing = await ResolveAttractionPricingService(
+        attraction,
+        body.tariffID,
+        transaction,
+      );
 
       if (!Number.isInteger(totalSeats) || totalSeats < 1) {
         throw BadRequest("INVALID_ATTRACTION_SEATS");
@@ -189,17 +193,15 @@ export const ClientAttractionPaymentService = async (
 
       const hasPromotion = promotion !== null;
 
-      const originalUnitPrice = promotion
-        ? Number(promotion.original_price)
-        : attractionPrice;
-
-      const saleUnitPrice = promotion
-        ? Number(promotion.discounted_price)
-        : attractionPrice;
-
       const discountPercent = promotion
         ? Number(promotion.discount_percent)
         : 0;
+
+      const originalUnitPrice = resolvedPricing.price;
+
+      const saleUnitPrice = promotion
+        ? CalculateAttractionSalePrice(originalUnitPrice, discountPercent)
+        : originalUnitPrice;
 
       if (!Number.isSafeInteger(originalUnitPrice) || originalUnitPrice < 0) {
         throw BadRequest("INVALID_ORIGINAL_UNIT_PRICE");
@@ -319,6 +321,8 @@ export const ClientAttractionPaymentService = async (
           cashbox: null,
 
           attraction: attractionID,
+          attraction_tariff: resolvedPricing.tariff?.id ?? null,
+          tariff_name: resolvedPricing.tariff?.name ?? null,
           xreport: xreportID,
 
           type: CardTransactionType.PAYMENT,
@@ -526,7 +530,11 @@ export const GetClientTransactionsService = async (
     throw BadRequest("INVALID_CARD_ID");
   }
 
-  const allowedTypes = [CardTransactionType.PAYMENT, CardTransactionType.TOPUP];
+  const allowedTypes = [
+    CardTransactionType.PAYMENT,
+    CardTransactionType.TOPUP,
+    CardTransactionType.REFUND,
+  ];
 
   if (requestedType && !allowedTypes.includes(requestedType)) {
     throw BadRequest("INVALID_TRANSACTION_TYPE");
@@ -623,7 +631,12 @@ export const GetClientTransactionsService = async (
       [Op.in]: selectedCardIDs,
     },
 
-    status: CardTransactionStatusTypes.SUCCESS,
+    status: {
+      [Op.in]: [
+        CardTransactionStatusTypes.SUCCESS,
+        CardTransactionStatusTypes.CANCELLED,
+      ],
+    },
 
     createdAt: {
       [Op.gte]: startUTC,
@@ -639,7 +652,7 @@ export const GetClientTransactionsService = async (
     : {
         ...baseWhere,
         type: {
-          [Op.in]: [CardTransactionType.PAYMENT, CardTransactionType.TOPUP],
+          [Op.in]: allowedTypes,
         },
       };
 
@@ -647,11 +660,18 @@ export const GetClientTransactionsService = async (
 
   /*
    * Summary type tabga bog‘liq emas.
+   * Refund income hisoblanmaydi; attraction refund summasi gross paymentdan
+   * ayrilib, partial refunddan keyingi real expense qaytariladi.
    *
    * Masalan payment tab ochiq bo‘lsa ham,
    * shu oy uchun umumiy income va expense qaytadi.
    */
-  const [transactionResult, incomeResult, expenseResult] = await Promise.all([
+  const [
+    transactionResult,
+    topupIncomeResult,
+    grossPaymentExpenseResult,
+    attractionRefundResult,
+  ] = await Promise.all([
     CardTransactionModel.findAndCountAll({
       where: transactionWhere,
       order: [
@@ -666,6 +686,7 @@ export const GetClientTransactionsService = async (
       where: {
         ...baseWhere,
         type: CardTransactionType.TOPUP,
+        status: CardTransactionStatusTypes.SUCCESS,
       },
     }),
 
@@ -673,6 +694,17 @@ export const GetClientTransactionsService = async (
       where: {
         ...baseWhere,
         type: CardTransactionType.PAYMENT,
+      },
+    }),
+
+    CardTransactionModel.sum("amount", {
+      where: {
+        ...baseWhere,
+        type: CardTransactionType.REFUND,
+        status: CardTransactionStatusTypes.SUCCESS,
+        attraction: {
+          [Op.ne]: null,
+        },
       },
     }),
   ]);
@@ -695,11 +727,36 @@ export const GetClientTransactionsService = async (
 
   const attractions = attractionIDs.length
     ? await AttractionModel.findAll({
+        paranoid: false,
         where: {
           id: {
             [Op.in]: attractionIDs,
           },
         },
+      })
+    : [];
+
+  /*
+   * Cashboxlarni bitta query bilan olamiz. paranoid: false tarixdagi
+   * transaction uchun keyinchalik o‘chirilgan kassaning nomini ham saqlaydi.
+   */
+  const cashboxIDs = [
+    ...new Set(
+      transactions
+        .map((transaction) => Number(transaction.cashbox))
+        .filter((cashboxID) => Number.isInteger(cashboxID) && cashboxID > 0),
+    ),
+  ];
+
+  const cashboxes = cashboxIDs.length
+    ? await CashboxModel.findAll({
+        where: {
+          id: {
+            [Op.in]: cashboxIDs,
+          },
+        },
+        attributes: ["id", "name"],
+        paranoid: false,
       })
     : [];
 
@@ -721,6 +778,10 @@ export const GetClientTransactionsService = async (
 
   const attractionMap = new Map(
     attractions.map((attraction) => [Number(attraction.id), attraction]),
+  );
+
+  const cashboxMap = new Map(
+    cashboxes.map((cashbox) => [Number(cashbox.id), cashbox]),
   );
 
   const transactionRoundMap = new Map<number, AttractionRoundModel>();
@@ -745,7 +806,17 @@ export const GetClientTransactionsService = async (
 
     const round = transactionRoundMap.get(Number(transaction.id)) ?? null;
 
-    return ClientTransactionDTO(transaction, card, attraction, round);
+    const cashboxID = Number(transaction.cashbox);
+    const cashbox =
+      cashboxID > 0 ? (cashboxMap.get(cashboxID) ?? null) : null;
+
+    return ClientTransactionDTO(
+      transaction,
+      card,
+      attraction,
+      round,
+      cashbox,
+    );
   });
 
   const total = Number(transactionResult.count || 0);
@@ -754,8 +825,12 @@ export const GetClientTransactionsService = async (
     cards: cardsResponse,
     period: { month: query.month },
     summary: {
-      income: Number(incomeResult || 0),
-      expense: Number(expenseResult || 0),
+      income: Number(topupIncomeResult || 0),
+      expense: Math.max(
+        0,
+        Number(grossPaymentExpenseResult || 0) -
+          Number(attractionRefundResult || 0),
+      ),
     },
     transactions: transactionDTOs,
     pagination: {

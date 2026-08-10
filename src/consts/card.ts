@@ -1,1 +1,3 @@
 export const CARD_ACTIVATION_AMOUNT = 12_000;
+
+export const VIRTUAL_CARD_BONUS_AMOUNT = 30_000;

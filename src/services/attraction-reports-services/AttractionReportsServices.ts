@@ -23,12 +23,16 @@ import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-r
 import {
   getAccountingDateRange,
   getDateRange,
+  getMostRecentTashkentCutoffUTC,
   getTashkentDayRangeUTC,
   getTodayRange,
 } from "../../utils/date";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
 import { PromotionReportModel, sequelize } from "../../plugins/db/postgresql/db";
+import { AttractionTariffModel } from "../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
+import { AttractionTariffStatusTypes } from "../../models/postgresql/attraction-tariff-model/enums";
+import { GetAttractionTariffReportsByZReportService } from "../attraction-tariff-reports-services/AttractionTariffReportsServices";
 
 export const OpenAttractionReportService = async (
   operatorID: number,
@@ -829,6 +833,7 @@ export const GetTodayAttractionReportsService = async (
             "sale_unit_price",
             [fn("SUM", col("rounds_count")), "rounds_count"],
             [fn("SUM", col("total_people")), "total_people"],
+            [fn("SUM", col("refund_count")), "refund_count"],
             [fn("SUM", col("total_virtual")), "total_virtual"],
             [fn("SUM", col("total_classic")), "total_classic"],
             [fn("SUM", col("total_vip")), "total_vip"],
@@ -923,6 +928,14 @@ export const GetAttractionZReportsService = async (
         .filter(Boolean),
     ),
   ];
+  const basicSelected = requestedPromotionCodes.some(
+    (code) => code.toLowerCase() === "basic",
+  );
+  const selectedPromotionCodes = requestedPromotionCodes.filter(
+    (code) => code.toLowerCase() !== "basic",
+  );
+  const noPromotionFilter = requestedPromotionCodes.length === 0;
+  const includeBasicReports = noPromotionFilter || basicSelected;
   const search = query.search?.trim() ?? "";
 
   const baseReportWhere = {
@@ -978,6 +991,8 @@ export const GetAttractionZReportsService = async (
 
             [fn("SUM", col("total_people")), "total_people"],
 
+            [fn("SUM", col("refund_count")), "refund_count"],
+
             [fn("SUM", col("total_virtual")), "total_virtual"],
 
             [fn("SUM", col("total_classic")), "total_classic"],
@@ -1024,15 +1039,18 @@ export const GetAttractionZReportsService = async (
         raw: true,
       })
     : [];
-  const promotionReports = requestedPromotionCodes.length
-    ? allPromotionReports.filter(
-        (report) =>
-          typeof report.promotion_code === "string" &&
-          requestedPromotionCodes.includes(report.promotion_code),
-      )
-    : [];
+  const promotionReports = noPromotionFilter
+    ? allPromotionReports
+    : selectedPromotionCodes.length
+      ? allPromotionReports.filter(
+          (report) =>
+            typeof report.promotion_code === "string" &&
+            selectedPromotionCodes.includes(report.promotion_code),
+        )
+      : [];
 
   let attractions = await AttractionModel.findAll({
+    paranoid: false,
     where: search
       ? {
           name: {
@@ -1067,6 +1085,19 @@ export const GetAttractionZReportsService = async (
 
         order: [["id", "DESC"]],
       },
+      {
+        model: AttractionTariffModel,
+        as: "tariffs",
+        required: false,
+        separate: true,
+        where: {
+          status: AttractionTariffStatusTypes.ACTIVE,
+        },
+        order: [
+          ["sort_order", "ASC"],
+          ["id", "ASC"],
+        ],
+      },
     ],
   });
 
@@ -1084,7 +1115,7 @@ export const GetAttractionZReportsService = async (
     allReportsPlain.map((report) => Number(report.id)),
   );
 
-  if (requestedPromotionCodes.length) {
+  if (!includeBasicReports && selectedPromotionCodes.length) {
     const matchedZReportIDs = new Set(
       promotionReports.map((report) => Number(report.zreport)),
     );
@@ -1138,25 +1169,35 @@ export const GetAttractionZReportsService = async (
   const filteredZReportIDs = new Set(
     allReportsPlain.map((report) => Number(report.id)),
   );
+  const tariffReportsByZReport =
+    await GetAttractionTariffReportsByZReportService({
+      zreport_ids: [...filteredZReportIDs],
+      promotion_codes: noPromotionFilter ? null : selectedPromotionCodes,
+    });
   const usedPromotionCodes = [
+    "basic",
     ...new Set(
       allPromotionReports
         .filter((report) =>
           promotionCodeScopeZReportIDs.has(Number(report.zreport)),
         )
         .map((report) => report.promotion_code?.trim())
-        .filter((code): code is string => Boolean(code)),
+        .filter(
+          (code): code is string =>
+            Boolean(code) && code?.toLowerCase() !== "basic",
+        ),
     ),
-  ].sort((first, second) => first.localeCompare(second));
+  ];
+  const [basicPromotionCode, ...availablePromotionCodes] = usedPromotionCodes;
+  availablePromotionCodes.sort((first, second) => first.localeCompare(second));
+  const promotionCodes = [basicPromotionCode, ...availablePromotionCodes];
 
-  if (requestedPromotionCodes.length) {
-    for (const report of promotionReports) {
-      if (filteredZReportIDs.has(Number(report.zreport))) {
-        addPromotionToAttractionZReportsTotals(
-          totals,
-          report as PromotionReportPlain,
-        );
-      }
+  for (const report of promotionReports) {
+    if (filteredZReportIDs.has(Number(report.zreport))) {
+      addPromotionToAttractionZReportsTotals(
+        totals,
+        report as PromotionReportPlain,
+      );
     }
   }
 
@@ -1173,7 +1214,7 @@ export const GetAttractionZReportsService = async (
   }
 
   return {
-    promotion_codes: usedPromotionCodes,
+    promotion_codes: promotionCodes,
     stats,
     totals,
 
@@ -1185,11 +1226,41 @@ export const GetAttractionZReportsService = async (
       const reports = Array.isArray(plain.reports)
         ? plain.reports
             .filter((report) => filteredZReportIDs.has(Number(report.id)))
-            .map((report) => ({
-              ...report,
-              promotion_reports:
-                promotionReportsByZReport.get(Number(report.id)) ?? [],
-            }))
+            .map((report) => {
+              const zreportID = Number(report.id);
+              const tariffReports =
+                tariffReportsByZReport.get(zreportID) ?? [];
+              const basicTariffReports = tariffReports.filter(
+                (tariffReport) => tariffReport.promotion === null,
+              );
+              const zPromotionReports = (
+                promotionReportsByZReport.get(zreportID) ?? []
+              ).map((promotionReport) => ({
+                ...promotionReport,
+                tariff_reports: tariffReports.filter((tariffReport) => {
+                  if (tariffReport.promotion === null) {
+                    return false;
+                  }
+
+                  return (
+                    Number(tariffReport.promotion) ===
+                      Number(promotionReport.promotion) &&
+                    Number(tariffReport.discount_percent) ===
+                      Number(promotionReport.discount_percent) &&
+                    Number(tariffReport.original_unit_price) ===
+                      Number(promotionReport.original_unit_price) &&
+                    Number(tariffReport.sale_unit_price) ===
+                      Number(promotionReport.sale_unit_price)
+                  );
+                }),
+              }));
+
+              return {
+                ...report,
+                promotion_reports: zPromotionReports,
+                tariff_reports: basicTariffReports,
+              };
+            })
         : [];
 
       return AttractionZReportAttractionDTO({
@@ -1227,7 +1298,6 @@ export const ConfirmAttractionZReportsService = async (
   const sequelize = AttractionReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
-    const { startDate, endDate } = getTashkentDayRangeUTC();
     const bodyZReportIDs = body.zreports.map((report) => Number(report.id));
 
     const uniqueBodyIDs = new Set(bodyZReportIDs);
@@ -1250,9 +1320,6 @@ export const ConfirmAttractionZReportsService = async (
           [Op.in]: bodyZReportIDs,
         },
         report_type: AttractionReportTypes.ZREPORT,
-        createdAt: {
-          [Op.between]: [startDate, endDate],
-        },
       },
       transaction: dbTransaction,
       lock: dbTransaction.LOCK.UPDATE,
@@ -1394,6 +1461,8 @@ export const GetAccountingAttractionReportsService = async (
 
           [fn("SUM", col("total_people")), "total_people"],
 
+          [fn("SUM", col("refund_count")), "refund_count"],
+
           [fn("SUM", col("total_virtual")), "total_virtual"],
 
           [fn("SUM", col("total_classic")), "total_classic"],
@@ -1459,13 +1528,11 @@ export const GetAccountingAttractionReportsService = async (
   ].sort((first, second) => first.localeCompare(second));
 
   /*
-   * promotion_code filter bo‘lsa faqat shu aksiya
-   * ishlatilgan attractionlar qaytadi.
-   *
-   * Filter bo‘lmasa confirmed ZReport mavjud
-   * attractionlar qaytadi.
+   * Promotion filter ishlatilganda report va totalsga faqat
+   * tanlangan promotion ishlatilgan attractionlar kiradi.
+   * Filter bo‘lmasa barcha confirmed reportlar tanlanadi.
    */
-  const attractionIDs = requestedPromotionCodes.length
+  const selectedAttractionIDs = requestedPromotionCodes.length
     ? [
         ...new Set(
           promotionReportsPlain.map((report) => Number(report.attraction)),
@@ -1473,27 +1540,39 @@ export const GetAccountingAttractionReportsService = async (
       ]
     : [...new Set(reportsPlain.map((report) => Number(report.attraction)))];
 
-  const attractions = attractionIDs.length
-    ? await AttractionModel.findAll({
-        where: {
-          id: {
-            [Op.in]: attractionIDs,
-          },
-        },
-
-        order: [["id", "ASC"]],
-      })
-    : [];
-
-  const selectedAttractionIDs = new Set(attractionIDs);
+  const selectedAttractionIDSet = new Set(selectedAttractionIDs);
 
   /*
    * Filter ishlatilganda faqat topilgan
    * attractionlarning ZReportlari totalsga kiradi.
    */
   const selectedReports = reportsPlain.filter((report) =>
-    selectedAttractionIDs.has(Number(report.attraction)),
+    selectedAttractionIDSet.has(Number(report.attraction)),
   );
+
+  /*
+   * Accounting ro‘yxatida barcha mavjud attractionlar ko‘rsatiladi.
+   * Soft-delete qilingan attraction esa faqat tanlangan davr/filterda
+   * reporti bo‘lsa tarixiy accounting uchun ro‘yxatda qoladi.
+   */
+  const attractionWhere: any = selectedAttractionIDs.length
+    ? {
+        [Op.or]: [
+          { deletedAt: null },
+          {
+            id: {
+              [Op.in]: selectedAttractionIDs,
+            },
+          },
+        ],
+      }
+    : { deletedAt: null };
+
+  const attractions = await AttractionModel.findAll({
+    paranoid: false,
+    where: attractionWhere,
+    order: [["id", "ASC"]],
+  });
 
   return AccountingAttractionReportsDTO({
     start_date: start,
@@ -1538,11 +1617,14 @@ export const GetNotConfirmedAttractionZReportDatesService = async () => {
   return reports.map((report) => report.report_date);
 };
 
-export const AutoCloseUnclosedAttractionReportsService = async () => {
+export const AutoCloseUnclosedAttractionReportsService = async (
+  referenceTime: string | Date = new Date(),
+) => {
   const sequelize = AttractionReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
     const now = new Date();
+    const cutoff = getMostRecentTashkentCutoffUTC(referenceTime, 3, 0);
 
     const closeableStatuses = [
       AttractionReportStatusTypes.OPEN,
@@ -1555,127 +1637,164 @@ export const AutoCloseUnclosedAttractionReportsService = async () => {
         status: {
           [Op.in]: closeableStatuses,
         },
-        closed_at: null,
+        opened_at: {
+          [Op.lt]: cutoff,
+        },
       },
       attributes: ["id", "zreport"],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
 
-    if (xreports.length === 0) {
-      return {
-        closed_xreports: 0,
-        closed_zreports: 0,
-        message: "No unclosed attraction X reports found.",
-      };
-    }
-
     const xreportIDs = xreports.map((item) => Number(item.id));
+    let closedXReports = 0;
 
-    const [closedXReports] = await AttractionReportModel.update(
-      {
-        operator: null,
-        status: AttractionReportStatusTypes.CLOSED,
-        closed_at: now,
-      },
-      {
-        where: {
-          id: {
-            [Op.in]: xreportIDs,
-          },
-          report_type: AttractionReportTypes.XREPORT,
-          status: {
-            [Op.in]: closeableStatuses,
-          },
-          closed_at: null,
-        },
-        transaction,
-      },
-    );
-
-    const zreportIDs = [
-      ...new Set(
-        xreports
-          .map((item) => Number(item.zreport))
-          .filter((id) => Number.isFinite(id) && id > 0),
-      ),
-    ];
-
-    let closedZReports = 0;
-
-    for (const zreportID of zreportIDs) {
-      const openedXReportsCount = await AttractionReportModel.count({
-        where: {
-          zreport: zreportID,
-          report_type: AttractionReportTypes.XREPORT,
-          status: {
-            [Op.in]: closeableStatuses,
-          },
-          closed_at: null,
-        },
-        transaction,
-      });
-
-      if (openedXReportsCount > 0) {
-        continue;
-      }
-
-      const zReport = await AttractionReportModel.findOne({
-        where: {
-          id: zreportID,
-          report_type: AttractionReportTypes.ZREPORT,
-          status: {
-            [Op.in]: closeableStatuses,
-          },
-          closed_at: null,
-        },
-        attributes: ["id", "attraction"],
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (!zReport) {
-        continue;
-      }
-
-      const [updatedZReports] = await AttractionReportModel.update(
+    if (xreportIDs.length > 0) {
+      [closedXReports] = await AttractionReportModel.update(
         {
           status: AttractionReportStatusTypes.CLOSED,
           closed_at: now,
         },
         {
           where: {
-            id: zreportID,
-            report_type: AttractionReportTypes.ZREPORT,
+            id: {
+              [Op.in]: xreportIDs,
+            },
+            report_type: AttractionReportTypes.XREPORT,
             status: {
               [Op.in]: closeableStatuses,
             },
-            closed_at: null,
           },
           transaction,
         },
       );
+    }
 
-      if (updatedZReports > 0) {
-        await AttractionModel.update(
-          {
-            status: AttractionStatusTypes.INACTIVE,
-          },
-          {
-            where: {
-              id: zReport.attraction,
+    /*
+     * Z-reportlarni X-reportlar ro‘yxatidan olish yetarli emas: X-reportlar
+     * oldin qo‘lda yopilgan bo‘lsa ham parent Z OPEN/STOPPED qolishi mumkin.
+     */
+    const zreports = await AttractionReportModel.findAll({
+      where: {
+        report_type: AttractionReportTypes.ZREPORT,
+        status: {
+          [Op.in]: closeableStatuses,
+        },
+        opened_at: {
+          [Op.lt]: cutoff,
+        },
+      },
+      attributes: ["id", "attraction"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    const zreportIDs = zreports.map((report) => Number(report.id));
+    const zreportAttraction = new Map(
+      zreports.map((report) => [Number(report.id), Number(report.attraction)]),
+    );
+
+    const remainingActiveXReports = zreportIDs.length
+      ? await AttractionReportModel.findAll({
+          where: {
+            zreport: {
+              [Op.in]: zreportIDs,
             },
-            transaction,
+            report_type: AttractionReportTypes.XREPORT,
+            status: {
+              [Op.in]: closeableStatuses,
+            },
           },
-        );
-      }
+          attributes: ["zreport"],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+      : [];
 
-      closedZReports += updatedZReports;
+    const zreportsWithActiveXReport = new Set(
+      remainingActiveXReports.map((report) => Number(report.zreport)),
+    );
+    const closeableZReportIDs = zreportIDs.filter(
+      (id) => !zreportsWithActiveXReport.has(id),
+    );
+
+    let closedZReports = 0;
+
+    if (closeableZReportIDs.length > 0) {
+      [closedZReports] = await AttractionReportModel.update(
+        {
+          status: AttractionReportStatusTypes.CLOSED,
+          closed_at: now,
+        },
+        {
+          where: {
+            id: {
+              [Op.in]: closeableZReportIDs,
+            },
+            report_type: AttractionReportTypes.ZREPORT,
+            status: {
+              [Op.in]: closeableStatuses,
+            },
+          },
+          transaction,
+        },
+      );
+    }
+
+    const affectedAttractionIDs = [
+      ...new Set(
+        closeableZReportIDs
+          .map((id) => zreportAttraction.get(id))
+          .filter((id): id is number => Number.isFinite(id)),
+      ),
+    ];
+
+    const remainingActiveReports = affectedAttractionIDs.length
+      ? await AttractionReportModel.findAll({
+          where: {
+            attraction: {
+              [Op.in]: affectedAttractionIDs,
+            },
+            status: {
+              [Op.in]: closeableStatuses,
+            },
+          },
+          attributes: ["attraction"],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+      : [];
+
+    const attractionsWithActiveReports = new Set(
+      remainingActiveReports.map((report) => Number(report.attraction)),
+    );
+    const inactiveAttractionIDs = affectedAttractionIDs.filter(
+      (id) => !attractionsWithActiveReports.has(id),
+    );
+
+    let reconciledAttractions = 0;
+
+    if (inactiveAttractionIDs.length > 0) {
+      [reconciledAttractions] = await AttractionModel.update(
+        {
+          status: AttractionStatusTypes.INACTIVE,
+        },
+        {
+          where: {
+            id: {
+              [Op.in]: inactiveAttractionIDs,
+            },
+          },
+          transaction,
+        },
+      );
     }
 
     return {
       closed_xreports: closedXReports,
       closed_zreports: closedZReports,
+      reconciled_attractions: reconciledAttractions,
+      cutoff: cutoff.toISOString(),
       message: "Unclosed attraction reports closed successfully.",
     };
   });

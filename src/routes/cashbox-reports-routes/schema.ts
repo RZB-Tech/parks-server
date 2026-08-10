@@ -97,6 +97,10 @@ export const cashboxReportProperties = {
     type: "number",
   },
 
+  oneqr_amount: {
+    type: "number",
+  },
+
   uzum_amount: {
     type: "number",
   },
@@ -108,12 +112,6 @@ export const cashboxReportProperties = {
   click_amount: {
     type: "number",
   },
-  refunded_amount: { type: "number" },
-  refund_transactions_count: { type: "number" },
-  payme_refunded_amount: { type: "number" },
-  uzum_refunded_amount: { type: "number" },
-  click_refunded_amount: { type: "number" },
-  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -121,21 +119,15 @@ export const cashboxReportProperties = {
 
   activated_cards_amount: {
     type: "number",
+    description:
+      "Activation-fee subtotal already included in total_amount and the selected payment channel amount.",
   },
 
   returned_cards_count: {
     type: "number",
   },
 
-  returned_cards_amount: {
-    type: "number",
-  },
-
   relationed_cards_count: {
-    type: "number",
-  },
-
-  transactions_count: {
     type: "number",
   },
 
@@ -237,6 +229,10 @@ export const zReportProperties = {
     type: "number",
   },
 
+  oneqr_amount: {
+    type: "number",
+  },
+
   uzum_amount: {
     type: "number",
   },
@@ -248,12 +244,6 @@ export const zReportProperties = {
   click_amount: {
     type: "number",
   },
-  refunded_amount: { type: "number" },
-  refund_transactions_count: { type: "number" },
-  payme_refunded_amount: { type: "number" },
-  uzum_refunded_amount: { type: "number" },
-  click_refunded_amount: { type: "number" },
-  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -261,21 +251,15 @@ export const zReportProperties = {
 
   activated_cards_amount: {
     type: "number",
+    description:
+      "Activation-fee subtotal already included in total_amount and the selected payment channel amount.",
   },
 
   returned_cards_count: {
     type: "number",
   },
 
-  returned_cards_amount: {
-    type: "number",
-  },
-
   relationed_cards_count: {
-    type: "number",
-  },
-
-  transactions_count: {
     type: "number",
   },
 
@@ -370,6 +354,10 @@ export const accountingZReportAmountProperties = {
     type: "number",
   },
 
+  oneqr_amount: {
+    type: "number",
+  },
+
   uzum_amount: {
     type: "number",
   },
@@ -381,12 +369,6 @@ export const accountingZReportAmountProperties = {
   click_amount: {
     type: "number",
   },
-  refunded_amount: { type: "number" },
-  refund_transactions_count: { type: "number" },
-  payme_refunded_amount: { type: "number" },
-  uzum_refunded_amount: { type: "number" },
-  click_refunded_amount: { type: "number" },
-  net_amount: { type: "number" },
 
   activated_cards_count: {
     type: "number",
@@ -394,21 +376,15 @@ export const accountingZReportAmountProperties = {
 
   activated_cards_amount: {
     type: "number",
+    description:
+      "Activation-fee subtotal already included in total_amount and the selected payment channel amount.",
   },
 
   returned_cards_count: {
     type: "number",
   },
 
-  returned_cards_amount: {
-    type: "number",
-  },
-
   relationed_cards_count: {
-    type: "number",
-  },
-
-  transactions_count: {
     type: "number",
   },
 
@@ -595,7 +571,7 @@ export const getZReportsSchema = {
 export const confirmZReportsSchema = {
   summary: "Confirm Z reports",
   description:
-    "Confirm or cancel all today's Z reports. All today Z report ids must be sent.",
+    "Confirm or cancel selected closed Z reports by their ids.",
   tags: ["Cashbox Reports route"],
 
   body: reqBodyWrapper({
@@ -774,17 +750,14 @@ export const getNotConfirmedZReportDatesSchema = {
   tags: ["Cashbox Reports route"],
   summary: "Get not confirmed zreport dates",
   response: {
-    200: {
-      type: "object",
-      properties: {
-        dates: {
-          type: "array",
-          items: {
-            type: "string",
-            format: "date",
-          },
+    200: successAnswerTemplate({
+      dates: {
+        type: "array",
+        items: {
+          type: "string",
+          format: "date",
         },
       },
-    },
+    }),
   },
 };

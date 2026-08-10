@@ -16,9 +16,20 @@ declare interface GetAttractionsQuery {
   limit?: number;
 }
 
-declare interface CreateAttractionData extends Omit<AttractionModelI, "id"> {}
+declare interface CreateAttractionData
+  extends Omit<
+    AttractionModelI,
+    "id" | "device" | "status" | "price" | "tariffs" | "size"
+  > {
+  price: number | null;
+  size?: number;
+  tariffs?: AttractionTariffInput[];
+}
 
-declare interface UpdateAttractionData extends Omit<AttractionModelI, "id"> {}
+declare interface UpdateAttractionData
+  extends Partial<Omit<AttractionModelI, "id" | "tariffs">> {
+  tariffs?: AttractionTariffInput[];
+}
 
 declare interface DeleteAttractionsData {
   attractionIDs: Array<number>;

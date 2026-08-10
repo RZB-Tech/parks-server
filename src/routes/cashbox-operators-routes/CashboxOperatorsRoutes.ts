@@ -21,13 +21,13 @@ const CashboxOperatorsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.post<RouteWithParamsAndData<CashboxOperatorParams, ReqData<CreateCashboxOperatorData>>>(
     "/cashbox/:cashboxID/operators",
-    { schema: createCashboxOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_cashier"])] },
+    { schema: createCashboxOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "head_cashier"])] },
     CreateCashboxOperatorsController,
   );
 
   fastify.delete<RouteWithParams<CashboxOperatorParams>>(
     "/cashbox/:cashboxID/operators/:operatorID",
-    { schema: deleteCashboxOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "head_marketing", "head_cashier"])] },
+    { schema: deleteCashboxOperatorsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "head_cashier"])] },
     DeleteCashboxOperatorsController,
   );
 };

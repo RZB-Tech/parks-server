@@ -17,6 +17,8 @@ declare module "fastify" {
       id: number;
       role_id: number;
       role_name?: string;
+      firstname?: string;
+      lastname?: string;
     };
   }
 }
@@ -73,5 +75,7 @@ export const AuthMiddleware: preHandlerHookHandler = async (
     id: employee.id,
     role_id: employee.role,
     role_name: role.name,
+    firstname: employee.firstname,
+    lastname: employee.lastname,
   };
 };

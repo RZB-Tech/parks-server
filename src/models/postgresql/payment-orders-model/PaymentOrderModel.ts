@@ -127,5 +127,9 @@ export class PaymentOrderModel
       foreignKey: "payment_order",
       as: "click_transaction",
     });
+    PaymentOrderModel.hasOne(models.UzumTransactionModel, {
+      foreignKey: "payment_order",
+      as: "uzum_transaction",
+    });
   }
 }

@@ -94,6 +94,10 @@ export class CardModel
         tableName: "cards",
         timestamps: true,
         paranoid: true,
+        indexes: [
+          { fields: ["type", "activated_at"] },
+          { fields: ["user", "type", "activated_at"] },
+        ],
       },
     );
   }

@@ -4,9 +4,9 @@ declare interface CardsParams {
 
 declare interface GetCardsQuery {
   search?: string;
-  statuses?: string;
+  statuses?: CardStatusTypes | CardStatusTypes[];
   batch?: number;
-  type?: string;
+  type?: CardType;
 
   page?: number;
   limit?: number;
@@ -31,15 +31,4 @@ declare interface UploadCardsFromFile {
   batch_name: string;
   type?: CardType;
   balance?: number | null;
-}
-
-declare interface SendCardRelationOtpData {
-  nfc: string;
-  phone_number: string;
-}
-
-declare interface VerifyCardRelationOtpData {
-  nfc: string;
-  phone_number: string;
-  code: string;
 }

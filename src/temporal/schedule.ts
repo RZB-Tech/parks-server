@@ -1,79 +1,138 @@
 import "dotenv/config";
-import { ScheduleOverlapPolicy } from "@temporalio/client";
+import {
+  ScheduleAlreadyRunning,
+  ScheduleOverlapPolicy,
+} from "@temporalio/client";
 import { getTemporalClient } from "./client";
-import { closeUnclosedXReportsWorkflow } from "./workflows/cashbox-report.workflow";
+import {
+  closeOnlineDailyZReportWorkflow,
+  closeUnclosedXReportsWorkflow,
+  openOnlineDailyZReportWorkflow,
+} from "./workflows/cashbox-report.workflow";
 import { closeUnclosedAttractionReportsWorkflow } from "./workflows/attraction-report.workflow";
 
-const createScheduleSafe = async (data: {
+const ensureSchedule = async (data: {
   scheduleId: string;
   workflowType: any;
   taskQueue: string;
   hour: number;
   minute: number;
+  catchupWindowMs?: number;
 }) => {
   const client = await getTemporalClient();
+  const schedule = {
+    action: {
+      type: "startWorkflow" as const,
+      workflowType: data.workflowType,
+      taskQueue: data.taskQueue,
+    },
+    spec: {
+      calendars: [
+        {
+          hour: data.hour,
+          minute: data.minute,
+          second: 0,
+        },
+      ],
+      timezone: "Asia/Tashkent",
+    },
+    policies: {
+      overlap: ScheduleOverlapPolicy.BUFFER_ONE,
+      catchupWindow: data.catchupWindowMs ?? 36 * 60 * 60 * 1000,
+    },
+  };
 
   try {
     await client.schedule.create({
       scheduleId: data.scheduleId,
-      action: {
-        type: "startWorkflow",
-        workflowType: data.workflowType,
-        taskQueue: data.taskQueue,
-      },
-      spec: {
-        calendars: [
-          {
-            hour: data.hour,
-            minute: data.minute,
-            second: 0,
-          },
-        ],
-        timezone: "Asia/Tashkent",
-      },
-      policies: {
-        overlap: ScheduleOverlapPolicy.SKIP,
-        catchupWindow: "1 hour",
-      },
+      ...schedule,
     });
 
     console.log(`${data.scheduleId} created`);
-  } catch (error: any) {
-    const message = String(error?.message || "");
-
-    if (message.includes("already")) {
-      console.log(`${data.scheduleId} already exists`);
-      return;
+  } catch (error) {
+    if (!(error instanceof ScheduleAlreadyRunning)) {
+      throw error;
     }
 
-    throw error;
+    const handle = client.schedule.getHandle(data.scheduleId);
+
+    await handle.update((previous) => ({
+      ...schedule,
+      state: {
+        paused: false,
+      },
+      searchAttributes: previous.searchAttributes,
+      typedSearchAttributes: previous.typedSearchAttributes,
+    }));
+
+    console.log(`${data.scheduleId} updated`);
   }
 };
 
-const run = async () => {
-  await createScheduleSafe({
+export const ensureTemporalSchedules = async () => {
+  await ensureSchedule({
     scheduleId: "nightly-close-unclosed-xreports",
     workflowType: closeUnclosedXReportsWorkflow,
     taskQueue: "cashbox-report-queue",
-    hour: 2,
-    minute: 59,
+    hour: 3,
+    minute: 0,
   });
 
-  await createScheduleSafe({
+  await ensureSchedule({
     scheduleId: "nightly-close-unclosed-attraction-reports",
     workflowType: closeUnclosedAttractionReportsWorkflow,
     taskQueue: "attraction-report-queue",
-    hour: 2,
-    minute: 59,
+    hour: 3,
+    minute: 0,
   });
+
+  await ensureSchedule({
+    scheduleId: "nightly-close-online-payment-zreport",
+    workflowType: closeOnlineDailyZReportWorkflow,
+    taskQueue: "cashbox-report-queue",
+    hour: 23,
+    minute: 59,
+    catchupWindowMs: 36 * 60 * 60 * 1000,
+  });
+
+  await ensureSchedule({
+    scheduleId: "daily-open-online-payment-zreport",
+    workflowType: openOnlineDailyZReportWorkflow,
+    taskQueue: "cashbox-report-queue",
+    hour: 0,
+    minute: 0,
+  });
+}; 
+
+/**
+ * Reconcile legacy/unclosed report data immediately after deployment instead
+ * of waiting for the next scheduled tick. Workflows apply their own business
+ * cutoff, so reports opened after that boundary are safe from recovery.
+ */
+export const triggerReportRecovery = async () => {
+  const client = await getTemporalClient();
+
+  await Promise.all([
+    client.schedule
+      .getHandle("nightly-close-unclosed-xreports")
+      .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
+    client.schedule
+      .getHandle("nightly-close-online-payment-zreport")
+      .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
+    client.schedule
+      .getHandle("nightly-close-unclosed-attraction-reports")
+      .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
+  ]);
 };
 
-run()
-  .then(() => {
-    console.log("Temporal schedules checked");
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error("Temporal schedules failed:", error);
-    process.exit(1);
-  });
+if (require.main === module) {
+  ensureTemporalSchedules()
+    .then(() => {
+      console.log("Temporal schedules checked");
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error("Temporal schedules failed:", error);
+      process.exit(1);
+    });
+}

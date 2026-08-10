@@ -41,12 +41,14 @@ export const cardLastTransactionProperties = {
 
   amount: {
     type: "number",
+    description:
+      "Transaction amount. For a top-up, this is the net amount credited to the card balance.",
   },
 
   activation_amount: {
     type: "number",
     description:
-      "Card activation fee charged separately from the top-up amount on the first top-up.",
+      "Card activation fee stored separately from amount on the first top-up.",
   },
 
   description: nullableString,
@@ -180,10 +182,14 @@ export const cardTransactionProperties = {
 
   amount: {
     type: "number",
+    description:
+      "Transaction amount. For a top-up, this is the net amount credited to the card balance.",
   },
 
   activation_amount: {
     type: "number",
+    description:
+      "Card activation fee stored separately from amount on the first top-up.",
   },
 
   description: nullableString,
@@ -286,10 +292,14 @@ export const cardTransactionHistoryProperties = {
 
   amount: {
     type: "number",
+    description:
+      "Transaction amount. For a top-up, this is the net amount credited to the card balance.",
   },
 
   activation_amount: {
     type: "number",
+    description:
+      "Card activation fee stored separately from amount on the first top-up.",
   },
 
   description: nullableString,
@@ -469,7 +479,9 @@ export const cardRefundTransactionSchema = {
         description:
           "Confirmation amount that must equal the old card balance",
       },
-      description: nullableString,
+      description: {
+        oneOf: [{ type: "string", maxLength: 500 }, { type: "null" }],
+      },
     },
   }),
   response: {
@@ -477,6 +489,13 @@ export const cardRefundTransactionSchema = {
       return: {
         type: "object",
         properties: {
+          id: { type: "integer" },
+          operator: { type: "integer" },
+          cashbox: { type: "integer" },
+          xreport: { type: "integer" },
+          zreport: { type: "integer" },
+          returned_at: { type: "string" },
+          description: nullableString,
           old_card: {
             type: "object",
             properties: {
@@ -504,9 +523,121 @@ export const cardRefundTransactionSchema = {
   },
 };
 
+export const getCardReturnsSchema = {
+  summary: "Get returned cards history",
+  description:
+    "Get card return/replacement history, optionally filtered by a Tashkent date and cashbox.",
+  tags: ["Card Transactions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      date: {
+        type: "string",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description: "Return date in YYYY-MM-DD format (Asia/Tashkent)",
+      },
+      cashbox: {
+        type: "integer",
+        minimum: 1,
+        description: "Cashbox ID",
+      },
+      page: {
+        type: "integer",
+        minimum: 1,
+        default: 1,
+      },
+      limit: {
+        type: "integer",
+        minimum: 1,
+        maximum: 100,
+        default: 20,
+      },
+    },
+  },
+  response: {
+    200: successAnswerTemplate({
+      refunds: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            returned_at: { type: "string" },
+            old_card: {
+              type: "object",
+              properties: {
+                id: nullableNumber,
+                card: { type: "string" },
+              },
+            },
+            new_card: {
+              type: "object",
+              properties: {
+                id: nullableNumber,
+                card: { type: "string" },
+              },
+            },
+            amount: { type: "number" },
+            description: nullableString,
+            operator: {
+              oneOf: [
+                {
+                  type: "object",
+                  properties: {
+                    id: { type: "integer" },
+                    firstname: { type: "string" },
+                    lastname: { type: "string" },
+                  },
+                },
+                { type: "null" },
+              ],
+            },
+            cashbox: {
+              oneOf: [
+                {
+                  type: "object",
+                  properties: {
+                    id: { type: "integer" },
+                    name: { type: "string" },
+                  },
+                },
+                { type: "null" },
+              ],
+            },
+            xreport: nullableNumber,
+            zreport: nullableNumber,
+          },
+        },
+      },
+      pagination: {
+        type: "object",
+        properties: {
+          total: { type: "integer" },
+          page: { type: "integer" },
+          limit: { type: "integer" },
+          totalPages: { type: "integer" },
+        },
+      },
+    }),
+  },
+};
+
 export const getCardTransactionsSchema = {
   summary: "Get card transactions",
-  description: "Get today's card transactions by cashbox",
+  description:
+    "Get card transactions by cashbox for the requested Tashkent date. Defaults to today.",
   tags: ["Card Transactions route"],
   params: {
     type: "object",
@@ -524,6 +655,12 @@ export const getCardTransactionsSchema = {
     type: "object",
     additionalProperties: false,
     properties: {
+      date: {
+        type: "string",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        description: "Transaction date in YYYY-MM-DD format",
+      },
+
       page: {
         type: "number",
         default: 1,
@@ -563,6 +700,10 @@ export const getCardTransactionsSchema = {
 
 export const cardPaymentTransactionProperties = {
   ...cardTransactionProperties,
+
+  attraction: nullableNumber,
+  attraction_tariff: nullableNumber,
+  tariff_name: nullableString,
 
   payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
 };
@@ -624,6 +765,13 @@ export const cardPaymentTransactionSchema = {
 
       attractionID: {
         type: "number",
+      },
+
+      tariffID: {
+        type: "integer",
+        minimum: 1,
+        description:
+          "Required when the attraction uses tariff pricing; forbidden for a single-price attraction.",
       },
     },
   }),

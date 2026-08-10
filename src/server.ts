@@ -6,6 +6,10 @@ import { runCashboxReportWorker } from "./temporal/workers/cashbox-report.worker
 import { runAttractionReportWorker } from "./temporal/workers/attraction-report.worker";
 import { runNewsWorker } from "./temporal/workers/news.worker";
 import { runPromotionWorker } from "./temporal/workers/promotion.worker";
+import {
+  ensureTemporalSchedules,
+  triggerReportRecovery,
+} from "./temporal/schedule";
 
 export const app = build();
 
@@ -28,13 +32,70 @@ export const app = build();
       host: serverHost,
     });
 
-    fastify.log.info({ actor: "qubnix-server" }, "Server started successfully");
+    fastify.log.info({ actor: "parks-server" }, "Server started successfully");
 
     if (process.env.TEMPORAL_WORKERS_ENABLED !== "false") {
-      void runCashboxReportWorker();
-      void runAttractionReportWorker();
-      void runNewsWorker();
-      void runPromotionWorker();
+      const startWorker = (name: string, run: () => Promise<void>) => {
+        void (async () => {
+          let failedAttempts = 0;
+
+          while (true) {
+            try {
+              await run();
+              return;
+            } catch (error) {
+              failedAttempts += 1;
+              const retryDelayMs = Math.min(
+                30_000,
+                1_000 * 2 ** Math.min(failedAttempts - 1, 5),
+              );
+
+              fastify.log.error(
+                {
+                  err: error,
+                  worker: name,
+                  retry_delay_ms: retryDelayMs,
+                },
+                "Temporal worker stopped; retrying",
+              );
+
+              await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+            }
+          }
+        })();
+      };
+
+      startWorker("cashbox-report", runCashboxReportWorker);
+      startWorker("attraction-report", runAttractionReportWorker);
+      startWorker("news", runNewsWorker);
+      startWorker("promotion", runPromotionWorker);
+    }
+
+    if (process.env.TEMPORAL_SCHEDULES_ENABLED !== "false") {
+      void (async () => {
+        let failedAttempts = 0;
+
+        while (true) {
+          try {
+            await ensureTemporalSchedules();
+            await triggerReportRecovery();
+            return;
+          } catch (error) {
+            failedAttempts += 1;
+            const retryDelayMs = Math.min(
+              30_000,
+              1_000 * 2 ** Math.min(failedAttempts - 1, 5),
+            );
+
+            fastify.log.error(
+              { err: error, retry_delay_ms: retryDelayMs },
+              "Temporal schedules setup failed; retrying",
+            );
+
+            await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+          }
+        }
+      })();
     }
   } catch (err) {
     const fastify = await app;

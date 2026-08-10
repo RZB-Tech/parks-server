@@ -24,7 +24,10 @@ import {
   CashboxReportStatusTypes,
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
-import { getTashkentDateOnly, getTodayRange } from "../../utils/date";
+import {
+  getTashkentDateOnly,
+  getTashkentDayRangeUTC,
+} from "../../utils/date";
 import {
   getReportTopUpIncrementData,
   validateTopUpPaymentType,
@@ -44,6 +47,11 @@ import { UserModel } from "../../plugins/db/postgresql/db";
 import { FindBestActivePromotionForAttractionService } from "../promotion-services/PromotionServices";
 import { UpsertPromotionReportService } from "../promotion-reports-services/PromotionReportsServices";
 import { CARD_ACTIVATION_AMOUNT } from "../../consts/card";
+import { ResolveAttractionPricingService } from "../attraction-tariffs-services/AttractionTariffsServices";
+import { CalculateAttractionSalePrice } from "../../utils/attractionPricing";
+import { CardReturnModel } from "../../models/postgresql/card-return-model/CardReturnModel";
+import { CashboxModel } from "../../models/postgresql/cashbox-model/CashboxModel";
+import { CardReturnListItemDTO } from "../../dtos/card-return-dtos/CardReturnDto";
 
 export const CheckNfcCardService = async (
   operatorID: number,
@@ -232,14 +240,14 @@ export const CardTopUpTransactionService = async (
     const isOrganizationCard = card.type === CardType.ORGANIZATION;
     const activationAmount = isCardActivated ? CARD_ACTIVATION_AMOUNT : 0;
     const topUpAmount = amount;
-    const totalReceivedAmount = topUpAmount + activationAmount;
     const balanceAfter = balanceBefore + topUpAmount;
 
     const cardTransaction = await CardTransactionModel.create(
       {
         card: Number(card.id),
         operator: operatorID,
-        xreport: Number(openXReport.id),
+        xreport: null,
+        cashbox_report: Number(openXReport.id),
         cashbox: Number(openXReport.cashbox),
         type: CardTransactionType.TOPUP,
         payment_type: body.payment_type,
@@ -285,7 +293,7 @@ export const CardTopUpTransactionService = async (
 
     const incrementData = getReportTopUpIncrementData(
       body,
-      totalReceivedAmount,
+      topUpAmount,
       isCardActivated,
       activationAmount,
     );
@@ -357,6 +365,11 @@ export const CardRefundTransactionService = async (
   }
 
   const description = body?.description?.trim() || null;
+
+  if (description && description.length > 500) {
+    throw BadRequest("RETURN_DESCRIPTION_IS_TOO_LONG");
+  }
+
   const sequelize = CardTransactionModel.sequelize!;
 
   return sequelize.transaction(async (dbTransaction) => {
@@ -463,6 +476,25 @@ export const CardRefundTransactionService = async (
       },
     );
 
+    const cardReturn = await CardReturnModel.create(
+      {
+        operator: normalizedOperatorID,
+        cashbox: Number(openXReport.cashbox),
+        xreport: Number(openXReport.id),
+        zreport: Number(openXReport.zreport),
+        old_card: Number(oldCard.id),
+        new_card: Number(newCard.id),
+        old_card_number: oldCard.card,
+        new_card_number: newCard.card,
+        amount: transferAmount,
+        description,
+        returned_at: returnedAt,
+      },
+      {
+        transaction: dbTransaction,
+      },
+    );
+
     if (Number(oldCard.batch) === Number(newCard.batch)) {
       await CardBatchModel.increment(
         {
@@ -506,7 +538,6 @@ export const CardRefundTransactionService = async (
 
     const reportIncrement = {
       returned_cards_count: 1,
-      returned_cards_amount: transferAmount,
     };
 
     await CashboxReportModel.increment(reportIncrement, {
@@ -524,6 +555,13 @@ export const CardRefundTransactionService = async (
     });
 
     return {
+      id: Number(cardReturn.id),
+      operator: normalizedOperatorID,
+      cashbox: Number(openXReport.cashbox),
+      xreport: Number(openXReport.id),
+      zreport: Number(openXReport.zreport),
+      returned_at: returnedAt,
+      description,
       old_card: {
         id: Number(oldCard.id),
         card: oldCard.card,
@@ -543,6 +581,86 @@ export const CardRefundTransactionService = async (
   });
 };
 
+export const GetCardReturnsService = async (query: GetCardReturnsQuery) => {
+  const page = Number(query.page ?? 1);
+  const limit = Number(query.limit ?? 20);
+
+  if (!Number.isInteger(page) || page <= 0) {
+    throw BadRequest("PAGE_IS_INVALID");
+  }
+
+  if (!Number.isInteger(limit) || limit <= 0 || limit > 100) {
+    throw BadRequest("LIMIT_IS_INVALID");
+  }
+
+  const where: Record<string | symbol, unknown> = {};
+
+  if (query.date !== undefined) {
+    const date = query.date.trim();
+
+    if (!date) {
+      throw BadRequest("DATE_IS_INVALID");
+    }
+
+    const { startDate, endDate } = getTashkentDayRangeUTC(date);
+
+    where.returned_at = {
+      [Op.between]: [startDate, endDate],
+    };
+  }
+
+  if (query.cashbox !== undefined) {
+    const cashboxID = Number(query.cashbox);
+
+    if (!Number.isInteger(cashboxID) || cashboxID <= 0) {
+      throw BadRequest("CASHBOX_ID_IS_INVALID");
+    }
+
+    where.cashbox = cashboxID;
+  }
+
+  const { rows, count } = await CardReturnModel.findAndCountAll({
+    where,
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+        attributes: ["id", "firstname", "lastname"],
+        required: false,
+        paranoid: false,
+      },
+      {
+        model: CashboxModel,
+        as: "cashboxes",
+        attributes: ["id", "name"],
+        required: false,
+        paranoid: false,
+      },
+    ],
+    distinct: true,
+    limit,
+    offset: (page - 1) * limit,
+    order: [
+      ["returned_at", "DESC"],
+      ["id", "DESC"],
+    ],
+  });
+
+  return {
+    refunds: rows.map((refund) =>
+      CardReturnListItemDTO(
+        refund.get({
+          plain: true,
+        }) as CardReturnListPlain,
+      ),
+    ),
+    total: count,
+    page,
+    limit,
+    totalPages: Math.ceil(count / limit),
+  };
+};
+
 export const GetCardTransactionsService = async (
   operatorID: number,
   params: CashboxReportsParams,
@@ -558,13 +676,13 @@ export const GetCardTransactionsService = async (
   const limit = Number(query.limit) || 10;
   const offset = (page - 1) * limit;
 
-  const { start, end } = getTodayRange();
+  const { startDate, endDate } = getTashkentDayRangeUTC(query.date);
 
   const { rows, count } = await CardTransactionModel.findAndCountAll({
     where: {
       cashbox: cashboxID,
       createdAt: {
-        [Op.between]: [start, end],
+        [Op.between]: [startDate, endDate],
       },
     },
     include: [
@@ -638,12 +756,13 @@ export const CardPaymentTransactionService = async (
       throw NotFound("Attraction not found!");
     }
 
-    const attractionPrice = Number(attraction.price);
     const seats = Number(attraction.seats);
 
-    if (!Number.isSafeInteger(attractionPrice) || attractionPrice < 0) {
-      throw BadRequest("Attraction price is invalid!");
-    }
+    const resolvedPricing = await ResolveAttractionPricingService(
+      attraction,
+      body.tariffID,
+      transaction,
+    );
 
     if (!Number.isInteger(seats) || seats <= 0) {
       throw BadRequest("Attraction seats count is invalid!");
@@ -719,15 +838,13 @@ export const CardPaymentTransactionService = async (
 
     const hasPromotion = promotion !== null;
 
-    const originalUnitPrice = promotion
-      ? Number(promotion.original_price)
-      : attractionPrice;
+    const discountPercent = promotion ? Number(promotion.discount_percent) : 0;
+
+    const originalUnitPrice = resolvedPricing.price;
 
     const saleUnitPrice = promotion
-      ? Number(promotion.discounted_price)
-      : attractionPrice;
-
-    const discountPercent = promotion ? Number(promotion.discount_percent) : 0;
+      ? CalculateAttractionSalePrice(originalUnitPrice, discountPercent)
+      : originalUnitPrice;
 
     if (!Number.isSafeInteger(originalUnitPrice) || originalUnitPrice < 0) {
       throw BadRequest("Promotion original price is invalid!");
@@ -834,6 +951,8 @@ export const CardPaymentTransactionService = async (
         operator: parsedOperatorID,
         cashbox: null,
         attraction: attractionID,
+        attraction_tariff: resolvedPricing.tariff?.id ?? null,
+        tariff_name: resolvedPricing.tariff?.name ?? null,
         xreport: xreportID,
         type: CardTransactionType.PAYMENT,
         amount: chargedAmount,

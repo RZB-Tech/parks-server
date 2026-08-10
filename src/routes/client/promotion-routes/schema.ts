@@ -50,8 +50,30 @@ const clientPromotionResponseSchema = {
         properties: {
           id: { type: "integer" },
           name: { type: "string" },
-          original_price: { type: "number" },
-          discounted_price: { type: "number" },
+          size: { type: "number" },
+          pricing_type: {
+            type: "string",
+            enum: ["single", "tariff"],
+          },
+          original_price: {
+            anyOf: [{ type: "number" }, { type: "null" }],
+          },
+          discounted_price: {
+            anyOf: [{ type: "number" }, { type: "null" }],
+          },
+          tariffs: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "integer" },
+                name: { type: "string" },
+                original_price: { type: "number" },
+                discounted_price: { type: "number" },
+                sort_order: { type: "integer" },
+              },
+            },
+          },
           sort_order: { type: "integer" },
         },
       },

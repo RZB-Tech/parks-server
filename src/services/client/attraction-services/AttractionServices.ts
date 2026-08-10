@@ -5,6 +5,7 @@ import {
   AttractionModel,
   AttractionReportModel,
   AttractionRoundModel,
+  AttractionTariffModel,
   UserModel,
 } from "../../../plugins/db/postgresql/db";
 import {
@@ -22,6 +23,16 @@ import {
   FindBestActivePromotionForAttractionService,
   FindBestActivePromotionsForAttractionsService,
 } from "../../promotion-services/PromotionServices";
+import { AttractionTariffStatusTypes } from "../../../models/postgresql/attraction-tariff-model/enums";
+
+const activeTariffsInclude = {
+  model: AttractionTariffModel,
+  as: "tariffs",
+  required: false,
+  where: {
+    status: AttractionTariffStatusTypes.ACTIVE,
+  },
+};
 
 export const GetClientAttractionsService = async (
   telegramID: number,
@@ -66,7 +77,12 @@ export const GetClientAttractionsService = async (
       }),
     },
 
-    order: [["name", "ASC"]],
+    include: [activeTariffsInclude],
+
+    order: [
+      ["name", "ASC"],
+      [{ model: AttractionTariffModel, as: "tariffs" }, "sort_order", "ASC"],
+    ],
   });
 
   const promotions = await FindBestActivePromotionsForAttractionsService(
@@ -119,6 +135,10 @@ export const GetClientAttractionService = async (
         ],
       },
     },
+    include: [activeTariffsInclude],
+    order: [
+      [{ model: AttractionTariffModel, as: "tariffs" }, "sort_order", "ASC"],
+    ],
   });
 
   if (!attraction) {
@@ -169,6 +189,10 @@ export const GetAttractionRoundService = async (
         ],
       },
     },
+    include: [activeTariffsInclude],
+    order: [
+      [{ model: AttractionTariffModel, as: "tariffs" }, "sort_order", "ASC"],
+    ],
   });
 
   if (!attraction) {
