@@ -12,7 +12,7 @@ const AuditLogsRouter: FastifyPluginAsync = async (
     "/audit-logs",
     {
       schema: getAuditLogsSchema,
-      preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'head_accountant', 'head_marketing'])],
+      preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'owner', 'director', 'admin', 'head_accountant', 'head_marketing'])],
     },
     GetAuditLogsController as any,
   );
