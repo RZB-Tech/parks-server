@@ -27,6 +27,8 @@ import { UzumTransactionModel } from "../../../models/postgresql/uzum-transactio
 import { AttractionRoundRefundModel } from "../../../models/postgresql/attraction-round-refund-model/AttractionRoundRefundModel";
 import { AttractionTariffModel } from "../../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
 import { CardReturnModel } from "../../../models/postgresql/card-return-model/CardReturnModel";
+import { AuditLogModel } from "../../../models/postgresql/audit-log-model/AuditLogModel";
+import { registerAuditHooks } from "./auditHooks";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -70,6 +72,7 @@ const models = {
   UzumTransactionModel,
   AttractionRoundRefundModel,
   CardReturnModel,
+  AuditLogModel,
 };
 
 export type ModelsType = typeof models;
@@ -79,6 +82,8 @@ Object.values(models).forEach((m: ModelStatic) => {
     m.initialize!(sequelize);
   }
 });
+
+registerAuditHooks(sequelize);
 
 Object.values(models).forEach((m: ModelStatic) => {
   if (typeof m.associate === "function") {
@@ -115,4 +120,5 @@ export {
   UzumTransactionModel,
   AttractionRoundRefundModel,
   CardReturnModel,
+  AuditLogModel,
 };

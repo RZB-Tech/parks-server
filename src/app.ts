@@ -45,10 +45,14 @@ import PaymentsRouter from "./routes/payment-routes/PaymentsRoutes";
 import ClientPaymentsRouter from "./routes/client/payment-routes/PaymentRoutes";
 import TelegramBotRouter from "./routes/telegram-bot-routes/TelegramBotRoutes";
 import OnlinePaymentReportsRouter from "./routes/online-payment-reports-routes/OnlinePaymentReportsRoutes";
+import AuditLogsRouter from "./routes/audit-log-routes/AuditLogRoutes";
+import { AuditContextMiddleware } from "./middlewares/audit-context-middleware/AuditContextMiddleware";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
   await checkServerEnv(app as any);
+
+  app.addHook("onRequest", AuditContextMiddleware);
 
   // connecting plugins
   app.register(require("@fastify/cors"), corsConfigs);
@@ -91,6 +95,7 @@ export const build = async () => {
   app.register(PromotionRouter, { prefix: SERVER.API_PREFIX });
   app.register(PaymentsRouter, { prefix: SERVER.API_PREFIX });
   app.register(OnlinePaymentReportsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AuditLogsRouter, { prefix: SERVER.API_PREFIX });
   app.register(TelegramBotRouter, { prefix: SERVER.API_PREFIX });
 
   // Client routes (Telegram Mini App)
