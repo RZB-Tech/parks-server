@@ -7,6 +7,12 @@ import { CreateCardsController, DeleteCardsController, GetCardsController, GetCa
 import { deleteCardsSchema, getCardsSchema, getCardStatsSchema, updateCardSchema } from "./schema";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
+import {
+  ReqData,
+  RouteWithData,
+  RouteWithParamsAndData,
+  RouteWithQuery,
+} from "../../types/routes";
 
 const CardsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -18,7 +24,7 @@ const CardsRouter: FastifyPluginAsync = async (
     GetCardStatsController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithQuery<GetCardsQuery>>(
     "/cards",
     { schema: getCardsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant', 'head_cashier'])] },
     GetCardsController,
@@ -30,13 +36,13 @@ const CardsRouter: FastifyPluginAsync = async (
     CreateCardsController,
   );
 
-  fastify.put(
+  fastify.put<RouteWithParamsAndData<CardsParams, ReqData<UpdateCardsData>>>(
     "/cards/:cardID",
     { schema: updateCardSchema, preHandler: [AuthMiddleware] },
     UpdateCardsController,
   );
 
-  fastify.delete(
+  fastify.delete<RouteWithData<ReqData<DeleteCardsData>>>(
     "/cards",
     { schema: deleteCardsSchema, preHandler: [AuthMiddleware] },
     DeleteCardsController,

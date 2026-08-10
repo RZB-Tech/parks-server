@@ -27,13 +27,13 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<CheckNFCCardData>>>(
     "/cards/nfc/check",
     { schema: checkNfcCardSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])] },
     CheckNfcCardController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<CardTopUpTransactionData>>>(
     "/cards/topup",
     { schema: cardTopUpTransactionSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'cashier', 'head_cashier', 'head_operator'])]},
     CardTopUpTransactionController,
@@ -57,7 +57,7 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
     CardPaymentTransactionController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithParamsAndQuery<CashboxParams, GetCashboxCardTransactionsQuery>>(
     "/cards/cashboxes/:cashboxID/transactions",
     {
       schema: getCardTransactionsSchema,

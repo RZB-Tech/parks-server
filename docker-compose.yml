@@ -1,0 +1,57 @@
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/rzb-tech/parks-server:dev}
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SERVER_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:${SERVER_PORT:-3000}:${SERVER_PORT:-3000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - app_logs:/app/logs
+    networks:
+      - internal
+      - parks-net
+
+  # Registers Temporal schedules once per deploy. Idempotent (skips if a
+  # schedule already exists), so it's safe to run on every `docker compose up`.
+  temporal-schedule:
+    image: ${IMAGE:-ghcr.io/rzb-tech/parks-server:dev}
+    env_file: .env
+    command: ["node", "build/temporal/schedule.js"]
+    depends_on:
+      - app
+    networks:
+      - internal
+      - parks-net
+    restart: "no"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRESQL_DB:-parks}
+      POSTGRES_USER: ${POSTGRESQL_USER:-parks}
+      POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD:?POSTGRESQL_PASSWORD is required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRESQL_USER:-parks}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+networks:
+  internal:
+  parks-net:
+    external: true
+
+volumes:
+  pgdata:
+  app_logs:

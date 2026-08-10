@@ -22,13 +22,13 @@ const AttractionRoundsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.get(
+  fastify.get<RouteWithParams<AttractionRoundParams>>(
     "/attractions/:attractionID/rounds/current",
     { schema: getCurrentAttractionRoundSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'operator', 'head_cashier'])] },
     GetCurrentAttractionRoundController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithParams<AttractionRoundParams>>(
     "/attractions/:attractionID/rounds/today",
     { schema: getTodayAttractionRoundsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'operator', 'head_cashier'])] },
     GetTodayAttractionRoundsController,
@@ -40,7 +40,7 @@ const AttractionRoundsRouter: FastifyPluginAsync = async (
     GetTodayRoundsController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithParams<AttractionRoundParams>>(
     "/attractions/:attractionID/rounds/:roundID/close",
     { schema: closeCurrentAttractionRoundSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'head_operator', 'operator', 'head_cashier'])] },
     CloseCurrentAttractionRoundController,

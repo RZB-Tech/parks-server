@@ -13,7 +13,7 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.post(
+  fastify.post<RouteWithParams<CashboxReportsParams>>(
     "/cashboxes/:cashboxID/reports/open",
     { schema: openReportSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'head_cashier', 'cashier' ])] },
     CashboxReportOpenController,
@@ -25,25 +25,25 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
     CashboxReportsTodayController,
   );
 
-  fastify.put(
+  fastify.put<RouteWithParamsAndData<CashboxReportsParams, ReqData<CloseCashboxReportData>>>(
     "/cashboxes/:cashboxID/reports/status",
     { schema: statusCashboxReportSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_cashier', 'cashier', 'head_accountant', 'head_marketing' ])] },
     StatusCashboxReportController,
   );
 
-   fastify.get(
+   fastify.get<RouteWithQuery<GetZReportsQuery>>(
      "/cashbox/zreports",
      { schema: getZReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_cashier', 'cashier', 'head_accountant', 'head_marketing' ])] },
      GetZReportsController,
    );
 
-   fastify.post(
+   fastify.post<RouteWithData<ReqData<ConfirmZReportsData>>>(
      "/zreports/confirmation",
      { schema: confirmZReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'head_cashier', 'head_accountant', 'head_marketing' ])] },
      ConfirmZReportsController,
    );
-   
-   fastify.get(
+
+   fastify.get<RouteWithQuery<GetAccountingCashboxReportsQuery>>(
      "/accounting/cashbox-reports",
      {
        schema: getAccountingCashboxReportsSchema,

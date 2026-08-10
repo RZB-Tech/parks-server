@@ -28,13 +28,13 @@ const AttractionReportsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) => {
-  fastify.post(
+  fastify.post<RouteWithParamsAndHeaders<AttractionReportParams, AttractionReportHeaders>>(
     "/attractions/:attractionID/reports/open",
     { schema: openAttractionReportSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'head_operator', 'operator', 'head_cashier'])] },
     AttractionReportOpenController,
   );
 
-  fastify.put(
+  fastify.put<RouteWithParamsAndData<AttractionReportParams, ReqData<UpdateAttractionReportStatusData>>>(
     "/attractions/:attractionID/reports/:reportID/status",
     {
       schema: updateAttractionReportStatusSchema,
@@ -43,25 +43,25 @@ const AttractionReportsRouter: FastifyPluginAsync = async (
     CloseAttractionReportController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithParamsAndQuery<AttractionReportParams, GetAttractionReportsQuery>>(
     "/attractions/:attractionID/reports",
     { schema: getTodayAttractionReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'operator', 'head_cashier'])] },
     GetTodayAttractionReportsController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithQuery<GetAttractionZReportsQuery>>(
     "/attraction/zreports",
     { schema: getAttractionZReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'operator', 'head_cashier'])] },
     GetAttractionZReportsController,
   );
 
-  fastify.post(
+  fastify.post<RouteWithData<ReqData<ConfirmAttractionZReportsData>>>(
     "/attractions/zreports/confirmation",
     { schema: confirmAttractionZReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'head_accountant', 'head_marketing', 'head_operator', 'head_cashier'])] },
     ConfirmAttractionZReportsController,
   );
 
-  fastify.get(
+  fastify.get<RouteWithQuery<GetAccountingAttractionReportsQuery>>(
     "/attractions/reports/accounting",
     { schema: getAccountingAttractionReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_operator', 'head_cashier'])] },
     GetAccountingAttractionReportsController,
