@@ -11,6 +11,10 @@ export const FileViewDTO = (file: FileViewDTO): FileViewDTO => ({
   body: file.body,
   name: file.name,
   type: file.type,
+  cacheControl: file.cacheControl,
+  contentLength: file.contentLength,
+  etag: file.etag,
+  lastModified: file.lastModified,
 });
 
 export const UploadFilesDTO = (

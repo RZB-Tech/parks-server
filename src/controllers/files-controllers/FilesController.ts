@@ -38,6 +38,19 @@ export const GetFilesController = async (
   const result = await GetFileService(params);
 
   reply.header("Content-Type", result.type);
+  reply.header("Cache-Control", result.cacheControl);
+
+  if (result.contentLength !== undefined) {
+    reply.header("Content-Length", result.contentLength);
+  }
+
+  if (result.etag) {
+    reply.header("ETag", result.etag);
+  }
+
+  if (result.lastModified) {
+    reply.header("Last-Modified", result.lastModified.toUTCString());
+  }
 
   if (params.type === "download") {
     reply.header(

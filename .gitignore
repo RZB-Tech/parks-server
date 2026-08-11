@@ -8,7 +8,9 @@ node_modules
 dist
 .env
 .env.*
+!.env.example
 logs
 *.log
 .DS_Store
 coverage
+deploy/minio/minio.env

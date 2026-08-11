@@ -136,6 +136,19 @@ async function checkServerEnv(app: FastifyInstance) {
     process.exit(1);
   }
 
+  if (
+    !process.env.S3_REGION ||
+    !process.env.S3_ENDPOINT ||
+    !process.env.S3_ACCESS_KEY ||
+    !process.env.S3_SECRET_KEY ||
+    !process.env.S3_BUCKET
+  ) {
+    app.log.fatal(
+      "The environment variables responsible for connecting to the S3-compatible object storage are not set",
+    );
+    process.exit(1);
+  }
+
   // if (!process.env.TELEGRAM_BOT_TOKEN) {
   //   app.log.fatal(
   //     "The environment variable responsible for bot token is not set",

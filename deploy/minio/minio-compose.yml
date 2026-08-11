@@ -1,0 +1,44 @@
+name: parks-minio
+
+services:
+  minio:
+    image: quay.io/minio/aistor/minio@sha256:d1eb0f79ced75d6c024fc6a2ab6a7b3629ff54c798d967d9c6f89951237480a7
+    container_name: parks-minio
+    command:
+      - minio
+      - server
+      - /mnt/data
+      - --console-address
+      - ":9001"
+      - --license
+      - /run/secrets/minio_license
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - /srv/minio/data:/mnt/data
+      - /srv/minio/config/minio.license:/run/secrets/minio_license:ro
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    networks:
+      - parks-net
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  parks-net:
+    external: true
+    name: parks-net

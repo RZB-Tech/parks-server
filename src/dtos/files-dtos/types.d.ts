@@ -11,6 +11,10 @@ declare interface FileViewDTO {
   body: any;
   type: string;
   name: string;
+  cacheControl?: string;
+  contentLength?: number;
+  etag?: string;
+  lastModified?: Date;
 }
 
 declare interface UploadFilesResponseDTO {

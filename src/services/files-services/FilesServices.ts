@@ -34,7 +34,9 @@ export const UploadFileService = async (data: UploadFileData[]) => {
         Key: key,
         Body: fileData.buffer,
         ContentType: fileData.type,
-        ACL: "public-read",
+        CacheControl:
+          process.env.S3_CACHE_CONTROL ??
+          "public, max-age=31536000, immutable",
       }),
     );
 
@@ -89,6 +91,13 @@ export const GetFileService = async (data: FileParams) => {
     body: s3File.Body,
     type: file.type,
     name: file.name,
+    cacheControl:
+      s3File.CacheControl ??
+      process.env.S3_CACHE_CONTROL ??
+      "public, max-age=31536000, immutable",
+    contentLength: s3File.ContentLength,
+    etag: s3File.ETag,
+    lastModified: s3File.LastModified,
   });
 };
 
