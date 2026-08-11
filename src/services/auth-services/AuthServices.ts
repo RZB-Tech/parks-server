@@ -13,7 +13,7 @@ export const LoginService = async (body: LoginData) => {
   });
 
   if (!employee) {
-    throw Unauthorized("Invalid phone number or password");
+    throw NotFound("Employee not found!");
   }
 
   const isPasswordValid = await bcrypt.compare(
