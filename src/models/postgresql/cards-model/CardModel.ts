@@ -10,11 +10,13 @@ export class CardModel
   public batch!: number;
   public card!: string;
   public nfc!: string;
+  public bind_token_hash!: string | null;
   public status!: import("./enums").CardStatusTypes;
   public type!: import("./enums").CardType;
   public balance!: number;
   public imported_at!: Date;
   public activated_at!: Date | null;
+  public bound_at!: Date | null;
   public returned_at!: Date | null;
   public return_description!: string | null;
 
@@ -51,6 +53,10 @@ export class CardModel
           allowNull: false,
           unique: true,
         },
+        bind_token_hash: {
+          type: DataTypes.STRING(64),
+          allowNull: true,
+        },
         status: {
           type: DataTypes.ENUM(
             "active",
@@ -76,6 +82,10 @@ export class CardModel
           allowNull: false,
         },
         activated_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
+        bound_at: {
           type: DataTypes.DATE,
           allowNull: true,
         },

@@ -4,8 +4,18 @@ import {
   FastifyPluginOptions,
 } from "fastify";
 import { TelegramAuthMiddleware } from "../../../middlewares/telegram-auth-middlewar/TelegramAuthMiddleware";
-import { createVirtualCardSchema, getUserCardsSchema } from "./schema";
-import { CreateVirtualCardController, GetUserCardsController } from "../../../controllers/client/card-controllers/CardController";
+import {
+  bindCardSchema,
+  createVirtualCardSchema,
+  getUserCardsSchema,
+} from "./schema";
+import {
+  BindCardController,
+  CreateVirtualCardController,
+  GetUserCardsController,
+} from "../../../controllers/client/card-controllers/CardController";
+import { CardBindRateLimitMiddleware } from "../../../middlewares/card-bind-rate-limit-middleware/CardBindRateLimitMiddleware";
+import { ReqData, RouteWithData } from "../../../types/routes";
 
 const ClientCardsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -21,6 +31,15 @@ const ClientCardsRouter: FastifyPluginAsync = async (
     "/cards/virtual",
     { schema: createVirtualCardSchema, preHandler: [TelegramAuthMiddleware] },
     CreateVirtualCardController,
+  );
+
+  fastify.post<RouteWithData<ReqData<BindCardData>>>(
+    "/cards/bind",
+    {
+      schema: bindCardSchema,
+      preHandler: [TelegramAuthMiddleware, CardBindRateLimitMiddleware],
+    },
+    BindCardController,
   );
 };
 
