@@ -27,6 +27,61 @@ import {
 import { GetOnlinePaymentDailyReportQuery } from "../../controllers/online-payment-reports-controllers/types";
 
 export const ONLINE_PAYMENTS_CASHBOX_KEY = "online_payments";
+const ONLINE_PAYMENTS_CASHBOX_LOCK =
+  "parks-server:ensure-online-payments-cashbox";
+
+export const EnsureOnlinePaymentsCashboxService = async () => {
+  const sequelize = CashboxModel.sequelize!;
+
+  return sequelize.transaction(async (transaction) => {
+    await sequelize.query(
+      "SELECT pg_advisory_xact_lock(hashtext(:lockName))",
+      {
+        replacements: { lockName: ONLINE_PAYMENTS_CASHBOX_LOCK },
+        type: QueryTypes.SELECT,
+        transaction,
+      },
+    );
+
+    let cashbox = await CashboxModel.findOne({
+      where: { system_key: ONLINE_PAYMENTS_CASHBOX_KEY },
+      paranoid: false,
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (cashbox) {
+      if (cashbox.deleted_at) {
+        await cashbox.restore({ transaction });
+      }
+
+      if (cashbox.type !== CashboxTypes.VIRTUAL) {
+        await cashbox.update(
+          { type: CashboxTypes.VIRTUAL },
+          { transaction },
+        );
+      }
+
+      return cashbox;
+    }
+
+    cashbox = await CashboxModel.create(
+      {
+        name: "Касса приложений",
+        place: "Telegram бот, мобильное приложение",
+        status: CashboxStatusTypes.INACTIVE,
+        type: CashboxTypes.VIRTUAL,
+        system_key: ONLINE_PAYMENTS_CASHBOX_KEY,
+        description: "System cashbox for online payments",
+        latitude: null,
+        longitude: null,
+      },
+      { transaction },
+    );
+
+    return cashbox;
+  });
+};
 
 type CountRow = {
   count: string | number;

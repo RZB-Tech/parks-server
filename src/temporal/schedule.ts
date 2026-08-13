@@ -1,17 +1,15 @@
 import "dotenv/config";
 import {
   ScheduleAlreadyRunning,
-  ScheduleNotFoundError,
   ScheduleOverlapPolicy,
 } from "@temporalio/client";
 import { getTemporalClient } from "./client";
-import { closeUnclosedXReportsWorkflow } from "./workflows/cashbox-report.workflow";
+import {
+  closeOnlineDailyZReportWorkflow,
+  closeUnclosedXReportsWorkflow,
+  openOnlineDailyZReportWorkflow,
+} from "./workflows/cashbox-report.workflow";
 import { closeUnclosedAttractionReportsWorkflow } from "./workflows/attraction-report.workflow";
-
-const CASHBOX_APP_OWNED_SCHEDULE_IDS = [
-  "nightly-close-online-payment-zreport",
-  "daily-open-online-payment-zreport",
-] as const;
 
 const ensureSchedule = async (data: {
   scheduleId: string;
@@ -71,23 +69,6 @@ const ensureSchedule = async (data: {
   }
 };
 
-const removeCashboxAppOwnedSchedules = async () => {
-  const client = await getTemporalClient();
-
-  for (const scheduleId of CASHBOX_APP_OWNED_SCHEDULE_IDS) {
-    try {
-      await client.schedule.getHandle(scheduleId).delete();
-      console.log(`${scheduleId} deleted; now owned by the cashbox app`);
-    } catch (error) {
-      if (!(error instanceof ScheduleNotFoundError)) {
-        throw error;
-      }
-
-      console.log(`${scheduleId} is already absent`);
-    }
-  }
-};
-
 export const ensureTemporalSchedules = async () => {
   await ensureSchedule({
     scheduleId: "nightly-close-unclosed-xreports",
@@ -105,7 +86,21 @@ export const ensureTemporalSchedules = async () => {
     minute: 0,
   });
 
-  await removeCashboxAppOwnedSchedules();
+  await ensureSchedule({
+    scheduleId: "nightly-close-online-payment-zreport",
+    workflowType: closeOnlineDailyZReportWorkflow,
+    taskQueue: "cashbox-report-queue",
+    hour: 23,
+    minute: 59,
+  });
+
+  await ensureSchedule({
+    scheduleId: "daily-open-online-payment-zreport",
+    workflowType: openOnlineDailyZReportWorkflow,
+    taskQueue: "cashbox-report-queue",
+    hour: 0,
+    minute: 0,
+  });
 };
 
 /**
@@ -122,6 +117,12 @@ export const triggerReportRecovery = async () => {
       .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
     client.schedule
       .getHandle("nightly-close-unclosed-attraction-reports")
+      .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
+    client.schedule
+      .getHandle("nightly-close-online-payment-zreport")
+      .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
+    client.schedule
+      .getHandle("daily-open-online-payment-zreport")
       .trigger(ScheduleOverlapPolicy.BUFFER_ONE),
   ]);
 };

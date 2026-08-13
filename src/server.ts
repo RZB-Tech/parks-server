@@ -10,6 +10,9 @@ import {
   ensureTemporalSchedules,
   triggerReportRecovery,
 } from "./temporal/schedule";
+import {
+  EnsureOnlinePaymentsCashboxService,
+} from "./services/payment-services/OnlinePaymentReportServices";
 
 export const app = build();
 
@@ -18,6 +21,17 @@ export const app = build();
     const fastify = await app;
 
     await fastify.ready();
+
+    const onlinePaymentsCashbox =
+      await EnsureOnlinePaymentsCashboxService();
+
+    fastify.log.info(
+      {
+        actor: "online-payments",
+        cashbox_id: Number(onlinePaymentsCashbox.id),
+      },
+      "Online payments cashbox is ready",
+    );
 
     const serverHost =
       process.env.SERVER_HOST ||
