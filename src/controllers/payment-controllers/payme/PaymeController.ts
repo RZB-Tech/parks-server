@@ -43,7 +43,7 @@ export const PaymeMerchantController = async (
   } catch (error) {
     request.log.error(
       {
-        error,
+        err: error,
         payme_method: request.body.method,
         payme_request_id: request.body.id,
       },
