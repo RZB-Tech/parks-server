@@ -3,13 +3,27 @@ import {
   FastifyPluginAsync,
   FastifyPluginOptions,
 } from "fastify";
-import { CreateCardsController, DeleteCardsController, GetCardsController, GetCardStatsController, UpdateCardsController } from "../../controllers/cards-controllers/CardController";
-import { deleteCardsSchema, getCardsSchema, getCardStatsSchema, updateCardSchema } from "./schema";
+import {
+  CreateCardsController,
+  DeleteCardsController,
+  GetCardsController,
+  GetCardStatsController,
+  GetVipCardUsageController,
+  UpdateCardsController,
+} from "../../controllers/cards-controllers/CardController";
+import {
+  deleteCardsSchema,
+  getCardsSchema,
+  getCardStatsSchema,
+  getVipCardUsageSchema,
+  updateCardSchema,
+} from "./schema";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 import {
   ReqData,
   RouteWithData,
+  RouteWithParams,
   RouteWithParamsAndData,
   RouteWithQuery,
 } from "../../types/routes";
@@ -28,6 +42,26 @@ const CardsRouter: FastifyPluginAsync = async (
     "/cards",
     { schema: getCardsSchema, preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_marketing', 'head_accountant', 'head_cashier'])] },
     GetCardsController,
+  );
+
+  fastify.get<RouteWithParams<CardsParams>>(
+    "/cards/:cardID/vip-usage",
+    {
+      schema: getVipCardUsageSchema,
+      preHandler: [
+        AuthMiddleware,
+        RoleMiddleware([
+          "superadmin",
+          "admin",
+          "owner",
+          "director",
+          "head_marketing",
+          "head_accountant",
+          "head_cashier",
+        ]),
+      ],
+    },
+    GetVipCardUsageController,
   );
 
   fastify.post(

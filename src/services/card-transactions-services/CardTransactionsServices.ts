@@ -1056,16 +1056,14 @@ export const CardPaymentTransactionService = async (
       );
     }
 
-    if (!isVipCard) {
-      await card.update(
-        {
-          balance: balanceAfter,
-        },
-        {
-          transaction,
-        },
-      );
-    }
+    await card.update(
+      {
+        balance: isVipCard ? 0 : balanceAfter,
+      },
+      {
+        transaction,
+      },
+    );
 
     const paymentData = payment.get({
       plain: true,

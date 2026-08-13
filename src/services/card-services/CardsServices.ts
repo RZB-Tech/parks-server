@@ -1,4 +1,9 @@
-import { BadRequest, Forbidden, NotFound } from "../../exceptions";
+import {
+  BadRequest,
+  Forbidden,
+  InternalServerError,
+  NotFound,
+} from "../../exceptions";
 import {
   CardStatusTypes,
   CardType,
@@ -235,6 +240,120 @@ export const GetCardsService = async (query: GetCardsQuery) => {
     page,
     limit,
     totalPages: Math.ceil(count / limit),
+  };
+};
+
+export const GetVipCardUsageService = async (
+  params: CardsParams,
+): Promise<VipCardUsageResponseDTO> => {
+  const cardID = Number(params.cardID);
+
+  if (!Number.isSafeInteger(cardID) || cardID <= 0) {
+    throw BadRequest("Card ID is invalid");
+  }
+
+  const card = await CardModel.findByPk(cardID, {
+    attributes: ["id", "card", "type", "balance"],
+  });
+
+  if (!card) {
+    throw NotFound("Card not found");
+  }
+
+  if (card.type !== CardType.VIP) {
+    throw BadRequest("CARD_IS_NOT_VIP");
+  }
+
+  const rows = await sequelize.query<VipCardUsageAggregateRow>(
+    `
+      WITH payment_usage AS (
+        SELECT
+          payment."id",
+          TO_CHAR(
+            payment."created_at" AT TIME ZONE 'Asia/Tashkent',
+            'YYYY-MM-DD'
+          ) AS "date",
+          GREATEST(
+            COALESCE(payment."original_amount", 0)
+              - COALESCE(payment."discount_amount", 0)
+              - COALESCE(
+                  SUM(
+                    CASE
+                      WHEN refund_transaction."status"::TEXT = 'success'
+                      THEN
+                        COALESCE(refund_transaction."original_amount", 0)
+                          - COALESCE(
+                              refund_transaction."discount_amount",
+                              0
+                            )
+                      ELSE 0
+                    END
+                  ),
+                  0
+                ),
+            0
+          ) AS "spent_amount"
+        FROM "card_transactions" AS payment
+        LEFT JOIN "attraction_round_refunds" AS refund
+          ON refund."original_transaction" = payment."id"
+        LEFT JOIN "card_transactions" AS refund_transaction
+          ON refund_transaction."id" = refund."refund_transaction"
+          AND refund_transaction."deleted_at" IS NULL
+        WHERE payment."card" = :cardID
+          AND payment."type"::TEXT = 'payment'
+          AND payment."status"::TEXT IN ('success', 'cancelled')
+          AND payment."deleted_at" IS NULL
+        GROUP BY
+          payment."id",
+          payment."created_at",
+          payment."original_amount",
+          payment."discount_amount"
+      )
+      SELECT
+        "date",
+        SUM("spent_amount") AS "spent_amount"
+      FROM payment_usage
+      GROUP BY "date"
+      ORDER BY "date" DESC
+    `,
+    {
+      replacements: { cardID },
+      type: QueryTypes.SELECT,
+    },
+  );
+
+  const days = rows.map((row) => ({
+    date: row.date,
+    spent_amount: Number(row.spent_amount),
+  }));
+
+  if (
+    days.some(
+      (day) =>
+        !Number.isSafeInteger(day.spent_amount) || day.spent_amount < 0,
+    )
+  ) {
+    throw InternalServerError("VIP_USAGE_AMOUNT_IS_INVALID");
+  }
+
+  const totalSpent = days.reduce(
+    (total, day) => total + day.spent_amount,
+    0,
+  );
+
+  if (!Number.isSafeInteger(totalSpent)) {
+    throw InternalServerError("VIP_USAGE_TOTAL_IS_INVALID");
+  }
+
+  return {
+    card: {
+      id: Number(card.id),
+      card: card.card,
+      type: CardType.VIP,
+      balance: 0,
+    },
+    total_spent: totalSpent,
+    days,
   };
 };
 

@@ -254,8 +254,11 @@ export const ClientAttractionPaymentService = async (
         throw BadRequest("INVALID_CARD_BALANCE");
       }
 
-      const balanceBefore =
-        Number.isFinite(rawBalance) && rawBalance >= 0 ? rawBalance : 0;
+      const balanceBefore = isVIP
+        ? 0
+        : Number.isFinite(rawBalance) && rawBalance >= 0
+          ? rawBalance
+          : 0;
 
       const chargedAmount = isVIP ? 0 : calculatedTotalAmount;
       const reportPaidAmount =
@@ -414,16 +417,14 @@ export const ClientAttractionPaymentService = async (
         );
       }
 
-      if (!isVIP) {
-        await card.update(
-          {
-            balance: balanceAfter,
-          },
-          {
-            transaction,
-          },
-        );
-      }
+      await card.update(
+        {
+          balance: isVIP ? 0 : balanceAfter,
+        },
+        {
+          transaction,
+        },
+      );
 
       const nextPeopleCount = currentPeopleCount + membersCount;
 
