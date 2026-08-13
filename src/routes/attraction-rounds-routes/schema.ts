@@ -1,6 +1,7 @@
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
 
 import {
+  CardTransactionStatusTypes,
   CardTransactionType,
   PaymentType,
   PaymentCardType,
@@ -228,6 +229,11 @@ export const attractionRoundTransactionProperties = {
     enum: Object.values(CardTransactionType),
   },
 
+  transaction_status: {
+    type: "string",
+    enum: Object.values(CardTransactionStatusTypes),
+  },
+
   payment_source: {
     type: "string",
     enum: ["operator", "client"],
@@ -270,6 +276,19 @@ export const attractionRoundTransactionProperties = {
 
   people_count: {
     type: "number",
+  },
+
+  original_people_count: {
+    type: "number",
+  },
+
+  refunded_people_count: {
+    type: "number",
+  },
+
+  refund_status: {
+    type: "string",
+    enum: ["none", "partial", "full"],
   },
 
   amount: {

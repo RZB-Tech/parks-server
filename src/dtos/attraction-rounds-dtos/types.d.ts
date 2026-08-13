@@ -1,4 +1,5 @@
 declare type AttractionRoundPaymentSource = "operator" | "client";
+declare type AttractionRoundRefundStatus = "none" | "partial" | "full";
 
 declare interface AttractionRoundOperatorPlain {
   id: number | string;
@@ -111,6 +112,7 @@ declare interface AttractionRoundTransactionPlain {
   tariff_name: string | null;
 
   type: CardTransactionType;
+  status: CardTransactionStatusTypes;
 
   amount: number | string;
 
@@ -124,6 +126,9 @@ declare interface AttractionRoundTransactionPlain {
   payment_service: CardTransactionModelI["payment_service"];
 
   people_count: number | string;
+  original_people_count?: number | string;
+  refunded_people_count?: number | string;
+  refund_status?: AttractionRoundRefundStatus;
 
   promotion: number | string | null;
 
@@ -150,6 +155,7 @@ declare interface AttractionRoundTransactionResponseDTO {
   id: number;
 
   transaction_type: CardTransactionType;
+  transaction_status: CardTransactionStatusTypes;
 
   payment_source: AttractionRoundPaymentSource;
 
@@ -164,6 +170,9 @@ declare interface AttractionRoundTransactionResponseDTO {
   payment_service: CardTransactionModelI["payment_service"];
 
   people_count: number;
+  original_people_count: number;
+  refunded_people_count: number;
+  refund_status: AttractionRoundRefundStatus;
 
   amount: number;
 
