@@ -1,9 +1,9 @@
-import { Op } from "sequelize";
+import { col, fn, Op } from "sequelize";
 import {
   AttractionRoundDTO,
   AttractionRoundTransactionDTO,
 } from "../../dtos/attraction-rounds-dtos/AttractionRoundDto";
-import { BadRequest, NotFound } from "../../exceptions";
+import { BadRequest, InternalServerError, NotFound } from "../../exceptions";
 import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
 import { AttractionRoundModel } from "../../models/postgresql/attraction-round-model/AttractionRoundModel";
@@ -26,6 +26,106 @@ import {
 } from "../../models/postgresql/card-transactions-model/enums";
 import { PromotionReportModel } from "../../models/postgresql/promotion-reports-model/PromotionReportsModel";
 import { CardType } from "../../models/postgresql/cards-model/enums";
+import { AttractionRoundRefundModel } from "../../models/postgresql/attraction-round-refund-model/AttractionRoundRefundModel";
+
+type AttractionRoundRefundAggregate = {
+  original_transaction: number | string;
+  refunded_people_count: number | string;
+};
+
+const LoadAttractionRoundTransactions = async (
+  transactionIDs: number[],
+  cardNumber?: string,
+): Promise<Map<number, AttractionRoundTransactionPlain>> => {
+  const transactionMap = new Map<number, AttractionRoundTransactionPlain>();
+
+  if (transactionIDs.length === 0) {
+    return transactionMap;
+  }
+
+  const transactions = await CardTransactionModel.findAll({
+    where: {
+      id: {
+        [Op.in]: transactionIDs,
+      },
+      type: CardTransactionType.PAYMENT,
+      status: {
+        [Op.in]: [
+          CardTransactionStatusTypes.SUCCESS,
+          CardTransactionStatusTypes.CANCELLED,
+        ],
+      },
+    },
+    include: [
+      {
+        model: CardModel,
+        as: "cards",
+        required: cardNumber !== undefined,
+        ...(cardNumber !== undefined ? { where: { card: cardNumber } } : {}),
+      },
+    ],
+  });
+
+  const paymentIDs = transactions.map((transaction) => Number(transaction.id));
+  const refundAggregates = paymentIDs.length
+    ? ((await AttractionRoundRefundModel.findAll({
+        attributes: [
+          "original_transaction",
+          [fn("SUM", col("people_count")), "refunded_people_count"],
+        ],
+        where: {
+          original_transaction: {
+            [Op.in]: paymentIDs,
+          },
+        },
+        group: ["original_transaction"],
+        raw: true,
+      })) as unknown as AttractionRoundRefundAggregate[])
+    : [];
+
+  const refundedPeopleMap = new Map(
+    refundAggregates.map((refund) => [
+      Number(refund.original_transaction),
+      Number(refund.refunded_people_count || 0),
+    ]),
+  );
+
+  for (const transaction of transactions) {
+    const plain = transaction.get({
+      plain: true,
+    }) as AttractionRoundTransactionPlain;
+    const transactionID = Number(plain.id);
+    const originalPeopleCount = Number(plain.people_count || 0);
+    const refundedPeopleCount = refundedPeopleMap.get(transactionID) ?? 0;
+    const remainingPeopleCount = originalPeopleCount - refundedPeopleCount;
+
+    if (
+      !Number.isSafeInteger(originalPeopleCount) ||
+      originalPeopleCount <= 0 ||
+      !Number.isSafeInteger(refundedPeopleCount) ||
+      refundedPeopleCount < 0 ||
+      !Number.isSafeInteger(remainingPeopleCount) ||
+      remainingPeopleCount < 0
+    ) {
+      throw InternalServerError("ROUND_TRANSACTION_REFUND_TOTALS_ARE_INVALID");
+    }
+
+    transactionMap.set(transactionID, {
+      ...plain,
+      people_count: remainingPeopleCount,
+      original_people_count: originalPeopleCount,
+      refunded_people_count: refundedPeopleCount,
+      refund_status:
+        refundedPeopleCount === 0
+          ? "none"
+          : remainingPeopleCount === 0
+            ? "full"
+            : "partial",
+    });
+  }
+
+  return transactionMap;
+};
 
 export const GetCurrentAttractionRoundService = async (
   operatorID: number,
@@ -106,46 +206,18 @@ export const GetCurrentAttractionRoundService = async (
       ]
     : [];
 
-  let transactionData: AttractionRoundTransactionPlain[] = [];
+  const transactionMap = await LoadAttractionRoundTransactions(transactionIDs);
 
-  if (transactionIDs.length > 0) {
-    const transactions = await CardTransactionModel.findAll({
-      where: {
-        id: {
-          [Op.in]: transactionIDs,
-        },
-        type: CardTransactionType.PAYMENT,
-        status: CardTransactionStatusTypes.SUCCESS,
-      },
-      include: [
-        {
-          model: CardModel,
-          as: "cards",
-        },
-      ],
-    });
-
-    /*
-     * Database orderiga emas,
-     * round.transactions array tartibiga qaytaramiz.
-     */
-    const transactionMap = new Map<number, AttractionRoundTransactionPlain>();
-
-    for (const transaction of transactions) {
-      const plain = transaction.get({
-        plain: true,
-      }) as AttractionRoundTransactionPlain;
-
-      transactionMap.set(Number(plain.id), plain);
-    }
-
-    transactionData = transactionIDs
-      .map((transactionID) => transactionMap.get(transactionID))
-      .filter(
-        (transaction): transaction is AttractionRoundTransactionPlain =>
-          transaction !== undefined,
-      );
-  }
+  /*
+   * Database orderiga emas,
+   * round.transactions array tartibiga qaytaramiz.
+   */
+  const transactionData = transactionIDs
+    .map((transactionID) => transactionMap.get(transactionID))
+    .filter(
+      (transaction): transaction is AttractionRoundTransactionPlain =>
+        transaction !== undefined,
+    );
 
   const roundData = round.get({
     plain: true,
@@ -224,34 +296,7 @@ export const GetTodayAttractionRoundsService = async (
     ),
   ];
 
-  const transactionMap = new Map<number, AttractionRoundTransactionPlain>();
-
-  if (transactionIDs.length > 0) {
-    const transactions = await CardTransactionModel.findAll({
-      where: {
-        id: {
-          [Op.in]: transactionIDs,
-        },
-        type: CardTransactionType.PAYMENT,
-        status: CardTransactionStatusTypes.SUCCESS,
-      },
-      include: [
-        {
-          model: CardModel,
-          as: "cards",
-          required: false,
-        },
-      ],
-    });
-
-    for (const transaction of transactions) {
-      const plain = transaction.get({
-        plain: true,
-      }) as AttractionRoundTransactionPlain;
-
-      transactionMap.set(Number(plain.id), plain);
-    }
-  }
+  const transactionMap = await LoadAttractionRoundTransactions(transactionIDs);
 
   return roundData.map((round) => {
     const roundTransactionIDs = Array.isArray(round.transactions)
@@ -362,38 +407,13 @@ export const GetTodayRoundsService = async (
     ),
   ];
 
-  const transactionMap = new Map<number, AttractionRoundTransactionPlain>();
-
   /*
    * Barcha transactionlar uchun faqat bitta query.
    */
-  if (transactionIDs.length > 0) {
-    const transactions = await CardTransactionModel.findAll({
-      where: {
-        id: {
-          [Op.in]: transactionIDs,
-        },
-        type: CardTransactionType.PAYMENT,
-        status: CardTransactionStatusTypes.SUCCESS,
-      },
-      include: [
-        {
-          model: CardModel,
-          as: "cards",
-          required: hasCardNumber,
-          ...(cardNumber ? { where: { card: cardNumber } } : {}),
-        },
-      ],
-    });
-
-    for (const transaction of transactions) {
-      const plain = transaction.get({
-        plain: true,
-      }) as AttractionRoundTransactionPlain;
-
-      transactionMap.set(Number(plain.id), plain);
-    }
-  }
+  const transactionMap = await LoadAttractionRoundTransactions(
+    transactionIDs,
+    cardNumber,
+  );
 
   return roundData
     .map((round) => {

@@ -112,6 +112,8 @@ export const AttractionRoundTransactionDTO = (
 
     transaction_type: data.type,
 
+    transaction_status: data.status,
+
     /*
      * Client paymentda operator null bo‘ladi.
      * Operator terminal paymentida operator ID mavjud.
@@ -133,7 +135,15 @@ export const AttractionRoundTransactionDTO = (
 
     payment_service: data.payment_service ?? null,
 
-    people_count: Number(data.people_count || 1),
+    people_count: Number(data.people_count ?? 0),
+
+    original_people_count: Number(
+      data.original_people_count ?? data.people_count ?? 0,
+    ),
+
+    refunded_people_count: Number(data.refunded_people_count ?? 0),
+
+    refund_status: data.refund_status ?? "none",
 
     amount: Number(data.amount || 0),
 
