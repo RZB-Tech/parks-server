@@ -10,9 +10,10 @@ import {
   ensureTemporalSchedules,
   triggerReportRecovery,
 } from "./temporal/schedule";
-import {
-  EnsureOnlinePaymentsCashboxService,
-} from "./services/payment-services/OnlinePaymentReportServices";
+// Online payment cashbox auto-creation is temporarily disabled.
+// import {
+//   EnsureOnlinePaymentsCashboxService,
+// } from "./services/payment-services/OnlinePaymentReportServices";
 
 export const app = build();
 
@@ -22,16 +23,17 @@ export const app = build();
 
     await fastify.ready();
 
-    const onlinePaymentsCashbox =
-      await EnsureOnlinePaymentsCashboxService();
-
-    fastify.log.info(
-      {
-        actor: "online-payments",
-        cashbox_id: Number(onlinePaymentsCashbox.id),
-      },
-      "Online payments cashbox is ready",
-    );
+    // Online payment cashbox must currently be created/configured manually.
+    // const onlinePaymentsCashbox =
+    //   await EnsureOnlinePaymentsCashboxService();
+    //
+    // fastify.log.info(
+    //   {
+    //     actor: "online-payments",
+    //     cashbox_id: Number(onlinePaymentsCashbox.id),
+    //   },
+    //   "Online payments cashbox is ready",
+    // );
 
     const serverHost =
       process.env.SERVER_HOST ||
