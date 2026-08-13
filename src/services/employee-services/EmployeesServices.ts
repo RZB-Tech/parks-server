@@ -10,6 +10,7 @@ import { BadRequest, Conflict, NotFound } from "../../exceptions";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import bcrypt from "bcrypt";
 import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
+import { RoleTypes } from "../../models/postgresql/role-model/enums";
 import {
   AttractionModel,
   AttractionOperatorModel,
@@ -18,21 +19,46 @@ import {
   RoleModel,
   sequelize,
 } from "../../plugins/db/postgresql/db";
-import { Op } from "sequelize";
+import { Op, Transaction } from "sequelize";
+
+const OWNER_CREATION_LOCK = "parks-server:create-owner-employee";
+
+const FindOwnerRole = (transaction?: Transaction) =>
+  RoleModel.findOne({
+    where: { name: RoleTypes.OWNER },
+    transaction,
+  });
 
 export const GetEmployeeService = async (
   params: EmployeeParams,
 ): Promise<EmployeeResponseDTO> => {
-  const employee = await EmployeeModel.findByPk(params.employeeID);
+  const [employee, ownerRole] = await Promise.all([
+    EmployeeModel.findByPk(params.employeeID),
+    FindOwnerRole(),
+  ]);
 
-  if (employee == null) throw NotFound("Employee not found");
+  if (
+    employee == null ||
+    (ownerRole && Number(employee.role) === Number(ownerRole.id))
+  ) {
+    throw NotFound("Employee not found");
+  }
 
   const employeeData = employee.get();
   return EmployeeDTO(employeeData);
 };
 
 export const GetEmployeeStatsService = async () => {
+  const ownerRole = await FindOwnerRole();
+
   const rows = await EmployeeModel.findAll({
+    where: ownerRole
+      ? {
+          role: {
+            [Op.ne]: ownerRole.id,
+          },
+        }
+      : undefined,
     attributes: [
       "status",
       [
@@ -75,7 +101,15 @@ export const GetEmployeeStatsService = async () => {
 export const GetEmployeesService = async (
   query: GetEmployeesQuery,
 ): Promise<EmployeesPaginationResponseDTO> => {
-  const where: any = {};
+  const ownerRole = await FindOwnerRole();
+  const ownerRoleID = ownerRole ? Number(ownerRole.id) : null;
+  const where: any = ownerRoleID
+    ? {
+        role: {
+          [Op.ne]: ownerRoleID,
+        },
+      }
+    : {};
 
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
@@ -107,6 +141,16 @@ export const GetEmployeesService = async (
   }
 
   if (query.roles) {
+    if (ownerRoleID && Number(query.roles) === ownerRoleID) {
+      return {
+        employees: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      };
+    }
+
     where.role = query.roles;
   }
 
@@ -239,49 +283,85 @@ export const GetEmployeesService = async (
 export const CreateEmployeesService = async (
   body: CreateEmployeeData,
 ): Promise<EmployeeResponseDTO> => {
-  const findEmployee = await EmployeeModel.findOne({
-    where: {
-      phone_number: body.phone_number,
-    },
+  return sequelize.transaction(async (transaction) => {
+    const role = await RoleModel.findOne({
+      where: {
+        id: body.role,
+      },
+      transaction,
+    });
+
+    if (!role) throw NotFound("Not found role");
+
+    if (role.name === RoleTypes.OWNER) {
+      await sequelize.query(
+        "SELECT pg_advisory_xact_lock(hashtext(:lockName))",
+        {
+          replacements: { lockName: OWNER_CREATION_LOCK },
+          transaction,
+        },
+      );
+
+      const ownerExists = await EmployeeModel.count({
+        where: { role: role.id },
+        paranoid: false,
+        transaction,
+      });
+
+      if (ownerExists > 0) {
+        throw Conflict("Owner employee already exists");
+      }
+    }
+
+    const findEmployee = await EmployeeModel.findOne({
+      where: {
+        phone_number: body.phone_number,
+      },
+      transaction,
+    });
+
+    if (findEmployee !== null) {
+      throw Conflict("Employee already exists at this phone number");
+    }
+
+    const hashedPassword = await bcrypt.hash(body.password, 10);
+
+    const employee = await EmployeeModel.create(
+      {
+        firstname: body.firstname,
+        lastname: body.lastname,
+        date_of_birth: body.date_of_birth,
+        phone_number: body.phone_number,
+        telegram_username: body.telegram_username,
+        role: body.role,
+        salary: body.salary,
+        file: body.file,
+        password: hashedPassword,
+        status: EmployeeStatusTypes.INACTIVE,
+      },
+      { transaction },
+    );
+
+    const employeeData = employee.get();
+    return EmployeeDTO(employeeData);
   });
-
-  if (findEmployee !== null)
-    throw Conflict("Employee already exists at this phone number");
-
-  const role = await RoleModel.findOne({
-    where: {
-      id: body.role,
-    },
-  });
-
-  if (!role) throw NotFound("Not found role");
-
-  const hashedPassword = await bcrypt.hash(body.password, 10);
-
-  const employee = await EmployeeModel.create({
-    firstname: body.firstname,
-    lastname: body.lastname,
-    date_of_birth: body.date_of_birth,
-    phone_number: body.phone_number,
-    telegram_username: body.telegram_username,
-    role: body.role,
-    salary: body.salary,
-    file: body.file,
-    password: hashedPassword,
-    status: EmployeeStatusTypes.INACTIVE,
-  });
-
-  const employeeData = employee.get();
-  return EmployeeDTO(employeeData);
 };
 
 export const UpdateEmployeesService = async (
   params: EmployeeParams,
   body: UpdateEmployeeData,
 ): Promise<EmployeeResponseDTO> => {
-  const employee = await EmployeeModel.findByPk(params.employeeID);
+  const [employee, ownerRole] = await Promise.all([
+    EmployeeModel.findByPk(params.employeeID),
+    FindOwnerRole(),
+  ]);
 
-  if (employee == null) throw NotFound("Employee not found");
+  if (
+    employee == null ||
+    (ownerRole && Number(employee.role) === Number(ownerRole.id))
+  ) {
+    throw NotFound("Employee not found");
+  }
 
   if (body.password) {
     body.password = await bcrypt.hash(body.password, 10);
@@ -295,6 +375,9 @@ export const UpdateEmployeesService = async (
     });
 
     if (!role) throw NotFound("Not found role");
+    if (role.name === RoleTypes.OWNER) {
+      throw BadRequest("Owner role can only be assigned during creation");
+    }
   }
 
   if (
@@ -327,12 +410,20 @@ export const DeleteEmployeesService = async (body: DeleteEmployeesData) => {
   const transaction = await sequelize.transaction();
 
   try {
-    const existingCount = await EmployeeModel.count({
-      where: {
-        id: {
-          [Op.in]: body.employeeIDs,
-        },
+    const ownerRole = await FindOwnerRole(transaction);
+    const employeeWhere = {
+      id: {
+        [Op.in]: body.employeeIDs,
       },
+      ...(ownerRole && {
+        role: {
+          [Op.ne]: ownerRole.id,
+        },
+      }),
+    };
+
+    const existingCount = await EmployeeModel.count({
+      where: employeeWhere,
       transaction,
     });
 
@@ -340,11 +431,7 @@ export const DeleteEmployeesService = async (body: DeleteEmployeesData) => {
       throw NotFound("Employee not found");
 
     await EmployeeModel.destroy({
-      where: {
-        id: {
-          [Op.in]: body.employeeIDs,
-        },
-      },
+      where: employeeWhere,
       force: true,
       transaction,
     });
