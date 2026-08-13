@@ -1,6 +1,9 @@
 import { Op } from "sequelize";
 import { AuditLogModel } from "../../models/postgresql/audit-log-model/AuditLogModel";
 import { AuditLogDTO } from "../../dtos/audit-log-dtos/AuditLogDto";
+import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
+import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
+import { RoleTypes } from "../../models/postgresql/role-model/enums";
 
 const parseStartDate = (date: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(date)
@@ -23,6 +26,41 @@ export const GetAuditLogsService = async (
   const limit = Number(query.limit) || 20;
   const offset = (page - 1) * limit;
   const where: Record<string | symbol, unknown> = {};
+
+  const ownerRole = await RoleModel.findOne({
+    attributes: ["id"],
+    where: { name: RoleTypes.OWNER },
+  });
+  const ownerEmployees = ownerRole
+    ? await EmployeeModel.findAll({
+        attributes: ["id"],
+        where: { role: ownerRole.id },
+        paranoid: false,
+      })
+    : [];
+  const ownerEmployeeIDs = ownerEmployees.map((employee) =>
+    String(employee.id),
+  );
+  const visibilityFilters: object[] = [
+    {
+      employee_role: {
+        [Op.ne]: RoleTypes.OWNER,
+      },
+    },
+  ];
+
+  if (ownerEmployeeIDs.length > 0) {
+    visibilityFilters.push({
+      [Op.not]: {
+        [Op.and]: [
+          { entity_type: "employees" },
+          { entity_id: { [Op.in]: ownerEmployeeIDs } },
+        ],
+      },
+    });
+  }
+
+  where[Op.and] = visibilityFilters;
 
   if (query.employee_id) where.employee_id = query.employee_id;
   if (query.role) where.employee_role = query.role;
