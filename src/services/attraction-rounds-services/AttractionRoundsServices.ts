@@ -312,7 +312,7 @@ export const GetTodayAttractionRoundsService = async (
       .map((transactionID) => transactionMap.get(transactionID))
       .filter(
         (transaction): transaction is AttractionRoundTransactionPlain =>
-          transaction !== undefined,
+          transaction !== undefined && Number(transaction.people_count) > 0,
       );
 
     return AttractionRoundDTO(round, roundTransactions);
