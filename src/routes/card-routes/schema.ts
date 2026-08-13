@@ -270,6 +270,79 @@ export const getCardsSchema = {
   },
 };
 
+export const getVipCardUsageSchema = {
+  summary: "Get VIP card usage by day",
+  description:
+    "Returns every Tashkent calendar day on which the VIP card was used, the net amount spent that day, and the all-time total. Refunds reduce the original usage day's amount.",
+  tags: ["Cards route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: {
+        type: "string",
+        description: "Bearer access token",
+      },
+    },
+  },
+  params: {
+    type: "object",
+    required: ["cardID"],
+    additionalProperties: false,
+    properties: {
+      cardID: {
+        type: "integer",
+        minimum: 1,
+        description: "VIP card ID",
+      },
+    },
+  },
+  response: {
+    200: successAnswerTemplate({
+      vip_usage: {
+        type: "object",
+        required: ["card", "total_spent", "days"],
+        properties: {
+          card: {
+            type: "object",
+            required: ["id", "card", "type", "balance"],
+            properties: {
+              id: { type: "integer" },
+              card: { type: "string" },
+              type: { type: "string", enum: ["vip"] },
+              balance: { type: "number", const: 0 },
+            },
+          },
+          total_spent: {
+            type: "number",
+            minimum: 0,
+          },
+          days: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["date", "spent_amount"],
+              properties: {
+                date: {
+                  type: "string",
+                  format: "date",
+                  example: "2026-08-13",
+                },
+                spent_amount: {
+                  type: "number",
+                  minimum: 0,
+                  example: 16000,
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+  },
+};
+
 export const uploadCardSchema = {
   summary: "Upload nfc card from xlslx",
   description: "Upload xls which creates new nfc cards",

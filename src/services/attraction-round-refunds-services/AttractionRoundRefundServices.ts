@@ -715,7 +715,8 @@ export const RefundFinishedAttractionRoundService = async (
       });
     }
 
-    const balanceBefore = Number(card.balance || 0);
+    const isVipCard = card.type === CardType.VIP;
+    const balanceBefore = isVipCard ? 0 : Number(card.balance || 0);
 
     if (!Number.isSafeInteger(balanceBefore) || balanceBefore < 0) {
       throw Conflict("CARD_BALANCE_IS_INVALID");
@@ -826,7 +827,10 @@ export const RefundFinishedAttractionRoundService = async (
       });
     }
 
-    await card.update({ balance: nextBalance }, { transaction });
+    await card.update(
+      { balance: isVipCard ? 0 : nextBalance },
+      { transaction },
+    );
 
     await round.update(
       {

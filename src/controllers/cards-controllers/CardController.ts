@@ -5,11 +5,13 @@ import {
   DeleteCardsService,
   GetCardsService,
   GetCardStatsService,
+  GetVipCardUsageService,
   UpdateCardsService,
 } from "../../services/card-services/CardsServices";
 import {
   ReqData,
   RouteWithData,
+  RouteWithParams,
   RouteWithParamsAndData,
   RouteWithQuery,
 } from "../../types/routes";
@@ -39,6 +41,13 @@ export const GetCardsController = makeReplyingController(
         totalPages: result.totalPages,
       },
     ];
+  },
+);
+
+export const GetVipCardUsageController = makeReplyingController(
+  "vip_usage",
+  async (request: FastifyRequest<RouteWithParams<CardsParams>>) => {
+    return GetVipCardUsageService(request.params);
   },
 );
 

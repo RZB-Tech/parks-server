@@ -41,3 +41,24 @@ declare interface SendCardRelationOtpResponseDTO {
   resend_in: number;
   remaining_send_attempts: number;
 }
+
+declare interface VipCardUsageAggregateRow {
+  date: string;
+  spent_amount: string | number;
+}
+
+declare interface VipCardUsageDayDTO {
+  date: string;
+  spent_amount: number;
+}
+
+declare interface VipCardUsageResponseDTO {
+  card: {
+    id: number;
+    card: string;
+    type: CardType.VIP;
+    balance: number;
+  };
+  total_spent: number;
+  days: VipCardUsageDayDTO[];
+}
