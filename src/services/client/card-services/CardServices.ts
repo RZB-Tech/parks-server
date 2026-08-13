@@ -1,6 +1,6 @@
 import { QueryTypes, Transaction } from "sequelize";
 import { UserCardDTO } from "../../../dtos/client/card-dtos/CardDto";
-import { BadRequest } from "../../../exceptions";
+import { BadRequest, Conflict, NotFound } from "../../../exceptions";
 import { UserStatusTypes } from "../../../models/postgresql/client/user-model/enums";
 import {
   CardBatchModel,
@@ -17,6 +17,17 @@ import {
   GenerateVirtualCardNumber,
   GetVirtualCardBatchName,
 } from "../../../utils/client/VirtualCardsHelpers";
+import {
+  CompareCardBindToken,
+  IsValidCardBindToken,
+  NormalizeCardBindToken,
+} from "../../../utils/client/CardBindTokenHelper";
+
+const CLIENT_BINDABLE_CARD_TYPES = new Set<CardType>([
+  CardType.CLASSIC,
+  CardType.VIP,
+  CardType.ORGANIZATION,
+]);
 
 export const GetUserCardsService = async (
   telegramID: number,
@@ -176,5 +187,129 @@ export const CreateVirtualCardService = async (
     );
 
     return UserCardDTO(virtualCard);
+  });
+};
+
+export const BindCardToUserService = async (
+  telegramID: number,
+  data: BindCardData,
+): Promise<UserCardResponseDTO> => {
+  const cardNumber = String(data.card_number ?? "").trim();
+  const bindToken = NormalizeCardBindToken(data.bind_token);
+
+  if (!cardNumber || !IsValidCardBindToken(bindToken)) {
+    throw BadRequest("CARD_BIND_DATA_INVALID");
+  }
+
+  const sequelize = CardModel.sequelize!;
+
+  return sequelize.transaction(async (transaction: Transaction) => {
+    const user = await UserModel.findOne({
+      where: {
+        telegram_id: telegramID,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!user) {
+      throw BadRequest("USER_NOT_REGISTERED");
+    }
+
+    if (
+      user.status !== UserStatusTypes.ACTIVE ||
+      !user.phone_verified_at ||
+      !user.registered_at
+    ) {
+      throw BadRequest("USER_NOT_VERIFIED");
+    }
+
+    const card = await CardModel.findOne({
+      where: {
+        card: cardNumber,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!card) {
+      throw BadRequest("CARD_BIND_DATA_INVALID");
+    }
+
+    if (card.user !== null) {
+      if (Number(card.user) === Number(user.id)) {
+        return UserCardDTO(card);
+      }
+
+      throw Conflict("CARD_ALREADY_BOUND");
+    }
+
+    if (!CLIENT_BINDABLE_CARD_TYPES.has(card.type)) {
+      throw BadRequest("CARD_TYPE_IS_NOT_BINDABLE");
+    }
+
+    const isOrganizationCard = card.type === CardType.ORGANIZATION;
+    const expectedStatus = isOrganizationCard
+      ? CardStatusTypes.ACTIVE
+      : CardStatusTypes.INACTIVE;
+
+    if (card.status !== expectedStatus) {
+      throw BadRequest("CARD_STATUS_IS_NOT_BINDABLE");
+    }
+
+    if (
+      !card.bind_token_hash ||
+      !CompareCardBindToken(bindToken, card.bind_token_hash)
+    ) {
+      throw BadRequest("CARD_BIND_DATA_INVALID");
+    }
+
+    const batch = await CardBatchModel.findByPk(card.batch, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!batch) {
+      throw NotFound("CARD_BATCH_NOT_FOUND");
+    }
+
+    const now = new Date();
+
+    await card.update(
+      {
+        user: Number(user.id),
+        status: CardStatusTypes.ACTIVE,
+        activated_at: card.activated_at ?? now,
+        bound_at: now,
+        bind_token_hash: null,
+      },
+      {
+        transaction,
+      },
+    );
+
+    if (isOrganizationCard) {
+      await batch.increment("tethered_cards", {
+        by: 1,
+        transaction,
+      });
+    } else {
+      await batch.decrement("inactive_cards", {
+        by: 1,
+        transaction,
+      });
+
+      await batch.increment(
+        {
+          active_cards: 1,
+          tethered_cards: 1,
+        },
+        {
+          transaction,
+        },
+      );
+    }
+
+    return UserCardDTO(card);
   });
 };

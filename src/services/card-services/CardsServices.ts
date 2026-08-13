@@ -16,9 +16,13 @@ import {
 } from "../../plugins/db/postgresql/db";
 import { ParseCardExcel, ValidateCardExcel } from "../../utils/excelHelpers";
 import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
-import { Op, QueryTypes } from "sequelize";
+import { Op, QueryTypes, UniqueConstraintError } from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
+import {
+  HashCardBindToken,
+  NormalizeCardBindToken,
+} from "../../utils/client/CardBindTokenHelper";
 
 const CARD_MANAGEMENT_ROLES: Record<CardType, readonly string[]> = {
   [CardType.CLASSIC]: ["superadmin", "admin"],
@@ -449,6 +453,9 @@ export const CreateCardsService = async (
           batch: batch.id,
           card: row.card_id.trim(),
           nfc: row.nfc_id.trim(),
+          bind_token_hash: HashCardBindToken(
+            NormalizeCardBindToken(row.bind_token),
+          ),
           type: data.type,
           balance: isOrganizationCard ? balance : 0,
           status: cardStatus,
@@ -469,7 +476,13 @@ export const CreateCardsService = async (
       };
     });
   } catch (error) {
-    throw BadRequest("Some cards or NFC IDs already exist.");
+    if (error instanceof UniqueConstraintError) {
+      throw BadRequest(
+        "Some cards, NFC IDs, or bind tokens already exist.",
+      );
+    }
+
+    throw error;
   }
 };
 

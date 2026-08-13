@@ -26,6 +26,9 @@ export const NotFound = (message = "Not found") => new AppError(404, message);
 export const Conflict = (message = "Already exists") =>
   new AppError(409, message);
 
+export const TooManyRequests = (message = "Too many requests") =>
+  new AppError(429, message);
+
 export const InternalServerError = (
   message = "Some technical problems on our side. Sorry",
 ) => new AppError(500, message);

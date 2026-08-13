@@ -149,6 +149,13 @@ async function checkServerEnv(app: FastifyInstance) {
     process.exit(1);
   }
 
+  if (!process.env.CARD_BIND_TOKEN_SECRET?.trim()) {
+    app.log.fatal(
+      "The environment variable used to hash card bind tokens is not set",
+    );
+    process.exit(1);
+  }
+
   // if (!process.env.TELEGRAM_BOT_TOKEN) {
   //   app.log.fatal(
   //     "The environment variable responsible for bot token is not set",
