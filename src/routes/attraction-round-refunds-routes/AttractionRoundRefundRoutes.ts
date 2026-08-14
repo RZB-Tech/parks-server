@@ -31,7 +31,7 @@ const AttractionRoundRefundRouter: FastifyPluginAsync = async (
     "/attractions/:attractionID/rounds/:roundID/refunds",
     {
       schema: refundFinishedAttractionRoundSchema,
-      preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'owner', 'head_operator', 'head_cashier'])],
+      preHandler: [AuthMiddleware, RoleMiddleware(["head_operator"])],
     },
     RefundFinishedAttractionRoundController,
   );
