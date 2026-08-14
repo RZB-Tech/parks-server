@@ -31,10 +31,12 @@ export const GetAttractionRoundRefundsController = makeReplyingController(
 export const RefundFinishedAttractionRoundController = makeReplyingController(
   "attraction-round-refund",
   async (request: FastifyRequest) => {
+    const operatorID = request.employee?.id;
     const params = request.params as AttractionRoundRefundParams;
     const body = request.body as ReqData<RefundAttractionRoundData>;
 
     return RefundFinishedAttractionRoundService(
+      Number(operatorID),
       params,
       body.data,
     );

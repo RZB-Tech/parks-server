@@ -340,9 +340,11 @@ export const GetAttractionRoundRefundsService = async (
 };
 
 export const RefundFinishedAttractionRoundService = async (
+  operatorID: number,
   params: AttractionRoundRefundParams,
   body: RefundAttractionRoundData,
 ): Promise<AttractionRoundRefundResponseDTO> => {
+  const parsedOperatorID = Number(operatorID);
   const attractionID = Number(params.attractionID);
   const roundID = Number(params.roundID);
   const cardID = Number(body.card_id);
@@ -411,6 +413,7 @@ export const RefundFinishedAttractionRoundService = async (
       where: {
         id: Number(round.report),
         attraction: attractionID,
+        operator: parsedOperatorID,
         report_type: AttractionReportTypes.XREPORT,
         status: AttractionReportStatusTypes.OPEN,
       },
@@ -763,6 +766,7 @@ export const RefundFinishedAttractionRoundService = async (
       const refundTransaction = await CardTransactionModel.create(
         {
           card: cardID,
+          operator: parsedOperatorID,
           cashbox: null,
           attraction: attractionID,
           attraction_tariff: payment.attraction_tariff,
@@ -799,6 +803,7 @@ export const RefundFinishedAttractionRoundService = async (
         {
           round: roundID,
           attraction: attractionID,
+          operator: parsedOperatorID,
           card: cardID,
           original_transaction: Number(payment.id),
           refund_transaction: Number(refundTransaction.id),
