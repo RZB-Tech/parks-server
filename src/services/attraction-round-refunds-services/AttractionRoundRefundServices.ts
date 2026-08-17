@@ -355,6 +355,10 @@ export const RefundFinishedAttractionRoundService = async (
   const requestedPeopleCount =
     body.people_count === undefined ? null : Number(body.people_count);
 
+  if (!Number.isInteger(parsedOperatorID) || parsedOperatorID <= 0) {
+    throw BadRequest("OPERATOR_ID_IS_INVALID");
+  }
+
   if (new Set(transactionIDs).size !== transactionIDs.length) {
     throw BadRequest("DUPLICATE_TRANSACTION_IDS_ARE_NOT_ALLOWED");
   }
@@ -381,7 +385,6 @@ export const RefundFinishedAttractionRoundService = async (
       where: {
         id: roundID,
         attraction: attractionID,
-        operator: parsedOperatorID,
         status: AttractionRoundStatusTypes.FINISHED,
       },
       transaction,
@@ -414,16 +417,18 @@ export const RefundFinishedAttractionRoundService = async (
       where: {
         id: Number(round.report),
         attraction: attractionID,
-        operator: parsedOperatorID,
         report_type: AttractionReportTypes.XREPORT,
-        status: AttractionReportStatusTypes.OPEN,
       },
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
 
-    if (!xReport || !xReport.zreport) {
-      throw Conflict("OPEN_X_REPORT_REQUIRED_FOR_REFUND");
+    if (!xReport) {
+      throw Conflict("ROUND_X_REPORT_NOT_FOUND_FOR_REFUND");
+    }
+
+    if (!xReport.zreport) {
+      throw Conflict("X_REPORT_IS_NOT_CONNECTED_TO_Z_REPORT");
     }
 
     const zReport = await AttractionReportModel.findOne({
@@ -431,14 +436,19 @@ export const RefundFinishedAttractionRoundService = async (
         id: Number(xReport.zreport),
         attraction: attractionID,
         report_type: AttractionReportTypes.ZREPORT,
-        status: AttractionReportStatusTypes.OPEN,
+        status: {
+          [Op.in]: [
+            AttractionReportStatusTypes.OPEN,
+            AttractionReportStatusTypes.STOPPED,
+          ],
+        },
       },
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
 
     if (!zReport) {
-      throw Conflict("OPEN_Z_REPORT_REQUIRED_FOR_REFUND");
+      throw Conflict("UNCLOSED_Z_REPORT_REQUIRED_FOR_REFUND");
     }
 
     const card = await CardModel.findByPk(cardID, {

@@ -244,7 +244,7 @@ export const getAttractionRoundRefundsSchema = {
 export const refundFinishedAttractionRoundSchema = {
   summary: "Refund finished attraction round transactions",
   description:
-    "Refund one card's selected payment transactions after the round has been finished.",
+    "Refund one card's selected payment transactions by a head operator after the round has been finished and before its Z-report is closed.",
   tags: ["Attraction round refunds route"],
   headers: authorizationHeaders,
   params: {
