@@ -54,7 +54,7 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
      "/accounting/cashbox-reports",
      {
        schema: getAccountingCashboxReportsSchema,
-       preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_accountant','head_marketing' ])],
+       preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'owner', 'director', 'head_accountant','head_marketing', 'head_cashier' ])],
      },
      GetAccountingCashboxReportsController,
    );

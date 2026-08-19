@@ -34,19 +34,19 @@ const AttractionsRouter: FastifyPluginAsync = async (
 ) => {
   fastify.get<RouteWithQuery<GetAttractionQuery>>(
     "/attraction",
-    { schema: getAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant', "head_operator", "hr", 'operator'])] },
+    { schema: getAttractionSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant', "head_operator", "hr", 'operator', 'head_cashier'])] },
     GetAttractionController,
   );
 
   fastify.get(
     "/attraction/stats",
-    { schema: getAttractionsStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant', "head_operator", "hr", 'operator'])] },
+    { schema: getAttractionsStatsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant', "head_operator", "hr", 'operator', 'head_cashier'])] },
     GetAttractionStatsController,
   );
 
   fastify.get<RouteWithQuery<GetAttractionsQuery>>(
     "/attractions",
-    { schema: getAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant',  "head_operator", "hr", 'operator'])] },
+    { schema: getAttractionsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "admin", "owner", "director", "head_marketing", 'head_accountant',  "head_operator", "hr", 'operator', 'head_cashier'])] },
     GetAttractionsController,
   );
 
