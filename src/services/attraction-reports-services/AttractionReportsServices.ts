@@ -21,11 +21,10 @@ import {
 } from "../../dtos/attraction-reports-dtos/AttractionReportDto";
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
 import {
+  BUSINESS_DAY_CUTOFF_HOUR,
   getAccountingDateRange,
-  getDateRange,
   getMostRecentTashkentCutoffUTC,
-  getTashkentDayRangeUTC,
-  getTodayRange,
+  getTashkentBusinessDayRangeUTC,
 } from "../../utils/date";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
@@ -56,7 +55,7 @@ export const OpenAttractionReportService = async (
   const sequelize = AttractionReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
-    const { start, end } = getTodayRange();
+    const { startDate, endDate } = getTashkentBusinessDayRangeUTC();
     const now = new Date();
 
     /*
@@ -93,8 +92,9 @@ export const OpenAttractionReportService = async (
             AttractionReportStatusTypes.STOPPED,
           ],
         },
-        createdAt: {
-          [Op.between]: [start, end],
+        opened_at: {
+          [Op.gte]: startDate,
+          [Op.lt]: endDate,
         },
       },
       transaction,
@@ -120,8 +120,9 @@ export const OpenAttractionReportService = async (
       where: {
         attraction: attractionID,
         report_type: AttractionReportTypes.ZREPORT,
-        createdAt: {
-          [Op.between]: [start, end],
+        opened_at: {
+          [Op.gte]: startDate,
+          [Op.lt]: endDate,
         },
       },
       transaction,
@@ -395,8 +396,6 @@ export const UpdateAttractionReportStatusService = async (
   const sequelize = AttractionReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction: Transaction) => {
-    const { startDate, endDate } = getTashkentDayRangeUTC();
-
     const now = new Date();
 
     /*
@@ -451,15 +450,14 @@ export const UpdateAttractionReportStatusService = async (
     });
 
     /*
-     * Report faqat bugungi reportlar orasidan topiladi.
+     * Report ID global bo‘lgani uchun kalendar kuniga bog‘lamaymiz. Bu
+     * 00:00-02:59 oralig‘ida oldingi business-day reportini yopishga imkon
+     * beradi.
      */
     const report = await AttractionReportModel.findOne({
       where: {
         id: reportID,
         attraction: attractionID,
-        createdAt: {
-          [Op.between]: [startDate, endDate],
-        },
       },
       transaction,
       lock: transaction.LOCK.UPDATE,
@@ -513,7 +511,7 @@ export const UpdateAttractionReportStatusService = async (
         AttractionReportStatusTypes.CLOSED,
       ],
 
-      [AttractionReportStatusTypes.CLOSED]: [AttractionReportStatusTypes.OPEN],
+      [AttractionReportStatusTypes.CLOSED]: [],
       [AttractionReportStatusTypes.CONFIRMED]: [],
     };
 
@@ -743,58 +741,46 @@ export const GetTodayAttractionReportsService = async (
     throw BadRequest("Attraction ID is invalid!");
   }
 
-  const { start, end } = getDateRange(query.date);
+  const { startDate, endDate } = getTashkentBusinessDayRangeUTC(query.date);
 
-  const [zReport, xReports] = await Promise.all([
-    AttractionReportModel.findOne({
-      where: {
-        attraction: attractionID,
-
-        report_type: AttractionReportTypes.ZREPORT,
-
-        createdAt: {
-          [Op.between]: [start, end],
-        },
+  const zReport = await AttractionReportModel.findOne({
+    where: {
+      attraction: attractionID,
+      report_type: AttractionReportTypes.ZREPORT,
+      opened_at: {
+        [Op.gte]: startDate,
+        [Op.lt]: endDate,
       },
-
-      include: [
-        {
-          model: EmployeeModel,
-
-          as: "operators",
-
-          required: false,
-
-          attributes: ["id", "firstname", "lastname", "file"],
-        },
-      ],
-
-      order: [["id", "DESC"]],
-    }),
-
-    AttractionReportModel.findAll({
-      where: {
-        attraction: attractionID,
-
-        report_type: AttractionReportTypes.XREPORT,
-
-        createdAt: {
-          [Op.between]: [start, end],
-        },
+    },
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+        required: false,
+        attributes: ["id", "firstname", "lastname", "file"],
       },
+    ],
+    order: [["id", "DESC"]],
+  });
 
-      include: [
-        {
-          model: EmployeeModel,
-          as: "operators",
-          required: false,
-          attributes: ["id", "firstname", "lastname", "file"],
+  const xReports = zReport
+    ? await AttractionReportModel.findAll({
+        where: {
+          attraction: attractionID,
+          report_type: AttractionReportTypes.XREPORT,
+          zreport: Number(zReport.id),
         },
-      ],
-
-      order: [["id", "DESC"]],
-    }),
-  ]);
+        include: [
+          {
+            model: EmployeeModel,
+            as: "operators",
+            required: false,
+            attributes: ["id", "firstname", "lastname", "file"],
+          },
+        ],
+        order: [["id", "DESC"]],
+      })
+    : [];
 
   const xReportIDs = xReports.map((report) => Number(report.id));
 
@@ -914,7 +900,7 @@ export const GetTodayAttractionReportsService = async (
 export const GetAttractionZReportsService = async (
   query: GetAttractionZReportsQuery,
 ) => {
-  const { start, end } = getDateRange(query.date);
+  const { startDate, endDate } = getTashkentBusinessDayRangeUTC(query.date);
   const requestedPromotionCodes = [
     ...new Set(
       (Array.isArray(query.promotion_codes)
@@ -941,8 +927,9 @@ export const GetAttractionZReportsService = async (
   const baseReportWhere = {
     report_type: AttractionReportTypes.ZREPORT,
 
-    createdAt: {
-      [Op.between]: [start, end],
+    opened_at: {
+      [Op.gte]: startDate,
+      [Op.lt]: endDate,
     },
   };
 
@@ -1598,7 +1585,10 @@ export const GetNotConfirmedAttractionZReportDatesService = async () => {
   const reports = await sequelize.query<{ report_date: string }>(
     `
       SELECT DISTINCT
-        DATE(opened_at AT TIME ZONE 'Asia/Tashkent') AS report_date
+        DATE(
+          (opened_at AT TIME ZONE 'Asia/Tashkent')
+          - (:cutoffHours * INTERVAL '1 hour')
+        ) AS report_date
       FROM attraction_reports
       WHERE deleted_at IS NULL
         AND report_type = :reportType
@@ -1609,6 +1599,7 @@ export const GetNotConfirmedAttractionZReportDatesService = async () => {
       replacements: {
         reportType: AttractionReportTypes.ZREPORT,
         confirmedStatus: AttractionReportStatusTypes.CONFIRMED,
+        cutoffHours: BUSINESS_DAY_CUTOFF_HOUR,
       },
       type: QueryTypes.SELECT,
     },
@@ -1624,7 +1615,11 @@ export const AutoCloseUnclosedAttractionReportsService = async (
 
   return await sequelize.transaction(async (transaction) => {
     const now = new Date();
-    const cutoff = getMostRecentTashkentCutoffUTC(referenceTime, 3, 0);
+    const cutoff = getMostRecentTashkentCutoffUTC(
+      referenceTime,
+      BUSINESS_DAY_CUTOFF_HOUR,
+      0,
+    );
 
     const closeableStatuses = [
       AttractionReportStatusTypes.OPEN,

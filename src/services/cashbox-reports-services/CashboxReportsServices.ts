@@ -8,11 +8,10 @@ import {
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
 import {
+  BUSINESS_DAY_CUTOFF_HOUR,
   getAccountingDateRange,
-  getDateRange,
   getMostRecentTashkentCutoffUTC,
-  getTashkentDayRangeUTC,
-  getTodayRange,
+  getTashkentBusinessDayRangeUTC,
 } from "../../utils/date";
 import {
   AccountingCashboxReportsDTO,
@@ -74,7 +73,7 @@ export const OpenCashboxReportService = async (
       throw Forbidden("Operator is not assigned to this cashbox!");
     }
 
-    const { startDate, endDate } = getTashkentDayRangeUTC();
+    const { startDate, endDate } = getTashkentBusinessDayRangeUTC();
 
     const openedXReport = await CashboxReportModel.findOne({
       where: {
@@ -86,8 +85,9 @@ export const OpenCashboxReportService = async (
             CashboxReportStatusTypes.STOPPED,
           ],
         },
-        created_at: {
-          [Op.between]: [startDate, endDate],
+        opened_at: {
+          [Op.gte]: startDate,
+          [Op.lt]: endDate,
         },
       },
       transaction: transaction,
@@ -108,8 +108,9 @@ export const OpenCashboxReportService = async (
             CashboxReportStatusTypes.STOPPED,
           ],
         },
-        created_at: {
-          [Op.between]: [startDate, endDate],
+        opened_at: {
+          [Op.gte]: startDate,
+          [Op.lt]: endDate,
         },
       },
       transaction: transaction,
@@ -210,46 +211,46 @@ export const GetTodayCashboxReportsService = async (
     throw BadRequest("Cashbox ID is invalid!");
   }
 
-  const { startDate, endDate } = getTashkentDayRangeUTC(query.date);
+  const { startDate, endDate } = getTashkentBusinessDayRangeUTC(query.date);
 
-  const [zReport, xReports] = await Promise.all([
-    CashboxReportModel.findOne({
-      where: {
-        cashbox: cashboxID,
-        report_type: CashboxReportTypes.ZREPORT,
-        created_at: {
-          [Op.between]: [startDate, endDate],
-        },
+  const zReport = await CashboxReportModel.findOne({
+    where: {
+      cashbox: cashboxID,
+      report_type: CashboxReportTypes.ZREPORT,
+      opened_at: {
+        [Op.gte]: startDate,
+        [Op.lt]: endDate,
       },
-      include: [
-        {
-          model: EmployeeModel,
-          as: "operators",
-          required: false,
-          attributes: ["id", "firstname", "lastname", "file"],
-        },
-      ],
-      order: [["id", "DESC"]],
-    }),
-    CashboxReportModel.findAll({
-      where: {
-        cashbox: cashboxID,
-        report_type: CashboxReportTypes.XREPORT,
-        created_at: {
-          [Op.between]: [startDate, endDate],
-        },
+    },
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+        required: false,
+        attributes: ["id", "firstname", "lastname", "file"],
       },
-      include: [
-        {
-          model: EmployeeModel,
-          as: "operators",
-          required: false,
-          attributes: ["id", "firstname", "lastname", "file"],
+    ],
+    order: [["id", "DESC"]],
+  });
+
+  const xReports = zReport
+    ? await CashboxReportModel.findAll({
+        where: {
+          cashbox: cashboxID,
+          report_type: CashboxReportTypes.XREPORT,
+          zreport: Number(zReport.id),
         },
-      ],
-      order: [["id", "DESC"]],
-    }),
-  ]);
+        include: [
+          {
+            model: EmployeeModel,
+            as: "operators",
+            required: false,
+            attributes: ["id", "firstname", "lastname", "file"],
+          },
+        ],
+        order: [["id", "DESC"]],
+      })
+    : [];
 
   return CashboxReportsTodayDTO({
     zreport: zReport
@@ -311,16 +312,12 @@ export const StatusCashboxReportService = async (
   const sequelize = CashboxReportModel.sequelize!;
 
   return await sequelize.transaction(async (dbTransaction) => {
-    const { startDate, endDate } = getTashkentDayRangeUTC();
     const now = new Date();
 
     const reportWhere: any = {
       id: reportID,
       cashbox: cashboxID,
       report_type: body.report_type,
-      created_at: {
-        [Op.between]: [startDate, endDate],
-      },
     };
 
     /*
@@ -366,7 +363,7 @@ export const StatusCashboxReportService = async (
         CashboxReportStatusTypes.CLOSED,
       ],
 
-      [CashboxReportStatusTypes.CLOSED]: [CashboxReportStatusTypes.OPEN],
+      [CashboxReportStatusTypes.CLOSED]: [],
     };
 
     const transitions = allowedTransitions[report.status] ?? [];
@@ -558,12 +555,13 @@ export const StatusCashboxReportService = async (
 };
 
 export const GetZReportsService = async (query: GetZReportsQuery) => {
-  const { start, end } = getDateRange(query.date);
+  const { startDate, endDate } = getTashkentBusinessDayRangeUTC(query.date);
 
   const baseReportWhere = {
     report_type: CashboxReportTypes.ZREPORT,
-    created_at: {
-      [Op.between]: [start, end],
+    opened_at: {
+      [Op.gte]: startDate,
+      [Op.lt]: endDate,
     },
   };
 
@@ -789,18 +787,21 @@ export const GetNotConfirmedZReportDatesService = async () => {
   const reports = await sequelize.query<{ report_date: string }>(
     `
       SELECT DISTINCT
-        DATE(report_date AT TIME ZONE 'Asia/Tashkent') AS report_date
+        DATE(
+          (opened_at AT TIME ZONE 'Asia/Tashkent')
+          - (:cutoffHours * INTERVAL '1 hour')
+        ) AS report_date
       FROM cashbox_reports
       WHERE deleted_at IS NULL
         AND report_type = :reportType
         AND status != :confirmedStatus
-        AND report_date IS NOT NULL
       ORDER BY report_date DESC
     `,
     {
       replacements: {
         reportType: CashboxReportTypes.ZREPORT,
         confirmedStatus: CashboxReportStatusTypes.CONFIRMED,
+        cutoffHours: BUSINESS_DAY_CUTOFF_HOUR,
       },
       type: QueryTypes.SELECT,
     },
@@ -815,7 +816,11 @@ export const AutoCloseUnclosedXReportsService = async (
   const sequelize = CashboxReportModel.sequelize!;
   return await sequelize.transaction(async (transaction) => {
     const now = new Date();
-    const cutoff = getMostRecentTashkentCutoffUTC(referenceTime, 3, 0);
+    const cutoff = getMostRecentTashkentCutoffUTC(
+      referenceTime,
+      BUSINESS_DAY_CUTOFF_HOUR,
+      0,
+    );
 
     const notClosedStatuses = [
       CashboxReportStatusTypes.OPEN,
