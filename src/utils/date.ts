@@ -3,6 +3,8 @@ import { BadRequest } from "../exceptions";
 const TASHKENT_OFFSET_HOURS = 5;
 const TASHKENT_OFFSET_MS = TASHKENT_OFFSET_HOURS * 60 * 60 * 1000;
 
+export const BUSINESS_DAY_CUTOFF_HOUR = 3;
+
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 const parseDateTime = (date: string | Date) => {
@@ -48,6 +50,60 @@ export const getTashkentDateOnly = (date = new Date()) => {
   const day = String(tashkentDate.getUTCDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+};
+
+/**
+ * Returns the Tashkent business date containing the supplied instant.
+ *
+ * A business day starts at 03:00 Asia/Tashkent and ends immediately before
+ * 03:00 on the following calendar day. Therefore 00:00-02:59 belongs to the
+ * previous business date.
+ */
+export const getTashkentBusinessDateOnly = (date = new Date()) => {
+  const parsed = parseDateTime(date);
+  const businessDate = new Date(
+    parsed.getTime() +
+      TASHKENT_OFFSET_MS -
+      BUSINESS_DAY_CUTOFF_HOUR * 60 * 60 * 1000,
+  );
+
+  const year = businessDate.getUTCFullYear();
+  const month = String(businessDate.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(businessDate.getUTCDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Returns a half-open UTC range [startDate, endDate) for a Tashkent business
+ * date. An explicit YYYY-MM-DD value identifies that business date; when the
+ * value is omitted, the business date is derived from the current instant.
+ */
+export const getTashkentBusinessDayRangeUTC = (date?: string | Date) => {
+  const businessDate =
+    typeof date === "string"
+      ? date
+      : getTashkentBusinessDateOnly(date ?? new Date());
+  const { year, month, day } = parseDateOnly(businessDate);
+
+  const startDate = new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day,
+      BUSINESS_DAY_CUTOFF_HOUR - TASHKENT_OFFSET_HOURS,
+      0,
+      0,
+      0,
+    ),
+  );
+  const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+
+  return {
+    businessDate,
+    startDate,
+    endDate,
+  };
 };
 
 export const getTashkentDayRangeUTC = (date?: string | Date) => {

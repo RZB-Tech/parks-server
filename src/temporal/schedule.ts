@@ -10,6 +10,7 @@ import {
   openOnlineDailyZReportWorkflow,
 } from "./workflows/cashbox-report.workflow";
 import { closeUnclosedAttractionReportsWorkflow } from "./workflows/attraction-report.workflow";
+import { BUSINESS_DAY_CUTOFF_HOUR } from "../utils/date";
 
 const ensureSchedule = async (data: {
   scheduleId: string;
@@ -74,7 +75,7 @@ export const ensureTemporalSchedules = async () => {
     scheduleId: "nightly-close-unclosed-xreports",
     workflowType: closeUnclosedXReportsWorkflow,
     taskQueue: "cashbox-report-queue",
-    hour: 3,
+    hour: BUSINESS_DAY_CUTOFF_HOUR,
     minute: 0,
   });
 
@@ -82,7 +83,7 @@ export const ensureTemporalSchedules = async () => {
     scheduleId: "nightly-close-unclosed-attraction-reports",
     workflowType: closeUnclosedAttractionReportsWorkflow,
     taskQueue: "attraction-report-queue",
-    hour: 3,
+    hour: BUSINESS_DAY_CUTOFF_HOUR,
     minute: 0,
   });
 

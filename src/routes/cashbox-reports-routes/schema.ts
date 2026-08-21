@@ -421,9 +421,9 @@ export const openReportSchema = {
 };
 
 export const cashboxReportsTodaySchema = {
-  summary: "Get cashbox reports by date",
+  summary: "Get cashbox reports by business date",
   description:
-    "Gets cashbox reports for a YYYY-MM-DD date. Defaults to the current Tashkent date when omitted.",
+    "Gets cashbox reports for a Tashkent business date running from 03:00 through the next day's 03:00. Defaults to the current business date when omitted.",
   tags: ["Cashbox Reports route"],
   params: {
     type: "object",
@@ -445,7 +445,7 @@ export const cashboxReportsTodaySchema = {
         format: "date",
         pattern: "^\\d{4}-\\d{2}-\\d{2}$",
         description:
-          "Optional date in YYYY-MM-DD format. Time is not required.",
+          "Optional business date in YYYY-MM-DD format. The range starts at 03:00 Asia/Tashkent.",
       },
     },
   },
@@ -531,7 +531,8 @@ export const statusCashboxReportSchema = {
 
 export const getZReportsSchema = {
   summary: "Get Z reports",
-  description: "Get Z reports by date for admin panel",
+  description:
+    "Get Z reports by Tashkent business date (03:00 to the next 03:00) for admin panel",
   tags: ["Cashbox Reports route"],
 
   querystring: {
@@ -540,7 +541,8 @@ export const getZReportsSchema = {
     properties: {
       date: {
         type: "string",
-        description: "Date format: YYYY-MM-DD",
+        description:
+          "Business date in YYYY-MM-DD format. The range starts at 03:00 Asia/Tashkent.",
       },
     },
   },
@@ -749,6 +751,8 @@ export const getAccountingCashboxReportsSchema = {
 export const getNotConfirmedZReportDatesSchema = {
   tags: ["Cashbox Reports route"],
   summary: "Get not confirmed zreport dates",
+  description:
+    "Get Tashkent business dates (03:00 to the next 03:00) that contain unconfirmed cashbox Z reports.",
   response: {
     200: successAnswerTemplate({
       dates: {

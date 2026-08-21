@@ -543,9 +543,9 @@ export const attractionReportsTodayProperties = {
 };
 
 export const getTodayAttractionReportsSchema = {
-  summary: "Get attraction reports by date",
+  summary: "Get attraction reports by business date",
   description:
-    "Gets the selected attraction's Z report and X reports for a YYYY-MM-DD date. Defaults to the current Tashkent date when omitted.",
+    "Gets the selected attraction's Z report and X reports for a Tashkent business date running from 03:00 through the next day's 03:00. Defaults to the current business date when omitted.",
   tags: ["Attraction reports route"],
   headers: authorizationHeaders,
   params: {
@@ -569,7 +569,7 @@ export const getTodayAttractionReportsSchema = {
         format: "date",
         pattern: "^\\d{4}-\\d{2}-\\d{2}$",
         description:
-          "Optional date in YYYY-MM-DD format. Time is not required.",
+          "Optional business date in YYYY-MM-DD format. The range starts at 03:00 Asia/Tashkent.",
       },
     },
   },
@@ -768,7 +768,7 @@ export const attractionWithZReportsProperties = {
 export const getAttractionZReportsSchema = {
   summary: "Get attraction Z reports",
   description:
-    "Get attraction Z reports with promotion and tariff breakdowns by date for admin panel.",
+    "Get attraction Z reports with promotion and tariff breakdowns by Tashkent business date (03:00 to the next 03:00) for admin panel.",
   tags: ["Attraction reports route"],
   headers: authorizationHeaders,
   querystring: {
@@ -778,7 +778,8 @@ export const getAttractionZReportsSchema = {
       date: {
         type: "string",
         format: "date",
-        description: "Date format: YYYY-MM-DD",
+        description:
+          "Business date in YYYY-MM-DD format. The range starts at 03:00 Asia/Tashkent.",
       },
 
       promotion_codes: {
@@ -1170,7 +1171,8 @@ export const getAccountingAttractionReportsSchema = {
 
 export const getNotConfirmedAttractionZReportDatesSchema = {
   summary: "Get not confirmed attraction Z report dates",
-  description: "Get dates that contain unconfirmed attraction Z reports.",
+  description:
+    "Get Tashkent business dates (03:00 to the next 03:00) that contain unconfirmed attraction Z reports.",
   tags: ["Attraction reports route"],
   headers: authorizationHeaders,
   response: {
