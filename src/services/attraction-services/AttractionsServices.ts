@@ -173,7 +173,11 @@ export const GetAttractionsService = async (query: GetAttractionsQuery) => {
     where,
     limit,
     offset,
-    order: [["id", "DESC"]],
+    order: [
+      [sequelize.fn("LOWER", sequelize.col("name")), "ASC"],
+      ["name", "ASC"],
+      ["id", "ASC"],
+    ],
   });
 
   const attractionsData = rows.map((attraction) =>
