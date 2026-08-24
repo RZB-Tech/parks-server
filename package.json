@@ -9,7 +9,7 @@
     "dev:server": "nodemon --watch build --delay 500ms --exec \"node build/server.js\"",
     "dev:schedule": "node build/temporal/schedule.js",
     "build": "tsc",
-    "test": "node --test -r ts-node/register/transpile-only tests/date.test.ts",
+    "test": "node --test -r ts-node/register/transpile-only tests/*.test.ts",
     "start": "node build/server.js",
     "temporal:news": "nodemon build/temporal/workers/news.worker.js"
   },
