@@ -247,7 +247,9 @@ export const GetOrCreateOnlineDailyZReportService = async (
    */
   await CashboxReportModel.update(
     {
-      status: CashboxReportStatusTypes.CLOSED,
+      operator: null,
+      checked_by: null,
+      status: CashboxReportStatusTypes.CONFIRMED,
       closed_at: now,
     },
     {
@@ -364,7 +366,8 @@ export const CloseOnlineDailyZReportService = async (
     const [closedReports] = await CashboxReportModel.update(
       {
         operator: null,
-        status: CashboxReportStatusTypes.CLOSED,
+        checked_by: null,
+        status: CashboxReportStatusTypes.CONFIRMED,
         closed_at: now,
       },
       {
@@ -377,6 +380,29 @@ export const CloseOnlineDailyZReportService = async (
               CashboxReportStatusTypes.STOPPED,
             ],
           },
+          opened_at: {
+            [Op.lte]: cutoff,
+          },
+        },
+        transaction,
+      },
+    );
+
+    /*
+     * Reconcile online Z-reports that were auto-closed by older deployments.
+     * Keep their original closed_at value while marking them system-confirmed.
+     */
+    await CashboxReportModel.update(
+      {
+        operator: null,
+        checked_by: null,
+        status: CashboxReportStatusTypes.CONFIRMED,
+      },
+      {
+        where: {
+          cashbox: cashbox.id,
+          report_type: CashboxReportTypes.ZREPORT,
+          status: CashboxReportStatusTypes.CLOSED,
           opened_at: {
             [Op.lte]: cutoff,
           },
