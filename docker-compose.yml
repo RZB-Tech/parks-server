@@ -6,6 +6,8 @@ services:
     env_file: .env
     environment:
       SERVER_HOST: 0.0.0.0
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
     ports:
       - "127.0.0.1:${SERVER_PORT:-3000}:${SERVER_PORT:-3000}"
     depends_on:
@@ -22,6 +24,9 @@ services:
   temporal-schedule:
     image: ${IMAGE:-ghcr.io/rzb-tech/parks-server:dev}
     env_file: .env
+    environment:
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
     command: ["node", "build/temporal/schedule.js"]
     depends_on:
       - app
