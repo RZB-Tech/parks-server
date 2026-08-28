@@ -27,6 +27,7 @@ import {
 import { GetOnlinePaymentDailyReportQuery } from "../../controllers/online-payment-reports-controllers/types";
 
 export const ONLINE_PAYMENTS_CASHBOX_KEY = "online_payments";
+export const ONLINE_PAYMENTS_CASHBOX_NAME = "Касса приложений";
 const ONLINE_PAYMENTS_CASHBOX_LOCK =
   "parks-server:ensure-online-payments-cashbox";
 
@@ -50,14 +51,32 @@ export const EnsureOnlinePaymentsCashboxService = async () => {
       lock: transaction.LOCK.UPDATE,
     });
 
+    if (!cashbox) {
+      cashbox = await CashboxModel.findOne({
+        where: {
+          name: ONLINE_PAYMENTS_CASHBOX_NAME,
+          system_key: null,
+        },
+        paranoid: false,
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+    }
+
     if (cashbox) {
       if (cashbox.deleted_at) {
         await cashbox.restore({ transaction });
       }
 
-      if (cashbox.type !== CashboxTypes.VIRTUAL) {
+      if (
+        cashbox.type !== CashboxTypes.VIRTUAL ||
+        cashbox.system_key !== ONLINE_PAYMENTS_CASHBOX_KEY
+      ) {
         await cashbox.update(
-          { type: CashboxTypes.VIRTUAL },
+          {
+            type: CashboxTypes.VIRTUAL,
+            system_key: ONLINE_PAYMENTS_CASHBOX_KEY,
+          },
           { transaction },
         );
       }
@@ -67,7 +86,7 @@ export const EnsureOnlinePaymentsCashboxService = async () => {
 
     cashbox = await CashboxModel.create(
       {
-        name: "Касса приложений",
+        name: ONLINE_PAYMENTS_CASHBOX_NAME,
         place: "Telegram бот, мобильное приложение",
         status: CashboxStatusTypes.INACTIVE,
         type: CashboxTypes.VIRTUAL,

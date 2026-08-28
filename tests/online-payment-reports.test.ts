@@ -12,8 +12,10 @@ import {
 } from "../src/plugins/db/postgresql/db";
 import {
   CloseOnlineDailyZReportService,
+  EnsureOnlinePaymentsCashboxService,
   GetOrCreateOnlineDailyZReportService,
   ONLINE_PAYMENTS_CASHBOX_KEY,
+  ONLINE_PAYMENTS_CASHBOX_NAME,
 } from "../src/services/payment-services/OnlinePaymentReportServices";
 
 const transaction = {
@@ -130,4 +132,83 @@ test("stale online Z-reports are recovered directly as confirmed", async (t) => 
   assert.ok(staleReportUpdate?.values.closed_at instanceof Date);
   assert.ok(staleReportUpdate?.options.where.report_date[Op.lt] instanceof Date);
   assert.equal(result.report, currentReport);
+});
+
+test("recovery opens today's online Z-report when it is still missing at 10:00", async (t) => {
+  let createdReportData: any;
+  let cashboxUpdateData: any;
+  const cashbox = { id: 77 } as any;
+
+  t.mock.method(CashboxModel, "findOne", async () => cashbox);
+  t.mock.method(CashboxReportModel, "update", async () => [0] as any);
+  t.mock.method(CashboxReportModel, "findOne", async () => null);
+  t.mock.method(
+    CashboxReportModel,
+    "create",
+    async (data: any) => {
+      createdReportData = data;
+      return { id: 92, ...data } as any;
+    },
+  );
+  t.mock.method(
+    CashboxModel,
+    "update",
+    async (data: any) => {
+      cashboxUpdateData = data;
+      return [1] as any;
+    },
+  );
+
+  const result = await GetOrCreateOnlineDailyZReportService(
+    transaction,
+    "2026-08-28T05:00:00.000Z",
+  );
+
+  assert.equal(createdReportData.status, CashboxReportStatusTypes.OPEN);
+  assert.equal(createdReportData.cashbox, 77);
+  assert.equal(
+    createdReportData.report_date.toISOString(),
+    "2026-08-27T19:00:00.000Z",
+  );
+  assert.equal(cashboxUpdateData.status, CashboxStatusTypes.ACTIVE);
+  assert.equal(result.report.id, 92);
+});
+
+test("online cashbox bootstrap reuses a legacy manually-created cashbox", async (t) => {
+  const findOptions: any[] = [];
+  let updatedValues: any;
+  const legacyCashbox = {
+    id: 77,
+    deleted_at: null,
+    type: CashboxTypes.PHYSICAL,
+    system_key: null,
+    update: async (values: any) => {
+      updatedValues = values;
+    },
+  } as any;
+
+  t.mock.method(
+    CashboxModel.sequelize!,
+    "transaction",
+    async (callback: any) => callback(transaction),
+  );
+  t.mock.method(CashboxModel.sequelize!, "query", async () => [] as any);
+  t.mock.method(CashboxModel, "findOne", async (options: any) => {
+    findOptions.push(options);
+    return findOptions.length === 1 ? null : legacyCashbox;
+  });
+  t.mock.method(CashboxModel, "create", async () => {
+    assert.fail("legacy online cashbox must be reused");
+  });
+
+  const result = await EnsureOnlinePaymentsCashboxService();
+
+  assert.equal(findOptions[0].where.system_key, ONLINE_PAYMENTS_CASHBOX_KEY);
+  assert.equal(findOptions[1].where.name, ONLINE_PAYMENTS_CASHBOX_NAME);
+  assert.equal(findOptions[1].where.system_key, null);
+  assert.deepEqual(updatedValues, {
+    type: CashboxTypes.VIRTUAL,
+    system_key: ONLINE_PAYMENTS_CASHBOX_KEY,
+  });
+  assert.equal(result, legacyCashbox);
 });
