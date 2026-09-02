@@ -12,6 +12,7 @@ import {
   getAccountingDateRange,
   getMostRecentTashkentCutoffUTC,
   getTashkentBusinessDayRangeUTC,
+  getTashkentDayRangeUTC,
 } from "../../utils/date";
 import {
   AccountingCashboxReportsDTO,
@@ -211,16 +212,31 @@ export const GetTodayCashboxReportsService = async (
     throw BadRequest("Cashbox ID is invalid!");
   }
 
-  const { startDate, endDate } = getTashkentBusinessDayRangeUTC(query.date);
+  const cashbox = await CashboxModel.findByPk(cashboxID, {
+    attributes: ["type"],
+  });
+  const isVirtualCashbox = cashbox?.type === CashboxTypes.VIRTUAL;
+  const { startDate, endDate } = isVirtualCashbox
+    ? getTashkentDayRangeUTC(query.date)
+    : getTashkentBusinessDayRangeUTC(query.date);
+  const dateWhere = isVirtualCashbox
+    ? {
+        report_date: {
+          [Op.between]: [startDate, endDate],
+        },
+      }
+    : {
+        opened_at: {
+          [Op.gte]: startDate,
+          [Op.lt]: endDate,
+        },
+      };
 
   const zReport = await CashboxReportModel.findOne({
     where: {
       cashbox: cashboxID,
       report_type: CashboxReportTypes.ZREPORT,
-      opened_at: {
-        [Op.gte]: startDate,
-        [Op.lt]: endDate,
-      },
+      ...dateWhere,
     },
     include: [
       {
@@ -260,6 +276,7 @@ export const GetTodayCashboxReportsService = async (
     xreports: xReports.map(
       (report) => report.get({ plain: true }) as CashboxReportWithOperatorPlain,
     ),
+    date_only: isVirtualCashbox,
   });
 };
 
@@ -555,21 +572,60 @@ export const StatusCashboxReportService = async (
 };
 
 export const GetZReportsService = async (query: GetZReportsQuery) => {
-  const { startDate, endDate } = getTashkentBusinessDayRangeUTC(query.date);
+  const businessRange = getTashkentBusinessDayRangeUTC(query.date);
+  const calendarRange = getTashkentDayRangeUTC(query.date);
 
-  const baseReportWhere = {
+  const cashboxes = await CashboxModel.findAll({
+    order: [["id", "DESC"]],
+  });
+  const virtualCashboxIDs = cashboxes
+    .filter((cashbox) => cashbox.type === CashboxTypes.VIRTUAL)
+    .map((cashbox) => Number(cashbox.id));
+
+  const baseReportWhere: any = {
     report_type: CashboxReportTypes.ZREPORT,
-    opened_at: {
-      [Op.gte]: startDate,
-      [Op.lt]: endDate,
-    },
   };
+
+  if (virtualCashboxIDs.length === 0) {
+    baseReportWhere.opened_at = {
+      [Op.gte]: businessRange.startDate,
+      [Op.lt]: businessRange.endDate,
+    };
+  } else {
+    baseReportWhere[Op.or] = [
+      {
+        cashbox: {
+          [Op.in]: virtualCashboxIDs,
+        },
+        report_date: {
+          [Op.between]: [calendarRange.startDate, calendarRange.endDate],
+        },
+      },
+      {
+        cashbox: {
+          [Op.notIn]: virtualCashboxIDs,
+        },
+        opened_at: {
+          [Op.gte]: businessRange.startDate,
+          [Op.lt]: businessRange.endDate,
+        },
+      },
+    ];
+  }
 
   const allReports = await CashboxReportModel.findAll({
     where: baseReportWhere,
+    include: [
+      {
+        model: EmployeeModel,
+        as: "operators",
+        required: false,
+        attributes: ["id", "firstname", "lastname", "file"],
+      },
+    ],
     order: [
       ["cashbox", "ASC"],
-      ["created_at", "ASC"],
+      ["id", "DESC"],
     ],
   });
 
@@ -614,36 +670,20 @@ export const GetZReportsService = async (query: GetZReportsQuery) => {
     }
   }
 
-  const cashboxes = await CashboxModel.findAll({
-    order: [["id", "DESC"]],
-    include: [
-      {
-        model: CashboxReportModel,
-        as: "reports",
-        required: false,
-        separate: true,
-        where: baseReportWhere,
-        include: [
-          {
-            model: EmployeeModel,
-            as: "operators",
-            required: false,
-            attributes: ["id", "firstname", "lastname", "file"],
-          },
-        ],
-        order: [["id", "DESC"]],
-      },
-    ],
-  });
-
   return {
     stats,
     totals,
-    cashboxes: cashboxes.map((cashbox) =>
-      ZReportCashboxWithReportsDTO(
-        cashbox.get({ plain: true }) as CashboxWithZReportsPlain,
-      ),
-    ),
+    cashboxes: cashboxes.map((cashbox) => {
+      const cashboxPlain = cashbox.get({
+        plain: true,
+      }) as CashboxWithZReportsPlain;
+
+      cashboxPlain.reports = allReportsPlain.filter(
+        (report) => Number(report.cashbox) === Number(cashbox.id),
+      );
+
+      return ZReportCashboxWithReportsDTO(cashboxPlain);
+    }),
   };
 };
 
@@ -786,15 +826,21 @@ export const GetNotConfirmedZReportDatesService = async () => {
   const sequelize = CashboxReportModel.sequelize!;
   const reports = await sequelize.query<{ report_date: string }>(
     `
-      SELECT DISTINCT
-        DATE(
-          (opened_at AT TIME ZONE 'Asia/Tashkent')
+      SELECT DISTINCT CASE
+        WHEN cashboxes.type = :virtualCashboxType
+          THEN DATE(cashbox_reports.report_date AT TIME ZONE 'Asia/Tashkent')
+        ELSE DATE(
+          (cashbox_reports.opened_at AT TIME ZONE 'Asia/Tashkent')
           - (:cutoffHours * INTERVAL '1 hour')
-        ) AS report_date
+        )
+      END AS report_date
       FROM cashbox_reports
-      WHERE deleted_at IS NULL
-        AND report_type = :reportType
-        AND status != :confirmedStatus
+      INNER JOIN cashboxes
+        ON cashboxes.id = cashbox_reports.cashbox
+        AND cashboxes.deleted_at IS NULL
+      WHERE cashbox_reports.deleted_at IS NULL
+        AND cashbox_reports.report_type = :reportType
+        AND cashbox_reports.status != :confirmedStatus
       ORDER BY report_date DESC
     `,
     {
@@ -802,6 +848,7 @@ export const GetNotConfirmedZReportDatesService = async () => {
         reportType: CashboxReportTypes.ZREPORT,
         confirmedStatus: CashboxReportStatusTypes.CONFIRMED,
         cutoffHours: BUSINESS_DAY_CUTOFF_HOUR,
+        virtualCashboxType: CashboxTypes.VIRTUAL,
       },
       type: QueryTypes.SELECT,
     },
