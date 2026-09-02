@@ -14,9 +14,10 @@ declare type CashboxReportOperatorPlain = Pick<
 
 declare interface CashboxReportResponseDTO extends Omit<
   CashboxReportModelI,
-  "operator"
+  "operator" | "report_date"
 > {
   operator: CashboxReportOperatorDTO | null;
+  report_date: Date | string;
 }
 
 type ZReportCashboxPlain = {

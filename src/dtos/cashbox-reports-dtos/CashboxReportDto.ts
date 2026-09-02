@@ -1,7 +1,21 @@
-import { AccountingCashboxReportDTO, AccountingZReportAmountDTO, CashboxReportOperatorPlain, CashboxReportResponseDTO, CashboxReportWithOperatorPlain, CashboxWithZReportsPlain, ZReportCashboxPlain } from "./types";
+import {
+  AccountingCashboxReportDTO,
+  AccountingZReportAmountDTO,
+  CashboxReportOperatorPlain,
+  CashboxReportResponseDTO,
+  CashboxReportWithOperatorPlain,
+  CashboxWithZReportsPlain,
+  ZReportCashboxPlain,
+} from "./types";
+import { CashboxTypes } from "../../models/postgresql/cashbox-model/enums";
+import { getTashkentDateOnly } from "../../utils/date";
+
+const reportDateDTO = (data: CashboxReportWithOperatorPlain, dateOnly: boolean) =>
+  dateOnly ? getTashkentDateOnly(data.report_date) : data.report_date;
 
 export const CashboxXReportDTO = (
   data: CashboxReportWithOperatorPlain,
+  dateOnly = false,
 ): CashboxReportResponseDTO => {
   return {
     id: Number(data.id),
@@ -10,7 +24,7 @@ export const CashboxXReportDTO = (
     checked_by: data.checked_by !== null ? Number(data.checked_by) : null,
     report_type: data.report_type,
     zreport: data.zreport !== null ? Number(data.zreport) : null,
-    report_date: data.report_date,
+    report_date: reportDateDTO(data, dateOnly),
     status: data.status,
     description: data.description ?? null,
     opened_at: data.opened_at,
@@ -38,10 +52,15 @@ export const CashboxXReportDTO = (
 export const CashboxReportsTodayDTO = (data: {
   zreport: CashboxReportModelI | null;
   xreports: CashboxReportModelI[];
+  date_only?: boolean;
 }) => {
   return {
-    zreport: data.zreport ? CashboxXReportDTO(data.zreport) : null,
-    xreports: data.xreports.map(CashboxXReportDTO),
+    zreport: data.zreport
+      ? CashboxXReportDTO(data.zreport, data.date_only)
+      : null,
+    xreports: data.xreports.map((report) =>
+      CashboxXReportDTO(report, data.date_only),
+    ),
   };
 };
 
@@ -60,6 +79,8 @@ export const CashboxReportOperatorDTO = (
 };
 
 export const ZReportCashboxWithReportsDTO = (data: CashboxWithZReportsPlain) => {
+  const dateOnly = data.type === CashboxTypes.VIRTUAL;
+
   return {
     id: Number(data.id),
     name: data.name,
@@ -67,12 +88,15 @@ export const ZReportCashboxWithReportsDTO = (data: CashboxWithZReportsPlain) => 
     status: data.status,
     description: data.description,
 
-    zreports: Array.isArray(data.reports) ? data.reports.map(ZReportDTO) : [],
+    zreports: Array.isArray(data.reports)
+      ? data.reports.map((report) => ZReportDTO(report, dateOnly))
+      : [],
   };
 };
 
 export const ZReportDTO = (
   data: CashboxReportWithOperatorPlain,
+  dateOnly = false,
 ) => {
   return {
     id: Number(data.id),
@@ -81,7 +105,7 @@ export const ZReportDTO = (
     checked_by: data.checked_by !== null ? Number(data.checked_by) : null,
     report_type: data.report_type,
     zreport: data.zreport !== null ? Number(data.zreport) : null,
-    report_date: data.report_date,
+    report_date: reportDateDTO(data, dateOnly),
     status: data.status,
     opened_at: data.opened_at,
     closed_at: data.closed_at ?? null,
@@ -104,8 +128,6 @@ export const ZReportDTO = (
     created_at: data.created_at,
   };
 };
-
-
 
 export const emptyAccountingZReport = (): AccountingZReportAmountDTO => {
   return {
