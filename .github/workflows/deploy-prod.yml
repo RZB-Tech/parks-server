@@ -51,18 +51,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
+  deploy-central-park:
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: production
+    environment: production-central-park
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VDS_HOST }}
           username: ${{ secrets.VDS_USER }}
-          key: ${{ secrets.VDS_SSH_KEY }}
-          passphrase: ${{ secrets.VDS_SSH_KEY_PASSPHRASE }}
+          password: ${{ secrets.VDS_PASSWORD }}
           script: |
             set -e
             cd /opt/apps/parks-server
