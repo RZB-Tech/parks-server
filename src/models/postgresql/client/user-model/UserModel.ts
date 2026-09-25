@@ -24,6 +24,7 @@ export class UserModel
 
   public phone_verified_at!: Date | null;
   public registered_at!: Date | null;
+  public agreement_accepted!: boolean;
 
   // timestamps
   public readonly created_at!: Date;
@@ -103,6 +104,12 @@ export class UserModel
         registered_at: {
           type: DataTypes.DATE,
           allowNull: true,
+        },
+
+        agreement_accepted: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: false,
         },
       },
       {

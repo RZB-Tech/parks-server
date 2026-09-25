@@ -82,3 +82,31 @@ export const UpdateMeService = async (
 
   return UserDTO(user);
 };
+
+export const AcceptAgreementService = async (telegramID: number) => {
+  if (!telegramID || !Number.isSafeInteger(telegramID)) {
+    throw BadRequest("TELEGRAM_USER_ID_INVALID");
+  }
+
+  const user = await UserModel.findOne({
+    where: {
+      telegram_id: telegramID,
+    },
+  });
+
+  if (!user) {
+    throw BadRequest("USER_NOT_REGISTERED");
+  }
+
+  if (user.status === UserStatusTypes.BLOCKED) {
+    throw BadRequest("USER_BLOCKED");
+  }
+
+  if (!user.agreement_accepted) {
+    await user.update({ agreement_accepted: true });
+  }
+
+  return {
+    agreement_accepted: true,
+  };
+};

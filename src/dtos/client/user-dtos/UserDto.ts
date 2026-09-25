@@ -10,5 +10,6 @@ export const UserDTO = (data: UserModelI): UserResponseDTO => {
     date_of_birth: data.date_of_birth,
     status: data.status,
     registered_at: data.registered_at ?? null,
+    agreement_accepted: data.agreement_accepted,
   };
 };

@@ -56,6 +56,29 @@ export const getMeSchema = {
             enum: Object.values(UserStatusTypes),
           },
           registered_at: nullableDateTimeSchema,
+          agreement_accepted: { type: "boolean" },
+        },
+      },
+    }),
+  },
+};
+
+export const acceptAgreementSchema = {
+  tags: ["Clients|User"],
+  summary: "Accept user agreement",
+  description:
+    "Marks the current Telegram user's agreement as accepted. The user is identified by x-telegram-init-data.",
+  security: [
+    {
+      InitDataHeader: [],
+    },
+  ],
+  response: {
+    200: successAnswerTemplate({
+      agreement: {
+        type: "object",
+        properties: {
+          agreement_accepted: { type: "boolean", const: true },
         },
       },
     }),
