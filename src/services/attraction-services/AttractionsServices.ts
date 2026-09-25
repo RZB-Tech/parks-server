@@ -34,6 +34,69 @@ const NormalizeAttractionSize = (value: number | undefined): number => {
   return size;
 };
 
+const emptyAttractionRules = (): AttractionRules => ({
+  parent_accompaniment: { uz: "", ru: "", en: "" },
+  strict_rules: { uz: "", ru: "", en: "" },
+  exceptions: { uz: "", ru: "", en: "" },
+});
+
+export const NormalizeAttractionRules = (
+  value: AttractionRulesInput | undefined,
+  current?: AttractionRules,
+): AttractionRules => {
+  const rules = current
+    ? {
+        parent_accompaniment: { ...current.parent_accompaniment },
+        strict_rules: { ...current.strict_rules },
+        exceptions: { ...current.exceptions },
+      }
+    : emptyAttractionRules();
+
+  if (value === undefined) {
+    return rules;
+  }
+
+  for (const section of [
+    "parent_accompaniment",
+    "strict_rules",
+    "exceptions",
+  ] as const) {
+    const translations = value[section];
+
+    if (translations === undefined) {
+      continue;
+    }
+
+    for (const language of ["uz", "ru", "en"] as const) {
+      if (translations[language] !== undefined) {
+        if (typeof translations[language] !== "string") {
+          throw BadRequest("Attraction rules must contain only text values!");
+        }
+
+        rules[section][language] = translations[language].trim();
+      }
+    }
+  }
+
+  return rules;
+};
+
+export const NormalizeAttractionDuration = (
+  value: number | string | undefined,
+): string => {
+  if (value === undefined) {
+    throw BadRequest("Attraction duration is invalid!");
+  }
+
+  const duration = String(value).trim();
+
+  if (!duration) {
+    throw BadRequest("Attraction duration is invalid!");
+  }
+
+  return duration;
+};
+
 export const GetAttractionService = async (query: GetAttractionQuery) => {
   const orWhere: any[] = [];
 
@@ -275,6 +338,8 @@ export const CreateAttractionsService = async (body: CreateAttractionData) => {
   }
 
   const size = NormalizeAttractionSize(body.size);
+  const duration = NormalizeAttractionDuration(body.duration);
+  const rules = NormalizeAttractionRules(body.rules);
 
   return sequelize.transaction(async (transaction) => {
     const findAttraction = await AttractionModel.findOne({
@@ -326,7 +391,8 @@ export const CreateAttractionsService = async (body: CreateAttractionData) => {
         sub_attraction_files: body.sub_attraction_files ?? null,
         size,
         price: hasSinglePrice ? Number(body.price) : null,
-        duration: body.duration,
+        duration,
+        rules,
         seats: body.seats,
         age_limit: body.age_limit,
         min_height: body.min_height,
@@ -485,6 +551,14 @@ export const UpdateAttractionsService = async (
     const tariffsWereProvided = body.tariffs !== undefined;
     const size =
       body.size !== undefined ? NormalizeAttractionSize(body.size) : undefined;
+    const duration =
+      body.duration !== undefined
+        ? NormalizeAttractionDuration(body.duration)
+        : undefined;
+    const rules =
+      body.rules !== undefined
+        ? NormalizeAttractionRules(body.rules, attraction.rules)
+        : undefined;
     let activeTariffs: AttractionTariffModel[] = [];
 
     if (body.price !== undefined && body.price !== null) {
@@ -572,7 +646,11 @@ export const UpdateAttractionsService = async (
         }),
 
         ...(body.duration !== undefined && {
-          duration: body.duration,
+          duration,
+        }),
+
+        ...(rules !== undefined && {
+          rules,
         }),
 
         ...(body.seats !== undefined && {

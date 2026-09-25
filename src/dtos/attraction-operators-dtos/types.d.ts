@@ -37,7 +37,7 @@ declare interface AttractionDTO {
   age_limit: number;
   min_height: number;
   max_weight: number;
-  duration: number;
+  duration: string;
   seats: number;
 }
 

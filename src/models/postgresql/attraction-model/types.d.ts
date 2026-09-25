@@ -1,3 +1,21 @@
+declare interface AttractionRuleTranslations {
+  uz: string;
+  ru: string;
+  en: string;
+}
+
+declare interface AttractionRules {
+  parent_accompaniment: AttractionRuleTranslations;
+  strict_rules: AttractionRuleTranslations;
+  exceptions: AttractionRuleTranslations;
+}
+
+declare type AttractionRulesInput = Partial<{
+  parent_accompaniment: Partial<AttractionRuleTranslations>;
+  strict_rules: Partial<AttractionRuleTranslations>;
+  exceptions: Partial<AttractionRuleTranslations>;
+}>;
+
 declare interface AttractionModelI {
   id: number;
   device: number | null;
@@ -12,7 +30,8 @@ declare interface AttractionModelI {
   latitude: string | null;
   longitude: string | null;
   price: number | null;
-  duration: number;
+  duration: string;
+  rules: AttractionRules;
   seats: number;
   age_limit: number;
   min_height: number;

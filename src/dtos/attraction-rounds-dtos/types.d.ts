@@ -45,7 +45,7 @@ declare interface AttractionRoundAttractionPlain {
   files: Array<number | string>;
 
   price: number | string | null;
-  duration: number | string;
+  duration: string;
   seats: number | string;
 
   age_limit: number | string | null;
@@ -69,7 +69,7 @@ declare interface AttractionRoundAttractionResponseDTO {
   files: number[];
 
   price: number | null;
-  duration: number;
+  duration: string;
   seats: number;
 
   age_limit: number | null;

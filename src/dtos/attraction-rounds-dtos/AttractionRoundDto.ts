@@ -54,7 +54,7 @@ export const AttractionRoundAttractionDTO = (
 
     price: data.price === null ? null : Number(data.price),
 
-    duration: Number(data.duration || 0),
+    duration: String(data.duration ?? ""),
 
     seats: Number(data.seats || 0),
 

@@ -27,7 +27,8 @@ export const AttractionWithOperatorsDTO = (data: AttractionWithOperatorsPlain) =
     size: Number(data.size || 1),
 
     ...AttractionPricingDTO(data),
-    duration: data.duration,
+    duration: String(data.duration),
+    rules: data.rules,
     seats: data.seats,
     age_limit: data.age_limit,
     min_height: data.min_height,
@@ -65,7 +66,8 @@ export const AttractionDTO = (data: AttractionModelI) => {
     size: Number(data.size || 1),
 
     ...AttractionPricingDTO(data),
-    duration: data.duration,
+    duration: String(data.duration),
+    rules: data.rules,
     seats: data.seats,
     age_limit: data.age_limit,
     min_height: data.min_height,

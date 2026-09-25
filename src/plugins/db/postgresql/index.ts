@@ -3,12 +3,14 @@ import fp from "fastify-plugin";
 import { sequelize } from "./db";
 import { EnsureCardBindingSchema } from "./cardBindingSchema";
 import { EnsureOnlinePaymentsSchema } from "./onlinePaymentsSchema";
+import { EnsureAttractionsSchema } from "./attractionsSchema";
 
 const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   try {
     await sequelize.authenticate();
 
     await sequelize.sync();
+    await EnsureAttractionsSchema(sequelize);
     await EnsureOnlinePaymentsSchema(sequelize);
     await EnsureCardBindingSchema(sequelize);
 

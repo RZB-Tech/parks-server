@@ -25,6 +25,40 @@ const clientAttractionTariffsSchema = {
   },
 };
 
+const clientAttractionRulesSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    parent_accompaniment: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        uz: { type: "string" },
+        ru: { type: "string" },
+        en: { type: "string" },
+      },
+    },
+    strict_rules: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        uz: { type: "string" },
+        ru: { type: "string" },
+        en: { type: "string" },
+      },
+    },
+    exceptions: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        uz: { type: "string" },
+        ru: { type: "string" },
+        en: { type: "string" },
+      },
+    },
+  },
+};
+
 export const getClientAttractionsSchema = {
   tags: ["Clients|Attractions"],
   summary: "Get client attractions",
@@ -96,7 +130,8 @@ export const getClientAttractionsSchema = {
                 "Current active promotion discount percent, or zero when no promotion is active.",
             },
             tariffs: clientAttractionTariffsSchema,
-            duration: { type: "integer" },
+            duration: { type: "string" },
+            rules: clientAttractionRulesSchema,
             seats: { type: "integer" },
             age_limit: nullableIntegerSchema,
             min_height: nullableIntegerSchema,
@@ -164,7 +199,8 @@ export const getClientAttractionSchema = {
           price: nullableIntegerSchema,
           discount_percent: { type: "number" },
           tariffs: clientAttractionTariffsSchema,
-          duration: { type: "integer" },
+          duration: { type: "string" },
+          rules: clientAttractionRulesSchema,
           seats: { type: "integer" },
           age_limit: nullableIntegerSchema,
           min_height: nullableIntegerSchema,

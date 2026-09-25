@@ -186,7 +186,7 @@ declare interface AttractionZReportAttractionResponseDTO {
   price: number | null;
   pricing_type?: "single" | "tariff";
   tariffs?: AttractionZReportTariffDTO[];
-  duration: number;
+  duration: string;
   seats: number;
 
   age_limit: number;
@@ -219,7 +219,7 @@ declare interface AccountingAttractionDTO {
 
   size: number;
   price: number | null;
-  duration: number;
+  duration: string;
   seats: number;
 
   age_limit: number;
