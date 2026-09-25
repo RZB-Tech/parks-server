@@ -28,6 +28,7 @@ import {
   getTashkentDayRangeUTC,
   getTashkentRangeUTC,
 } from "../../utils/date";
+import { getSoftDeleteVisibilityWhere } from "../../utils/softDeleteVisibility";
 
 type NumericCounters = Record<string, number>;
 
@@ -292,8 +293,9 @@ export const GetAttractionRoundRefundsService = async (
       {
         model: AttractionModel,
         as: "attractions",
-        required: false,
+        required: true,
         paranoid: false,
+        where: getSoftDeleteVisibilityWhere(startDate),
       },
       {
         model: EmployeeModel,

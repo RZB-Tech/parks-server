@@ -48,6 +48,8 @@ import OnlinePaymentReportsRouter from "./routes/online-payment-reports-routes/O
 import AuditLogsRouter from "./routes/audit-log-routes/AuditLogRoutes";
 import { AuditContextMiddleware } from "./middlewares/audit-context-middleware/AuditContextMiddleware";
 import AttractionPnlRouter from "./routes/attraction-pnl-routes/AttractionPnlRoutes";
+import CashboxStatisticsRouter from "./routes/cashbox-statistics-routes/CashboxStatisticsRoutes";
+import AttractionStatisticsRouter from "./routes/attraction-statistics-routes/AttractionStatisticsRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -90,6 +92,8 @@ export const build = async () => {
   app.register(CashboxesRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxOperatorsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CashboxReportsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(CashboxStatisticsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AttractionStatisticsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CardsRouter, { prefix: SERVER.API_PREFIX });
   app.register(CardTransactionsRouter, { prefix: SERVER.API_PREFIX });
   app.register(SosRouter, { prefix: SERVER.API_PREFIX });

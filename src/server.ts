@@ -22,16 +22,18 @@ export const app = build();
 
     await fastify.ready();
 
-    const onlinePaymentsCashbox =
-      await EnsureOnlinePaymentsCashboxService();
+    if (process.env.AUTO_CREATE_ONLINE_PAYMENTS_CASHBOX === "true") {
+      const onlinePaymentsCashbox =
+        await EnsureOnlinePaymentsCashboxService();
 
-    fastify.log.info(
-      {
-        actor: "online-payments",
-        cashbox_id: Number(onlinePaymentsCashbox.id),
-      },
-      "Online payments cashbox is ready",
-    );
+      fastify.log.info(
+        {
+          actor: "online-payments",
+          cashbox_id: Number(onlinePaymentsCashbox.id),
+        },
+        "Online payments cashbox is ready",
+      );
+    }
 
     const serverHost =
       process.env.SERVER_HOST ||

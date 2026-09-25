@@ -8,6 +8,7 @@ import {
 } from "../../models/postgresql/attraction-report-model/enums";
 import { sequelize } from "../../plugins/db/postgresql/db";
 import { getTashkentMonthRangeUTC } from "../../utils/date";
+import { getSoftDeleteVisibilityWhere } from "../../utils/softDeleteVisibility";
 
 const MAX_MONTHS = 60;
 
@@ -62,11 +63,17 @@ export const GetAttractionPnlService = async (
           ) AS month,
           COALESCE(total_amount, 0)::NUMERIC AS total_amount
         FROM attraction_reports
-        WHERE deleted_at IS NULL
+        INNER JOIN attractions
+          ON attractions.id = attraction_reports.attraction
+        WHERE attraction_reports.deleted_at IS NULL
           AND report_type = :reportType
           AND status = :reportStatus
           AND opened_at >= :startDate
           AND opened_at < :endDate
+          AND (
+            attractions.deleted_at IS NULL
+            OR attraction_reports.opened_at <= attractions.deleted_at
+          )
       ),
       monthly_parts AS (
         SELECT
@@ -114,14 +121,19 @@ export const GetAttractionPnlService = async (
     ),
   ];
 
-  const attractionWhere: any = historicalAttractionIDs.length
-    ? {
-        [Op.or]: [
-          { deletedAt: null },
-          { id: { [Op.in]: historicalAttractionIDs } },
-        ],
-      }
-    : { deletedAt: null };
+  const attractionWhere: any = {
+    [Op.and]: [
+      historicalAttractionIDs.length
+        ? {
+            [Op.or]: [
+              { deletedAt: null },
+              { id: { [Op.in]: historicalAttractionIDs } },
+            ],
+          }
+        : { deletedAt: null },
+      getSoftDeleteVisibilityWhere(startUTC),
+    ],
+  };
 
   const attractions = await AttractionModel.findAll({
     paranoid: false,
