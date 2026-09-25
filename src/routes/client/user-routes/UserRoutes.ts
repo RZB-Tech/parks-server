@@ -4,8 +4,13 @@ import {
   FastifyPluginOptions,
 } from "fastify";
 import { TelegramAuthMiddleware } from "../../../middlewares/telegram-auth-middlewar/TelegramAuthMiddleware";
-import { getMeSchema, updateMeSchema } from "./schema";
 import {
+  acceptAgreementSchema,
+  getMeSchema,
+  updateMeSchema,
+} from "./schema";
+import {
+  AcceptAgreementController,
   GetMeController,
   UpdateMeController,
 } from "../../../controllers/client/user-controllers/UserController";
@@ -24,6 +29,15 @@ const UserRouter: FastifyPluginAsync = async (
     "/me",
     { schema: updateMeSchema, preHandler: [TelegramAuthMiddleware] },
     UpdateMeController,
+  );
+
+  fastify.post(
+    "/agreement",
+    {
+      schema: acceptAgreementSchema,
+      preHandler: [TelegramAuthMiddleware],
+    },
+    AcceptAgreementController,
   );
 };
 

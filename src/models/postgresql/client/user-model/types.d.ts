@@ -17,4 +17,5 @@ declare interface UserModelI {
 
   phone_verified_at: Date | null;
   registered_at: Date | null;
+  agreement_accepted: boolean;
 }
