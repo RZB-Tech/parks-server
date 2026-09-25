@@ -35,6 +35,7 @@ import { UpsertPromotionReportService } from "../../promotion-reports-services/P
 import { GetOrCreateOpenAttractionRoundService } from "../../attraction-reports-services/AttractionReportsServices";
 import { ResolveAttractionPricingService } from "../../attraction-tariffs-services/AttractionTariffsServices";
 import { CalculateAttractionSalePrice } from "../../../utils/attractionPricing";
+import { isVisibleAt } from "../../../utils/softDeleteVisibility";
 
 export const ClientAttractionPaymentService = async (
   telegramID: number,
@@ -803,13 +804,31 @@ export const GetClientTransactionsService = async (
     const attractionID = Number(transaction.attraction);
 
     const attraction =
-      attractionID > 0 ? (attractionMap.get(attractionID) ?? null) : null;
+      attractionID > 0
+        ? (() => {
+            const candidate = attractionMap.get(attractionID) ?? null;
+            const transactionDate = transaction.createdAt ?? startUTC;
+
+            return candidate && isVisibleAt(candidate, transactionDate)
+              ? candidate
+              : null;
+          })()
+        : null;
 
     const round = transactionRoundMap.get(Number(transaction.id)) ?? null;
 
     const cashboxID = Number(transaction.cashbox);
     const cashbox =
-      cashboxID > 0 ? (cashboxMap.get(cashboxID) ?? null) : null;
+      cashboxID > 0
+        ? (() => {
+            const candidate = cashboxMap.get(cashboxID) ?? null;
+            const transactionDate = transaction.createdAt ?? startUTC;
+
+            return candidate && isVisibleAt(candidate, transactionDate)
+              ? candidate
+              : null;
+          })()
+        : null;
 
     return ClientTransactionDTO(
       transaction,

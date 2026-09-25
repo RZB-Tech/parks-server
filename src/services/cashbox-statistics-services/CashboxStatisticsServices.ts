@@ -14,6 +14,7 @@ import {
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
 import { getAccountingDateRange, getTashkentDateOnly } from "../../utils/date";
+import { isVisibleAt } from "../../utils/softDeleteVisibility";
 
 type StatisticsDateRange = {
   start: Date;
@@ -159,6 +160,43 @@ const getConfirmedZReports = async (range: StatisticsDateRange) =>
     ],
   });
 
+const getVisibleCashboxData = async (range: StatisticsDateRange) => {
+  const [cashboxes, reports] = await Promise.all([
+    CashboxModel.findAll({
+      paranoid: false,
+      order: [["id", "ASC"]],
+    }),
+    getConfirmedZReports(range),
+  ]);
+
+  const cashboxByID = new Map(
+    cashboxes.map((cashbox) => [Number(cashbox.id), cashbox]),
+  );
+  const visibleCashboxes = cashboxes.filter((cashbox) =>
+    isVisibleAt(cashbox, range.start),
+  );
+  const visibleCashboxIDs = new Set(
+    visibleCashboxes.map((cashbox) => Number(cashbox.id)),
+  );
+  const visibleReports = reports.filter((report) => {
+    const cashbox = cashboxByID.get(Number(report.cashbox));
+
+    return (
+      cashbox !== undefined &&
+      visibleCashboxIDs.has(Number(report.cashbox)) &&
+      isVisibleAt(
+        cashbox,
+        report.report_date ?? report.opened_at ?? range.start,
+      )
+    );
+  });
+
+  return {
+    cashboxes: visibleCashboxes,
+    reports: visibleReports,
+  };
+};
+
 const sumReportAmounts = (reports: CashboxReportModel[]) => {
   const totals = emptyAmountTotals();
 
@@ -176,10 +214,7 @@ export const GetCashboxTurnoverStatisticsService = async (
 ) => {
   const range = getDateRange(query);
   const sort = getSortOrder(query);
-  const [cashboxes, reports] = await Promise.all([
-    CashboxModel.findAll({ order: [["id", "ASC"]] }),
-    getConfirmedZReports(range),
-  ]);
+  const { cashboxes, reports } = await getVisibleCashboxData(range);
 
   const totalAmount = reports.reduce(
     (total, report) => total + Number(report.total_amount || 0),
@@ -264,7 +299,7 @@ export const GetPaymentMethodsStatisticsService = async (
 ) => {
   const range = getDateRange(query);
   const sort = getSortOrder(query);
-  const reports = await getConfirmedZReports(range);
+  const { reports } = await getVisibleCashboxData(range);
   const totals = sumReportAmounts(reports);
   const nfcAmount = await getNfcAmount(reports);
 

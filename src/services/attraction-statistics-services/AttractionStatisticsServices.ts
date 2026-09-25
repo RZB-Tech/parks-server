@@ -6,6 +6,10 @@ import { AttractionReportModel } from "../../models/postgresql/attraction-report
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
 import { PromotionReportModel } from "../../models/postgresql/promotion-reports-model/PromotionReportsModel";
 import { getAccountingDateRange, getTashkentDateOnly } from "../../utils/date";
+import {
+  getSoftDeleteVisibilityWhere,
+  isVisibleAt,
+} from "../../utils/softDeleteVisibility";
 
 type StatisticsDateRange = {
   start: Date;
@@ -113,15 +117,23 @@ const addPromotionReportTotals = (
   target.revenue_amount += Number(report.paid_amount || 0);
 };
 
-const getAttractionsForStatistics = async (attractionIDs: number[]) => {
-  const where: any = attractionIDs.length
-    ? {
-        [Op.or]: [
-          { deletedAt: null },
-          { id: { [Op.in]: attractionIDs } },
-        ],
-      }
-    : { deletedAt: null };
+const getAttractionsForStatistics = async (
+  attractionIDs: number[],
+  periodStart: Date,
+) => {
+  const where: any = {
+    [Op.and]: [
+      attractionIDs.length
+        ? {
+            [Op.or]: [
+              { deletedAt: null },
+              { id: { [Op.in]: attractionIDs } },
+            ],
+          }
+        : { deletedAt: null },
+      getSoftDeleteVisibilityWhere(periodStart),
+    ],
+  };
 
   return AttractionModel.findAll({
     paranoid: false,
@@ -168,10 +180,28 @@ export const GetAttractionStatisticsService = async (
     ]),
   ].filter((id) => Number.isInteger(id) && id > 0);
 
-  const attractions = await getAttractionsForStatistics(attractionIDs);
+  const attractions = await getAttractionsForStatistics(
+    attractionIDs,
+    range.start,
+  );
+  const attractionMap = new Map(
+    attractions.map((attraction) => [Number(attraction.id), attraction]),
+  );
+  const visibleReports = reports.filter((report) => {
+    const attraction = attractionMap.get(Number(report.attraction));
+    const reportDate = report.opened_at ?? report.createdAt ?? range.start;
+
+    return attraction ? isVisibleAt(attraction, reportDate) : false;
+  });
+  const visibleReportIDs = new Set(
+    visibleReports.map((report) => Number(report.id)),
+  );
+  const visiblePromotionReports = promotionReports.filter((report) =>
+    visibleReportIDs.has(Number(report.zreport)),
+  );
   const totalsByAttraction = new Map<number, AttractionTotals>();
 
-  for (const report of reports) {
+  for (const report of visibleReports) {
     const attractionID = Number(report.attraction);
     const totals = totalsByAttraction.get(attractionID) ?? emptyTotals();
 
@@ -182,7 +212,7 @@ export const GetAttractionStatisticsService = async (
     totalsByAttraction.set(attractionID, totals);
   }
 
-  for (const report of promotionReports) {
+  for (const report of visiblePromotionReports) {
     const attractionID = Number(report.attraction);
     const totals = totalsByAttraction.get(attractionID) ?? emptyTotals();
 

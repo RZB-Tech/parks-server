@@ -34,6 +34,10 @@ import {
   CashboxStatusTypes,
   CashboxTypes,
 } from "../../models/postgresql/cashbox-model/enums";
+import {
+  getSoftDeleteVisibilityWhere,
+  isVisibleAt,
+} from "../../utils/softDeleteVisibility";
 
 export const OpenCashboxReportService = async (
   operatorID: number,
@@ -213,12 +217,21 @@ export const GetTodayCashboxReportsService = async (
   }
 
   const cashbox = await CashboxModel.findByPk(cashboxID, {
-    attributes: ["type"],
+    paranoid: false,
   });
-  const isVirtualCashbox = cashbox?.type === CashboxTypes.VIRTUAL;
+
+  if (!cashbox) {
+    throw NotFound("Cashbox not found!");
+  }
+
+  const isVirtualCashbox = cashbox.type === CashboxTypes.VIRTUAL;
   const { startDate, endDate } = isVirtualCashbox
     ? getTashkentDayRangeUTC(query.date)
     : getTashkentBusinessDayRangeUTC(query.date);
+
+  if (!isVisibleAt(cashbox, startDate)) {
+    throw NotFound("Cashbox not found!");
+  }
   const dateWhere = isVirtualCashbox
     ? {
         report_date: {
@@ -575,10 +588,11 @@ export const GetZReportsService = async (query: GetZReportsQuery) => {
   const businessRange = getTashkentBusinessDayRangeUTC(query.date);
   const calendarRange = getTashkentDayRangeUTC(query.date);
 
-  const cashboxes = await CashboxModel.findAll({
+  const allCashboxes = await CashboxModel.findAll({
+    paranoid: false,
     order: [["id", "DESC"]],
   });
-  const virtualCashboxIDs = cashboxes
+  const virtualCashboxIDs = allCashboxes
     .filter((cashbox) => cashbox.type === CashboxTypes.VIRTUAL)
     .map((cashbox) => Number(cashbox.id));
 
@@ -629,9 +643,36 @@ export const GetZReportsService = async (query: GetZReportsQuery) => {
     ],
   });
 
-  const allReportsPlain = allReports.map(
-    (report) => report.get({ plain: true }) as CashboxReportModelI,
+  const cashboxByID = new Map(
+    allCashboxes.map((cashbox) => [Number(cashbox.id), cashbox]),
   );
+  const visibleCashboxes = allCashboxes.filter((cashbox) =>
+    isVisibleAt(
+      cashbox,
+      cashbox.type === CashboxTypes.VIRTUAL
+        ? calendarRange.startDate
+        : businessRange.startDate,
+    ),
+  );
+  const visibleCashboxIDs = new Set(
+    visibleCashboxes.map((cashbox) => Number(cashbox.id)),
+  );
+  const reportCashboxVisibilityDate = (report: CashboxReportModelI) =>
+    report.report_date ?? report.opened_at ?? businessRange.startDate;
+
+  const allReportsPlain = allReports
+    .map(
+      (report) => report.get({ plain: true }) as CashboxReportModelI,
+    )
+    .filter((report) => {
+      const cashbox = cashboxByID.get(Number(report.cashbox));
+
+      return (
+        cashbox !== undefined &&
+        visibleCashboxIDs.has(Number(report.cashbox)) &&
+        isVisibleAt(cashbox, reportCashboxVisibilityDate(report))
+      );
+    });
 
   const totals = emptyAccountingZReport();
 
@@ -673,7 +714,7 @@ export const GetZReportsService = async (query: GetZReportsQuery) => {
   return {
     stats,
     totals,
-    cashboxes: cashboxes.map((cashbox) => {
+    cashboxes: visibleCashboxes.map((cashbox) => {
       const cashboxPlain = cashbox.get({
         plain: true,
       }) as CashboxWithZReportsPlain;
@@ -793,6 +834,8 @@ export const GetAccountingCashboxReportsService = async (
   const { start, end } = getAccountingDateRange(query);
 
   const cashboxes = await CashboxModel.findAll({
+    paranoid: false,
+    where: getSoftDeleteVisibilityWhere(start),
     order: [["id", "ASC"]],
   });
 
@@ -810,13 +853,32 @@ export const GetAccountingCashboxReportsService = async (
     ],
   });
 
+  const visibleCashboxIDs = new Set(
+    cashboxes.map((cashbox) => Number(cashbox.id)),
+  );
+  const cashboxByID = new Map(
+    cashboxes.map((cashbox) => [Number(cashbox.id), cashbox]),
+  );
+  const visibleReports = reports.filter((report) => {
+    const cashbox = cashboxByID.get(Number(report.cashbox));
+
+    return (
+      cashbox !== undefined &&
+      visibleCashboxIDs.has(Number(report.cashbox)) &&
+      isVisibleAt(
+        cashbox,
+        report.report_date ?? report.opened_at ?? start,
+      )
+    );
+  });
+
   return AccountingCashboxReportsDTO({
     start_date: start,
     end_date: end,
     cashboxes: cashboxes.map(
       (cashbox) => cashbox.get({ plain: true }) as CashboxModelI,
     ),
-    reports: reports.map(
+    reports: visibleReports.map(
       (report) => report.get({ plain: true }) as CashboxReportModelI,
     ),
   });

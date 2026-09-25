@@ -27,6 +27,10 @@ import {
 import { PromotionReportModel } from "../../models/postgresql/promotion-reports-model/PromotionReportsModel";
 import { CardType } from "../../models/postgresql/cards-model/enums";
 import { AttractionRoundRefundModel } from "../../models/postgresql/attraction-round-refund-model/AttractionRoundRefundModel";
+import {
+  getSoftDeleteVisibilityWhere,
+  isVisibleAt,
+} from "../../utils/softDeleteVisibility";
 
 type AttractionRoundRefundAggregate = {
   original_transaction: number | string;
@@ -143,6 +147,12 @@ export const GetCurrentAttractionRoundService = async (
     throw BadRequest("Attraction ID is invalid!");
   }
 
+  const attraction = await AttractionModel.findByPk(attractionID);
+
+  if (!attraction) {
+    return null;
+  }
+
   /*
    * Operatorning shu attractiondagi ochiq XReporti.
    */
@@ -240,6 +250,12 @@ export const GetTodayAttractionRoundsService = async (
 
   if (!Number.isInteger(attractionID) || attractionID <= 0) {
     throw BadRequest("Attraction ID is invalid!");
+  }
+
+  const attraction = await AttractionModel.findByPk(attractionID);
+
+  if (!attraction) {
+    return [];
   }
 
   const { startDate, endDate } = getTashkentDayRangeUTC();
@@ -366,6 +382,8 @@ export const GetTodayRoundsService = async (
         model: AttractionModel,
         as: "attractions",
         paranoid: false,
+        required: true,
+        where: getSoftDeleteVisibilityWhere(startDate),
       },
     ],
 

@@ -32,6 +32,10 @@ import { PromotionReportModel, sequelize } from "../../plugins/db/postgresql/db"
 import { AttractionTariffModel } from "../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
 import { AttractionTariffStatusTypes } from "../../models/postgresql/attraction-tariff-model/enums";
 import { GetAttractionTariffReportsByZReportService } from "../attraction-tariff-reports-services/AttractionTariffReportsServices";
+import {
+  getSoftDeleteVisibilityWhere,
+  isVisibleAt,
+} from "../../utils/softDeleteVisibility";
 
 export const OpenAttractionReportService = async (
   operatorID: number,
@@ -743,6 +747,14 @@ export const GetTodayAttractionReportsService = async (
 
   const { startDate, endDate } = getTashkentBusinessDayRangeUTC(query.date);
 
+  const attraction = await AttractionModel.findByPk(attractionID, {
+    paranoid: false,
+  });
+
+  if (!attraction || !isVisibleAt(attraction, startDate)) {
+    throw NotFound("Attraction not found");
+  }
+
   const zReport = await AttractionReportModel.findOne({
     where: {
       attraction: attractionID,
@@ -1038,13 +1050,16 @@ export const GetAttractionZReportsService = async (
 
   let attractions = await AttractionModel.findAll({
     paranoid: false,
-    where: search
-      ? {
-          name: {
-            [Op.iLike]: `%${search}%`,
-          },
-        }
-      : undefined,
+    where: {
+      ...(search
+        ? {
+            name: {
+              [Op.iLike]: `%${search}%`,
+            },
+          }
+        : {}),
+      [Op.and]: getSoftDeleteVisibilityWhere(startDate),
+    },
     order: [["id", "DESC"]],
 
     include: [
@@ -1097,6 +1112,23 @@ export const GetAttractionZReportsService = async (
       searchedAttractionIDs.has(Number(report.attraction)),
     );
   }
+
+  const visibleAttractionIDs = new Set(
+    attractions.map((attraction) => Number(attraction.id)),
+  );
+  const attractionByID = new Map(
+    attractions.map((attraction) => [Number(attraction.id), attraction]),
+  );
+
+  allReportsPlain = allReportsPlain.filter((report) => {
+    const attraction = attractionByID.get(Number(report.attraction));
+
+    return (
+      attraction !== undefined &&
+      visibleAttractionIDs.has(Number(report.attraction)) &&
+      isVisibleAt(attraction, report.opened_at)
+    );
+  });
 
   const promotionCodeScopeZReportIDs = new Set(
     allReportsPlain.map((report) => Number(report.id)),
@@ -1542,24 +1574,53 @@ export const GetAccountingAttractionReportsService = async (
    * Soft-delete qilingan attraction esa faqat tanlangan davr/filterda
    * reporti bo‘lsa tarixiy accounting uchun ro‘yxatda qoladi.
    */
-  const attractionWhere: any = selectedAttractionIDs.length
-    ? {
-        [Op.or]: [
-          { deletedAt: null },
-          {
-            id: {
-              [Op.in]: selectedAttractionIDs,
-            },
-          },
-        ],
-      }
-    : { deletedAt: null };
+  const attractionWhere: any = {
+    [Op.and]: [
+      selectedAttractionIDs.length
+        ? {
+            [Op.or]: [
+              { deletedAt: null },
+              {
+                id: {
+                  [Op.in]: selectedAttractionIDs,
+                },
+              },
+            ],
+          }
+        : {},
+      getSoftDeleteVisibilityWhere(start),
+    ],
+  };
 
   const attractions = await AttractionModel.findAll({
     paranoid: false,
     where: attractionWhere,
     order: [["id", "ASC"]],
   });
+
+  const visibleAttractionIDs = new Set(
+    attractions.map((attraction) => Number(attraction.id)),
+  );
+  const attractionByID = new Map(
+    attractions.map((attraction) => [Number(attraction.id), attraction]),
+  );
+
+  const visibleReports = selectedReports.filter((report) => {
+    const attraction = attractionByID.get(Number(report.attraction));
+
+    return (
+      attraction !== undefined &&
+      visibleAttractionIDs.has(Number(report.attraction)) &&
+      isVisibleAt(attraction, report.opened_at)
+    );
+  });
+  const visibleReportIDs = new Set(
+    visibleReports.map((report) => Number(report.id)),
+  );
+
+  const visiblePromotionReports = promotionReportsPlain.filter((report) =>
+    visibleReportIDs.has(Number(report.zreport)),
+  );
 
   return AccountingAttractionReportsDTO({
     start_date: start,
@@ -1575,9 +1636,9 @@ export const GetAccountingAttractionReportsService = async (
         }) as AttractionModelI,
     ),
 
-    reports: selectedReports,
+    reports: visibleReports,
 
-    promotion_reports: promotionReportsPlain,
+    promotion_reports: visiblePromotionReports,
   });
 };
 
