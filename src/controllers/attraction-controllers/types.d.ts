@@ -19,15 +19,28 @@ declare interface GetAttractionsQuery {
 declare interface CreateAttractionData
   extends Omit<
     AttractionModelI,
-    "id" | "device" | "status" | "price" | "tariffs" | "size"
+    | "id"
+    | "device"
+    | "status"
+    | "price"
+    | "tariffs"
+    | "size"
+    | "duration"
+    | "rules"
   > {
   price: number | null;
   size?: number;
+  duration: string;
+  rules?: AttractionRulesInput;
   tariffs?: AttractionTariffInput[];
 }
 
 declare interface UpdateAttractionData
-  extends Partial<Omit<AttractionModelI, "id" | "tariffs">> {
+  extends Partial<
+    Omit<AttractionModelI, "id" | "tariffs" | "duration" | "rules">
+  > {
+  duration?: string;
+  rules?: AttractionRulesInput;
   tariffs?: AttractionTariffInput[];
 }
 

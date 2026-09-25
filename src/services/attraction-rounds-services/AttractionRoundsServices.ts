@@ -498,7 +498,7 @@ export const CloseCurrentAttractionRoundService = async (
       }) as AttractionOperatorModelI & {
         attractions: {
           id: number | string;
-          duration: number | string;
+          duration: string;
         };
       };
 

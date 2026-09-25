@@ -18,7 +18,8 @@ declare interface ClientAttractionResponseDTO {
   price: number | null;
   discount_percent: number;
   tariffs: ClientAttractionTariffDTO[];
-  duration: number;
+  duration: string;
+  rules: AttractionRules;
   seats: number;
 
   age_limit: number | null;

@@ -713,7 +713,7 @@ export const attractionWithZReportsProperties = {
   },
 
   duration: {
-    type: "number",
+    type: "string",
   },
 
   seats: {
@@ -917,7 +917,7 @@ export const accountingAttractionProperties = {
   },
 
   duration: {
-    type: "number",
+    type: "string",
   },
 
   seats: {

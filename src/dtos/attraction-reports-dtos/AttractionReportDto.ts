@@ -346,7 +346,7 @@ export const AttractionZReportAttractionDTO = (
       status: tariff.status,
       sort_order: Number(tariff.sort_order || 0),
     })),
-    duration: Number(data.duration || 0),
+    duration: String(data.duration ?? ""),
     seats: Number(data.seats || 0),
 
     age_limit: Number(data.age_limit || 0),
@@ -490,7 +490,7 @@ export const AccountingAttractionReportsDTO = (data: {
           size: Number(attraction.size || 1),
           price:
             attraction.price === null ? null : Number(attraction.price),
-          duration: Number(attraction.duration || 0),
+          duration: String(attraction.duration ?? ""),
           seats: Number(attraction.seats || 0),
 
           age_limit: Number(attraction.age_limit || 0),

@@ -135,7 +135,7 @@ export const attractionRoundAttractionProperties = {
   },
 
   duration: {
-    type: "number",
+    type: "string",
   },
 
   seats: {

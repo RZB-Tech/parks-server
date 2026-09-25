@@ -1,0 +1,1151 @@
+{
+  "info": {
+    "_postman_id": "34434e17-ad9b-40b9-aec2-6fd077c3c151",
+    "name": "Central Park — Uzum Checkout",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Коллекция для согласования и тестирования текущего backend Central Park: пополнение карты парка через Uzum Checkout.\n\nИмпортируйте Central-Park-Uzum.postman_environment.json и выберите его. Заполните base_url адресом согласованного тестового backend без завершающего / и без /api/v1. Для callback достаточно переменных заказа; для клиентских запросов требуется telegram_init_data тестового пользователя. Основной endpoint для Uzum находится в папке 02.\n\nВсе сохранённые ответы — иллюстративные примеры по коду, а не результаты живого тестирования. Суммы клиентского API указаны в UZS. Платёж выполняется вручную по checkout_url, затем приходит callback. Подробности и сценарии проверки — в README.ru.md. Ключ Uzum и токен Telegram-бота настраиваются на backend и не входят в коллекцию."
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.environment.name) {",
+          "  console.error(\"Импортируйте и выберите environment Central Park — Uzum — TEST.\");",
+          "  pm.execution.skipRequest();",
+          "}",
+          "if (!/^https?:\\/\\/[^\\s/?#]+$/.test(String(pm.environment.get(\"base_url\") || \"\"))) {",
+          "  console.error(\"Заполните base_url адресом тестового backend: https://api.example.uz, без пути и завершающего /.\");",
+          "  pm.execution.skipRequest();",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Подготовка и проверка — Telegram Mini App",
+      "description": "Вспомогательные клиентские запросы. Команда Central Park может выполнить подготовку и передать Uzum идентификаторы тестового заказа для проверки callback.",
+      "item": [
+        {
+          "name": "01 — Карты пользователя и баланс",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-telegram-init-data",
+                "value": "{{telegram_init_data}}",
+                "type": "text",
+                "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/client/cards",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "client",
+                "cards"
+              ]
+            },
+            "description": "Подготовка и проверка результата. Возвращает карты текущего Telegram-пользователя. Выберите id нужной активной карты и заполните card_id. Поле card — номер карты парка; для пополнения используется именно id. После выбора карты запрос сохраняет её текущий баланс в selected_card_balance. Повторите запрос после оплаты и после повторного callback для сравнения баланса."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!String(pm.environment.get(\"telegram_init_data\") || \"\").trim()) {",
+                  "  console.error(\"Заполните telegram_init_data: исходная строка Telegram.WebApp.initData тестового пользователя.\");",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Список карт и общий баланс\", function () {",
+                  "    pm.expect(body.statusCode).to.eql(200);",
+                  "    pm.expect(body.data.cards).to.be.an(\"array\");",
+                  "    pm.expect(body.data.totalBalance).to.be.a(\"number\");",
+                  "  });",
+                  "  const cardId = Number(pm.environment.get(\"card_id\"));",
+                  "  const cards = body.data && body.data.cards;",
+                  "  const card = Array.isArray(cards) ? cards.find(function (item) { return item.id === cardId; }) : null;",
+                  "  pm.environment.unset(\"selected_card_balance\");",
+                  "  if (card) pm.environment.set(\"selected_card_balance\", String(card.balance));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Карты пользователя (пример)",
+              "originalRequest": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/cards",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "cards"
+                  ]
+                },
+                "description": "Подготовка и проверка результата. Возвращает карты текущего Telegram-пользователя. Выберите id нужной активной карты и заполните card_id. Поле card — номер карты парка; для пополнения используется именно id. После выбора карты запрос сохраняет её текущий баланс в selected_card_balance. Повторите запрос после оплаты и после повторного callback для сравнения баланса."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"cards\": [\n      {\n        \"id\": 123,\n        \"card\": \"TEST-PARK-CARD-001\",\n        \"nfc\": \"TEST-NFC-001\",\n        \"status\": \"active\",\n        \"type\": \"virtual\",\n        \"balance\": 50000\n      }\n    ],\n    \"totalBalance\": 50000\n  }\n}"
+            },
+            {
+              "name": "USER_NOT_REGISTERED (пример)",
+              "originalRequest": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/cards",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "cards"
+                  ]
+                },
+                "description": "Подготовка и проверка результата. Возвращает карты текущего Telegram-пользователя. Выберите id нужной активной карты и заполните card_id. Поле card — номер карты парка; для пополнения используется именно id. После выбора карты запрос сохраняет её текущий баланс в selected_card_balance. Повторите запрос после оплаты и после повторного callback для сравнения баланса."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"USER_NOT_REGISTERED\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "02 — Создать заказ Uzum Checkout",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-telegram-init-data",
+                "value": "{{telegram_init_data}}",
+                "type": "text",
+                "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/client/payments/uzum",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "client",
+                "payments",
+                "uzum"
+              ]
+            },
+            "description": "Создание или повторное получение заказа на пополнение карты Central Park через Uzum Checkout. Требуются зарегистрированный, подтверждённый пользователь и его активная карта. data.amount — целое число в сумах (UZS): 10000 означает 10 000 сум. Сервер сам переводит сумму в тийины для Uzum. Ответ сохраняется в order_id и checkout_url. order_id — наш orderNumber, он НЕ является Uzum orderId. Откройте checkout_url в браузере и выполните тестовую оплату. После этого запроса Collection Runner останавливается для ручного шага оплаты.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"card\": {{card_id}},\n    \"amount\": {{amount_uzs}}\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!String(pm.environment.get(\"telegram_init_data\") || \"\").trim()) {",
+                  "  console.error(\"Заполните telegram_init_data: исходная строка Telegram.WebApp.initData тестового пользователя.\");",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "",
+                  "const cardId = Number(pm.environment.get(\"card_id\"));",
+                  "const amount = Number(pm.environment.get(\"amount_uzs\"));",
+                  "if (!Number.isSafeInteger(cardId) || cardId <= 0) {",
+                  "  console.error(\"Заполните card_id: положительный целочисленный id карты из запроса 01.\");",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "if (!Number.isSafeInteger(amount) || amount <= 0 || amount > Math.floor(Number.MAX_SAFE_INTEGER / 100)) {",
+                  "  console.error(\"amount_uzs должен быть положительным целым числом в сумах в допустимом диапазоне.\");",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "",
+                  "pm.variables.set(\"card_id\", String(cardId));",
+                  "pm.variables.set(\"amount_uzs\", String(amount));",
+                  "pm.environment.unset(\"order_id\");",
+                  "pm.environment.unset(\"checkout_url\");",
+                  "pm.environment.unset(\"uzum_order_id\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const payment = body.data && body.data.payment;",
+                  "  pm.test(\"Заказ и ссылка на оплату\", function () {",
+                  "    pm.expect(body.statusCode).to.eql(200);",
+                  "    pm.expect(payment).to.be.an(\"object\");",
+                  "    pm.expect(payment.order_id).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(payment.amount).to.eql(Number(pm.environment.get(\"amount_uzs\")));",
+                  "    pm.expect(payment.status).to.eql(\"processing\");",
+                  "    pm.expect(payment.checkout_url).to.match(/^https?:\\/\\//);",
+                  "  });",
+                  "  if (payment && typeof payment.order_id === \"string\" && payment.order_id && typeof payment.checkout_url === \"string\" && /^https?:\\/\\//.test(payment.checkout_url)) {",
+                  "    pm.environment.set(\"order_id\", payment.order_id);",
+                  "    pm.environment.set(\"checkout_url\", payment.checkout_url);",
+                  "  }",
+                  "}",
+                  "pm.execution.setNextRequest(null);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Заказ создан (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/payments/uzum",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "payments",
+                    "uzum"
+                  ]
+                },
+                "description": "Создание или повторное получение заказа на пополнение карты Central Park через Uzum Checkout. Требуются зарегистрированный, подтверждённый пользователь и его активная карта. data.amount — целое число в сумах (UZS): 10000 означает 10 000 сум. Сервер сам переводит сумму в тийины для Uzum. Ответ сохраняется в order_id и checkout_url. order_id — наш orderNumber, он НЕ является Uzum orderId. Откройте checkout_url в браузере и выполните тестовую оплату. После этого запроса Collection Runner останавливается для ручного шага оплаты.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"card\": {{card_id}},\n    \"amount\": {{amount_uzs}}\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"payment\": {\n      \"order_id\": \"1001\",\n      \"amount\": 10000,\n      \"status\": \"processing\",\n      \"checkout_url\": \"https://checkout.example.invalid/test-payment\"\n    }\n  }\n}"
+            },
+            {
+              "name": "UZUM_PAYMENT_DISABLED (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/payments/uzum",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "payments",
+                    "uzum"
+                  ]
+                },
+                "description": "Создание или повторное получение заказа на пополнение карты Central Park через Uzum Checkout. Требуются зарегистрированный, подтверждённый пользователь и его активная карта. data.amount — целое число в сумах (UZS): 10000 означает 10 000 сум. Сервер сам переводит сумму в тийины для Uzum. Ответ сохраняется в order_id и checkout_url. order_id — наш orderNumber, он НЕ является Uzum orderId. Откройте checkout_url в браузере и выполните тестовую оплату. После этого запроса Collection Runner останавливается для ручного шага оплаты.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"card\": {{card_id}},\n    \"amount\": {{amount_uzs}}\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"UZUM_PAYMENT_DISABLED\"\n}"
+            },
+            {
+              "name": "USER_NOT_VERIFIED (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/payments/uzum",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "payments",
+                    "uzum"
+                  ]
+                },
+                "description": "Создание или повторное получение заказа на пополнение карты Central Park через Uzum Checkout. Требуются зарегистрированный, подтверждённый пользователь и его активная карта. data.amount — целое число в сумах (UZS): 10000 означает 10 000 сум. Сервер сам переводит сумму в тийины для Uzum. Ответ сохраняется в order_id и checkout_url. order_id — наш orderNumber, он НЕ является Uzum orderId. Откройте checkout_url в браузере и выполните тестовую оплату. После этого запроса Collection Runner останавливается для ручного шага оплаты.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"card\": {{card_id}},\n    \"amount\": {{amount_uzs}}\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"USER_NOT_VERIFIED\"\n}"
+            },
+            {
+              "name": "CARD_NOT_FOUND (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/payments/uzum",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "payments",
+                    "uzum"
+                  ]
+                },
+                "description": "Создание или повторное получение заказа на пополнение карты Central Park через Uzum Checkout. Требуются зарегистрированный, подтверждённый пользователь и его активная карта. data.amount — целое число в сумах (UZS): 10000 означает 10 000 сум. Сервер сам переводит сумму в тийины для Uzum. Ответ сохраняется в order_id и checkout_url. order_id — наш orderNumber, он НЕ является Uzum orderId. Откройте checkout_url в браузере и выполните тестовую оплату. После этого запроса Collection Runner останавливается для ручного шага оплаты.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"card\": {{card_id}},\n    \"amount\": {{amount_uzs}}\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 404,\n  \"message\": \"CARD_NOT_FOUND\"\n}"
+            },
+            {
+              "name": "CARD_MUST_BE_ACTIVE (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/payments/uzum",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "payments",
+                    "uzum"
+                  ]
+                },
+                "description": "Создание или повторное получение заказа на пополнение карты Central Park через Uzum Checkout. Требуются зарегистрированный, подтверждённый пользователь и его активная карта. data.amount — целое число в сумах (UZS): 10000 означает 10 000 сум. Сервер сам переводит сумму в тийины для Uzum. Ответ сохраняется в order_id и checkout_url. order_id — наш orderNumber, он НЕ является Uzum orderId. Откройте checkout_url в браузере и выполните тестовую оплату. После этого запроса Collection Runner останавливается для ручного шага оплаты.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"card\": {{card_id}},\n    \"amount\": {{amount_uzs}}\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"CARD_MUST_BE_ACTIVE\"\n}"
+            },
+            {
+              "name": "PAYMENT_ALREADY_PROCESSING (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/payments/uzum",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "payments",
+                    "uzum"
+                  ]
+                },
+                "description": "Создание или повторное получение заказа на пополнение карты Central Park через Uzum Checkout. Требуются зарегистрированный, подтверждённый пользователь и его активная карта. data.amount — целое число в сумах (UZS): 10000 означает 10 000 сум. Сервер сам переводит сумму в тийины для Uzum. Ответ сохраняется в order_id и checkout_url. order_id — наш orderNumber, он НЕ является Uzum orderId. Откройте checkout_url в браузере и выполните тестовую оплату. После этого запроса Collection Runner останавливается для ручного шага оплаты.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"card\": {{card_id}},\n    \"amount\": {{amount_uzs}}\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"PAYMENT_ALREADY_PROCESSING\"\n}"
+            },
+            {
+              "name": "UZUM_REGISTER_REQUEST_FAILED (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-telegram-init-data",
+                    "value": "{{telegram_init_data}}",
+                    "type": "text",
+                    "description": "Исходная строка Telegram.WebApp.initData тестового пользователя."
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/client/payments/uzum",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "client",
+                    "payments",
+                    "uzum"
+                  ]
+                },
+                "description": "Создание или повторное получение заказа на пополнение карты Central Park через Uzum Checkout. Требуются зарегистрированный, подтверждённый пользователь и его активная карта. data.amount — целое число в сумах (UZS): 10000 означает 10 000 сум. Сервер сам переводит сумму в тийины для Uzum. Ответ сохраняется в order_id и checkout_url. order_id — наш orderNumber, он НЕ является Uzum orderId. Откройте checkout_url в браузере и выполните тестовую оплату. После этого запроса Collection Runner останавливается для ручного шага оплаты.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"card\": {{card_id}},\n    \"amount\": {{amount_uzs}}\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 500,\n  \"message\": \"UZUM_REGISTER_REQUEST_FAILED\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02. Uzum → Central Park",
+      "description": "Входящий callback. Для запуска используйте существующий тестовый заказ и фактическое событие Uzum.",
+      "item": [
+        {
+          "name": "03 — Callback Uzum → Central Park",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/uzum/callback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "uzum",
+                "callback"
+              ]
+            },
+            "description": "Основной входящий endpoint для Uzum. JSON передаётся напрямую, без обёртки data. Telegram-авторизация и API Key в этом запросе не требуются текущим backend. Сервер находит зарегистрированный Uzum orderId и проверяет фактическое состояние через Uzum getOrderStatus с серверными реквизитами. operationState из тела сам по себе не меняет баланс. orderNumber должен совпадать с order_id, а orderId — с отдельным идентификатором, который Uzum вернул при регистрации именно этого заказа. Backend не возвращает Uzum orderId клиенту: его предоставляет Uzum или команда Central Park из записи тестовой транзакции. Используйте реальные данные тестового события; COMPLETED/PAYMENT ниже — пример. HTTP 200 и {\"ok\":true} означают обработку callback, а не самостоятельное подтверждение оплаты. Повторите тот же callback для проверки повторной доставки и сравните баланс запросом 01.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{uzum_order_id}}\",\n  \"operationState\": \"{{callback_operation_state}}\",\n  \"operationType\": \"{{callback_operation_type}}\",\n  \"orderNumber\": \"{{order_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const required = [\"uzum_order_id\", \"order_id\", \"callback_operation_state\", \"callback_operation_type\"];",
+                  "const missing = required.filter(function (key) { return !String(pm.environment.get(key) || \"\").trim(); });",
+                  "if (missing.length) {",
+                  "  console.error(\"Заполните переменные callback: \" + missing.join(\", \") + \". Uzum orderId и наш orderNumber — разные идентификаторы.\");",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Callback обработан\", function () { pm.expect(pm.response.json()).to.eql({ok: true}); });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Callback обработан, включая повторную доставку успешного платежа (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/payments/uzum/callback",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payments",
+                    "uzum",
+                    "callback"
+                  ]
+                },
+                "description": "Основной входящий endpoint для Uzum. JSON передаётся напрямую, без обёртки data. Telegram-авторизация и API Key в этом запросе не требуются текущим backend. Сервер находит зарегистрированный Uzum orderId и проверяет фактическое состояние через Uzum getOrderStatus с серверными реквизитами. operationState из тела сам по себе не меняет баланс. orderNumber должен совпадать с order_id, а orderId — с отдельным идентификатором, который Uzum вернул при регистрации именно этого заказа. Backend не возвращает Uzum orderId клиенту: его предоставляет Uzum или команда Central Park из записи тестовой транзакции. Используйте реальные данные тестового события; COMPLETED/PAYMENT ниже — пример. HTTP 200 и {\"ok\":true} означают обработку callback, а не самостоятельное подтверждение оплаты. Повторите тот же callback для проверки повторной доставки и сравните баланс запросом 01.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"orderId\": \"{{uzum_order_id}}\",\n  \"operationState\": \"{{callback_operation_state}}\",\n  \"operationType\": \"{{callback_operation_type}}\",\n  \"orderNumber\": \"{{order_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"ok\": true\n}"
+            },
+            {
+              "name": "UZUM_TRANSACTION_NOT_FOUND (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/payments/uzum/callback",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payments",
+                    "uzum",
+                    "callback"
+                  ]
+                },
+                "description": "Основной входящий endpoint для Uzum. JSON передаётся напрямую, без обёртки data. Telegram-авторизация и API Key в этом запросе не требуются текущим backend. Сервер находит зарегистрированный Uzum orderId и проверяет фактическое состояние через Uzum getOrderStatus с серверными реквизитами. operationState из тела сам по себе не меняет баланс. orderNumber должен совпадать с order_id, а orderId — с отдельным идентификатором, который Uzum вернул при регистрации именно этого заказа. Backend не возвращает Uzum orderId клиенту: его предоставляет Uzum или команда Central Park из записи тестовой транзакции. Используйте реальные данные тестового события; COMPLETED/PAYMENT ниже — пример. HTTP 200 и {\"ok\":true} означают обработку callback, а не самостоятельное подтверждение оплаты. Повторите тот же callback для проверки повторной доставки и сравните баланс запросом 01.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"orderId\": \"{{uzum_order_id}}\",\n  \"operationState\": \"{{callback_operation_state}}\",\n  \"operationType\": \"{{callback_operation_type}}\",\n  \"orderNumber\": \"{{order_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 404,\n  \"message\": \"UZUM_TRANSACTION_NOT_FOUND\"\n}"
+            },
+            {
+              "name": "UZUM_ORDER_NUMBER_MISMATCH (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/payments/uzum/callback",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payments",
+                    "uzum",
+                    "callback"
+                  ]
+                },
+                "description": "Основной входящий endpoint для Uzum. JSON передаётся напрямую, без обёртки data. Telegram-авторизация и API Key в этом запросе не требуются текущим backend. Сервер находит зарегистрированный Uzum orderId и проверяет фактическое состояние через Uzum getOrderStatus с серверными реквизитами. operationState из тела сам по себе не меняет баланс. orderNumber должен совпадать с order_id, а orderId — с отдельным идентификатором, который Uzum вернул при регистрации именно этого заказа. Backend не возвращает Uzum orderId клиенту: его предоставляет Uzum или команда Central Park из записи тестовой транзакции. Используйте реальные данные тестового события; COMPLETED/PAYMENT ниже — пример. HTTP 200 и {\"ok\":true} означают обработку callback, а не самостоятельное подтверждение оплаты. Повторите тот же callback для проверки повторной доставки и сравните баланс запросом 01.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"orderId\": \"{{uzum_order_id}}\",\n  \"operationState\": \"{{callback_operation_state}}\",\n  \"operationType\": \"{{callback_operation_type}}\",\n  \"orderNumber\": \"{{order_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"UZUM_ORDER_NUMBER_MISMATCH\"\n}"
+            },
+            {
+              "name": "UZUM_AMOUNT_MISMATCH (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/payments/uzum/callback",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payments",
+                    "uzum",
+                    "callback"
+                  ]
+                },
+                "description": "Основной входящий endpoint для Uzum. JSON передаётся напрямую, без обёртки data. Telegram-авторизация и API Key в этом запросе не требуются текущим backend. Сервер находит зарегистрированный Uzum orderId и проверяет фактическое состояние через Uzum getOrderStatus с серверными реквизитами. operationState из тела сам по себе не меняет баланс. orderNumber должен совпадать с order_id, а orderId — с отдельным идентификатором, который Uzum вернул при регистрации именно этого заказа. Backend не возвращает Uzum orderId клиенту: его предоставляет Uzum или команда Central Park из записи тестовой транзакции. Используйте реальные данные тестового события; COMPLETED/PAYMENT ниже — пример. HTTP 200 и {\"ok\":true} означают обработку callback, а не самостоятельное подтверждение оплаты. Повторите тот же callback для проверки повторной доставки и сравните баланс запросом 01.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"orderId\": \"{{uzum_order_id}}\",\n  \"operationState\": \"{{callback_operation_state}}\",\n  \"operationType\": \"{{callback_operation_type}}\",\n  \"orderNumber\": \"{{order_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"UZUM_AMOUNT_MISMATCH\"\n}"
+            },
+            {
+              "name": "UZUM_STATUS_REQUEST_FAILED (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/payments/uzum/callback",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payments",
+                    "uzum",
+                    "callback"
+                  ]
+                },
+                "description": "Основной входящий endpoint для Uzum. JSON передаётся напрямую, без обёртки data. Telegram-авторизация и API Key в этом запросе не требуются текущим backend. Сервер находит зарегистрированный Uzum orderId и проверяет фактическое состояние через Uzum getOrderStatus с серверными реквизитами. operationState из тела сам по себе не меняет баланс. orderNumber должен совпадать с order_id, а orderId — с отдельным идентификатором, который Uzum вернул при регистрации именно этого заказа. Backend не возвращает Uzum orderId клиенту: его предоставляет Uzum или команда Central Park из записи тестовой транзакции. Используйте реальные данные тестового события; COMPLETED/PAYMENT ниже — пример. HTTP 200 и {\"ok\":true} означают обработку callback, а не самостоятельное подтверждение оплаты. Повторите тот же callback для проверки повторной доставки и сравните баланс запросом 01.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"orderId\": \"{{uzum_order_id}}\",\n  \"operationState\": \"{{callback_operation_state}}\",\n  \"operationType\": \"{{callback_operation_type}}\",\n  \"orderNumber\": \"{{order_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 500,\n  \"message\": \"UZUM_STATUS_REQUEST_FAILED\"\n}"
+            },
+            {
+              "name": "INSUFFICIENT_CARD_BALANCE_FOR_UZUM_REFUND (пример)",
+              "originalRequest": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/payments/uzum/callback",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payments",
+                    "uzum",
+                    "callback"
+                  ]
+                },
+                "description": "Основной входящий endpoint для Uzum. JSON передаётся напрямую, без обёртки data. Telegram-авторизация и API Key в этом запросе не требуются текущим backend. Сервер находит зарегистрированный Uzum orderId и проверяет фактическое состояние через Uzum getOrderStatus с серверными реквизитами. operationState из тела сам по себе не меняет баланс. orderNumber должен совпадать с order_id, а orderId — с отдельным идентификатором, который Uzum вернул при регистрации именно этого заказа. Backend не возвращает Uzum orderId клиенту: его предоставляет Uzum или команда Central Park из записи тестовой транзакции. Используйте реальные данные тестового события; COMPLETED/PAYMENT ниже — пример. HTTP 200 и {\"ok\":true} означают обработку callback, а не самостоятельное подтверждение оплаты. Повторите тот же callback для проверки повторной доставки и сравните баланс запросом 01.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"orderId\": \"{{uzum_order_id}}\",\n  \"operationState\": \"{{callback_operation_state}}\",\n  \"operationType\": \"{{callback_operation_type}}\",\n  \"orderNumber\": \"{{order_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"statusCode\": 400,\n  \"message\": \"INSUFFICIENT_CARD_BALANCE_FOR_UZUM_REFUND\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

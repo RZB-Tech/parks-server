@@ -52,7 +52,7 @@ export const OperatorAttractionsDTO = (
     age_limit: Number(attraction.age_limit),
     min_height: Number(attraction.min_height),
     max_weight: Number(attraction.max_weight),
-    duration: Number(attraction.duration),
+    duration: String(attraction.duration),
     seats: Number(attraction.seats),
   };
 };

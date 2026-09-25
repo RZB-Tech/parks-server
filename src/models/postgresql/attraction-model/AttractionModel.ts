@@ -18,7 +18,8 @@ export class AttractionModel
   public latitude!: string | null;
   public longitude!: string | null;
   public price!: number | null;
-  public duration!: number;
+  public duration!: string;
+  public rules!: AttractionRules;
   public seats!: number;
   public age_limit!: number;
   public min_height!: number;
@@ -99,8 +100,17 @@ export class AttractionModel
           allowNull: true,
         },
         duration: {
-          type: DataTypes.INTEGER,
+          type: DataTypes.STRING,
           allowNull: false,
+        },
+        rules: {
+          type: DataTypes.JSONB,
+          allowNull: false,
+          defaultValue: {
+            parent_accompaniment: { uz: "", ru: "", en: "" },
+            strict_rules: { uz: "", ru: "", en: "" },
+            exceptions: { uz: "", ru: "", en: "" },
+          },
         },
         seats: {
           type: DataTypes.INTEGER,

@@ -1,6 +1,42 @@
 import { AttractionStatusTypes } from "../../models/postgresql/attraction-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
 
+const durationSchema = {
+  anyOf: [
+    {
+      type: "number",
+    },
+    {
+      type: "string",
+    },
+  ],
+  description:
+    "Ride duration or round label. Examples: 2.30, 2,30, krug.",
+  examples: ["2.30", "2,30", "krug"],
+};
+
+const attractionRuleTranslationsSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    uz: { type: "string" },
+    ru: { type: "string" },
+    en: { type: "string" },
+  },
+};
+
+const attractionRulesSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    parent_accompaniment: attractionRuleTranslationsSchema,
+    strict_rules: attractionRuleTranslationsSchema,
+    exceptions: attractionRuleTranslationsSchema,
+  },
+  description:
+    "Attraction rules in Uzbek, Russian, and English.",
+};
+
 export const attractionProperties = {
   id: {
     type: "number",
@@ -84,10 +120,9 @@ export const attractionProperties = {
     },
   },
   duration: {
-    type: "number",
-    description: "Ride duration in minutes",
-    examples: [5],
+    ...durationSchema,
   },
+  rules: attractionRulesSchema,
   seats: {
     type: "number",
     description: "Number of seats",
