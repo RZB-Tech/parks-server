@@ -20,6 +20,7 @@ import {
   sequelize,
 } from "../../plugins/db/postgresql/db";
 import { Op, Transaction } from "sequelize";
+import { MAX_OWNER_EMPLOYEES } from "../../consts/employee";
 
 const OWNER_CREATION_LOCK = "parks-server:create-owner-employee";
 
@@ -302,14 +303,14 @@ export const CreateEmployeesService = async (
         },
       );
 
-      const ownerExists = await EmployeeModel.count({
+      const ownerCount = await EmployeeModel.count({
         where: { role: role.id },
         paranoid: false,
         transaction,
       });
 
-      if (ownerExists > 0) {
-        throw Conflict("Owner employee already exists");
+      if (ownerCount >= MAX_OWNER_EMPLOYEES) {
+        throw Conflict("Maximum number of owner employees reached");
       }
     }
 
