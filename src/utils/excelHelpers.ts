@@ -31,6 +31,11 @@ export interface CardExcelValidationResult {
   errors: CardImportValidationError[];
 }
 
+export const NormalizeCardNfcID = (value: unknown): string =>
+  String(value ?? "")
+    .trim()
+    .replace(/^0/, "");
+
 export const ParseCardExcel = (buffer: Buffer): CardExcelRow[] => {
   const workbook = XLSX.read(buffer);
 
@@ -64,7 +69,7 @@ export const ValidateCardExcel = (
     row_number:
       typeof row.__rowNum__ === "number" ? row.__rowNum__ + 1 : index + 2,
     card_id: String(row.card_id).trim(),
-    nfc_id: String(row.nfc_id).trim(),
+    nfc_id: NormalizeCardNfcID(row.nfc_id),
     bind_token: NormalizeCardBindToken(row.bind_token),
   }));
 
