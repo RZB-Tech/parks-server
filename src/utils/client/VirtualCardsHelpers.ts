@@ -26,7 +26,7 @@ export const GenerateVirtualCardNumber = async (
   const result = await sequelize.query<{ card_number: string }>(
     `
       SELECT
-        nextval('virtual_card_number_seq')::TEXT
+        nextval('public.virtual_card_number_seq')::TEXT
         AS card_number
     `,
     {
@@ -52,7 +52,7 @@ export const GenerateVirtualCardNfc = async (
   const result = await sequelize.query<{ nfc_number: string }>(
     `
       SELECT
-        nextval('virtual_card_nfc_seq')::TEXT
+        nextval('public.virtual_card_nfc_seq')::TEXT
         AS nfc_number
     `,
     {
