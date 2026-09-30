@@ -14,14 +14,24 @@ import {
   sequelize,
   UserModel,
 } from "../../plugins/db/postgresql/db";
-import { ParseCardExcel, ValidateCardExcel } from "../../utils/excelHelpers";
+import {
+  CardImportValidationError,
+  NormalizedCardExcelRow,
+  ParseCardExcel,
+  ValidateCardExcel,
+} from "../../utils/excelHelpers";
 import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
-import { Op, QueryTypes, UniqueConstraintError } from "sequelize";
+import {
+  Op,
+  QueryTypes,
+  UniqueConstraintError,
+  WhereOptions,
+} from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
 import {
   HashCardBindToken,
-  NormalizeCardBindToken,
+  IsValidCardBindToken,
 } from "../../utils/client/CardBindTokenHelper";
 
 const CARD_MANAGEMENT_ROLES: Record<CardType, readonly string[]> = {
@@ -361,6 +371,113 @@ export const GetVipCardUsageService = async (
   };
 };
 
+interface PreparedCardExcelRow extends NormalizedCardExcelRow {
+  bind_token_hash: string | null;
+}
+
+const AddImportRow = (
+  rowsByValue: Map<string, number[]>,
+  value: string,
+  rowNumber: number,
+) => {
+  const rowNumbers = rowsByValue.get(value) ?? [];
+  rowNumbers.push(rowNumber);
+  rowsByValue.set(value, rowNumbers);
+};
+
+const SortCardImportErrors = (
+  errors: CardImportValidationError[],
+): CardImportValidationError[] =>
+  errors.sort(
+    (first, second) =>
+      first.row - second.row || first.code.localeCompare(second.code),
+  );
+
+export const FindExistingCardImportErrors = async (
+  rows: PreparedCardExcelRow[],
+): Promise<CardImportValidationError[]> => {
+  const cardIDs = [...new Set(rows.map((row) => row.card_id).filter(Boolean))];
+  const nfcIDs = [...new Set(rows.map((row) => row.nfc_id).filter(Boolean))];
+  const bindTokenHashes = [
+    ...new Set(
+      rows
+        .map((row) => row.bind_token_hash)
+        .filter((hash): hash is string => Boolean(hash)),
+    ),
+  ];
+  const where: WhereOptions<CardsModelI>[] = [];
+
+  if (cardIDs.length) where.push({ card: { [Op.in]: cardIDs } });
+  if (nfcIDs.length) where.push({ nfc: { [Op.in]: nfcIDs } });
+  if (bindTokenHashes.length) {
+    where.push({ bind_token_hash: { [Op.in]: bindTokenHashes } });
+  }
+
+  if (!where.length) return [];
+
+  const existingCards = await CardModel.findAll({
+    attributes: ["id", "card", "nfc", "bind_token_hash"],
+    where: { [Op.or]: where },
+    paranoid: false,
+  });
+
+  const rowsByCardID = new Map<string, number[]>();
+  const rowsByNfcID = new Map<string, number[]>();
+  const rowsByBindTokenHash = new Map<string, number[]>();
+
+  for (const row of rows) {
+    if (row.card_id) AddImportRow(rowsByCardID, row.card_id, row.row_number);
+    if (row.nfc_id) AddImportRow(rowsByNfcID, row.nfc_id, row.row_number);
+    if (row.bind_token_hash) {
+      AddImportRow(
+        rowsByBindTokenHash,
+        row.bind_token_hash,
+        row.row_number,
+      );
+    }
+  }
+
+  const errors: CardImportValidationError[] = [];
+
+  for (const existingCard of existingCards) {
+    const existingRecordID = Number(existingCard.id);
+
+    for (const rowNumber of rowsByCardID.get(existingCard.card) ?? []) {
+      errors.push({
+        code: "CARD_ID_ALREADY_EXISTS",
+        field: "card_id",
+        row: rowNumber,
+        card_id: existingCard.card,
+        existing_record_id: existingRecordID,
+      });
+    }
+
+    for (const rowNumber of rowsByNfcID.get(existingCard.nfc) ?? []) {
+      errors.push({
+        code: "NFC_ID_ALREADY_EXISTS",
+        field: "nfc_id",
+        row: rowNumber,
+        nfc_id: existingCard.nfc,
+        existing_record_id: existingRecordID,
+      });
+    }
+
+    if (existingCard.bind_token_hash) {
+      for (const rowNumber of
+        rowsByBindTokenHash.get(existingCard.bind_token_hash) ?? []) {
+        errors.push({
+          code: "BIND_TOKEN_ALREADY_EXISTS",
+          field: "bind_token",
+          row: rowNumber,
+          existing_record_id: existingRecordID,
+        });
+      }
+    }
+  }
+
+  return SortCardImportErrors(errors);
+};
+
 export const CreateCardsService = async (
   employeeID: number,
   roleName: string | undefined,
@@ -421,9 +538,23 @@ export const CreateCardsService = async (
     }
   }
 
-  const rows = ParseCardExcel(data.file);
+  const parsedRows = ParseCardExcel(data.file);
+  const validation = ValidateCardExcel(parsedRows);
+  const rows: PreparedCardExcelRow[] = validation.rows.map((row) => ({
+    ...row,
+    bind_token_hash: IsValidCardBindToken(row.bind_token)
+      ? HashCardBindToken(row.bind_token)
+      : null,
+  }));
+  const existingValueErrors = await FindExistingCardImportErrors(rows);
+  const importErrors = SortCardImportErrors([
+    ...validation.errors,
+    ...existingValueErrors,
+  ]);
 
-  ValidateCardExcel(rows);
+  if (importErrors.length) {
+    throw BadRequest("CARD_IMPORT_VALIDATION_FAILED", importErrors);
+  }
 
   try {
     return await sequelize.transaction(async (transaction) => {
@@ -451,11 +582,9 @@ export const CreateCardsService = async (
       await CardModel.bulkCreate(
         rows.map((row) => ({
           batch: batch.id,
-          card: row.card_id.trim(),
-          nfc: row.nfc_id.trim(),
-          bind_token_hash: HashCardBindToken(
-            NormalizeCardBindToken(row.bind_token),
-          ),
+          card: row.card_id,
+          nfc: row.nfc_id,
+          bind_token_hash: row.bind_token_hash!,
           type: data.type,
           balance: isOrganizationCard ? balance : 0,
           status: cardStatus,
@@ -477,8 +606,11 @@ export const CreateCardsService = async (
     });
   } catch (error) {
     if (error instanceof UniqueConstraintError) {
+      const concurrentImportErrors = await FindExistingCardImportErrors(rows);
+
       throw BadRequest(
-        "Some cards, NFC IDs, or bind tokens already exist.",
+        "CARD_IMPORT_VALIDATION_FAILED",
+        concurrentImportErrors.length ? concurrentImportErrors : undefined,
       );
     }
 
