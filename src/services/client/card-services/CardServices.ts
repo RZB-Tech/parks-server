@@ -29,6 +29,15 @@ const CLIENT_BINDABLE_CARD_TYPES = new Set<CardType>([
   CardType.ORGANIZATION,
 ]);
 
+const CARD_BATCH_STATUS_COUNTER = {
+  [CardStatusTypes.INACTIVE]: "inactive_cards",
+  [CardStatusTypes.ACTIVE]: "active_cards",
+  [CardStatusTypes.FROZEN]: "frozen_cards",
+  [CardStatusTypes.BLOCKED]: "blocked_cards",
+  [CardStatusTypes.LOST]: "lost_cards",
+  [CardStatusTypes.RETURNED]: "returned_cards",
+} as const;
+
 export const GetUserCardsService = async (
   telegramID: number,
 ): Promise<GetUserCardsResponseDTO> => {
@@ -248,15 +257,6 @@ export const BindCardToUserService = async (
       throw BadRequest("CARD_TYPE_IS_NOT_BINDABLE");
     }
 
-    const isOrganizationCard = card.type === CardType.ORGANIZATION;
-    const expectedStatus = isOrganizationCard
-      ? CardStatusTypes.ACTIVE
-      : CardStatusTypes.INACTIVE;
-
-    if (card.status !== expectedStatus) {
-      throw BadRequest("CARD_STATUS_IS_NOT_BINDABLE");
-    }
-
     if (
       !card.bind_token_hash ||
       !CompareCardBindToken(bindToken, card.bind_token_hash)
@@ -274,6 +274,7 @@ export const BindCardToUserService = async (
     }
 
     const now = new Date();
+    const previousStatus = card.status;
 
     await card.update(
       {
@@ -288,13 +289,8 @@ export const BindCardToUserService = async (
       },
     );
 
-    if (isOrganizationCard) {
-      await batch.increment("tethered_cards", {
-        by: 1,
-        transaction,
-      });
-    } else {
-      await batch.decrement("inactive_cards", {
+    if (previousStatus !== CardStatusTypes.ACTIVE) {
+      await batch.decrement(CARD_BATCH_STATUS_COUNTER[previousStatus], {
         by: 1,
         transaction,
       });
@@ -308,6 +304,11 @@ export const BindCardToUserService = async (
           transaction,
         },
       );
+    } else {
+      await batch.increment("tethered_cards", {
+        by: 1,
+        transaction,
+      });
     }
 
     return UserCardDTO(card);
