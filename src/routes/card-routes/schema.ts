@@ -22,6 +22,11 @@ export const cardProperties = {
     type: "string",
     description: "NFC ID",
   },
+  bind_token: {
+    description:
+      "Card bind token. Legacy hashed cards return null because their original token cannot be restored.",
+    oneOf: [{ type: "string" }, { type: "null" }],
+  },
   status: {
     type: "string",
     enum: Object.values(CardStatusTypes),

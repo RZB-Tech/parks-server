@@ -11,6 +11,7 @@ declare interface CardResponseDTO {
   type: CardType;
   card: string;
   nfc: string;
+  bind_token?: string | null;
   balance: number;
   status: CardStatusTypes;
   imported_at: Date;

@@ -282,7 +282,6 @@ export const BindCardToUserService = async (
         status: CardStatusTypes.ACTIVE,
         activated_at: card.activated_at ?? now,
         bound_at: now,
-        bind_token_hash: null,
       },
       {
         transaction,

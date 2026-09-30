@@ -1,6 +1,10 @@
 import { CardLastTransactionDTO } from "../card-transaction-dtos/CardTransactionDto";
+import { DecryptCardBindToken } from "../../utils/client/CardBindTokenHelper";
 
-export const CardDTO = (data: CardWithTransactionDto): CardResponseDTO => {
+export const CardDTO = (
+  data: CardWithTransactionDto,
+  options: { includeBindToken?: boolean } = {},
+): CardResponseDTO => {
   const lastTransaction = data.transaction ?? null;
   const user = data.users ?? null;
 
@@ -10,6 +14,9 @@ export const CardDTO = (data: CardWithTransactionDto): CardResponseDTO => {
     type: data.type,
     card: data.card,
     nfc: data.nfc,
+    ...(options.includeBindToken
+      ? { bind_token: DecryptCardBindToken(data.bind_token_hash) }
+      : {}),
     balance: Number(data.balance || 0),
     status: data.status,
     imported_at: data.imported_at,

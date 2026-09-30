@@ -30,6 +30,7 @@ import {
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
 import {
+  EncryptCardBindToken,
   HashCardBindToken,
   IsValidCardBindToken,
 } from "../../utils/client/CardBindTokenHelper";
@@ -249,7 +250,11 @@ export const GetCardsService = async (query: GetCardsQuery) => {
   );
 
   return {
-    cards: cards.map(CardDTO),
+    cards: cards.map((card) =>
+      CardDTO(card, {
+        includeBindToken: true,
+      }),
+    ),
     total: count,
     page,
     limit,
@@ -373,6 +378,7 @@ export const GetVipCardUsageService = async (
 
 interface PreparedCardExcelRow extends NormalizedCardExcelRow {
   bind_token_hash: string | null;
+  legacy_bind_token_hash?: string | null;
 }
 
 const AddImportRow = (
@@ -401,7 +407,10 @@ export const FindExistingCardImportErrors = async (
   const bindTokenHashes = [
     ...new Set(
       rows
-        .map((row) => row.bind_token_hash)
+        .flatMap((row) => [
+          row.bind_token_hash,
+          row.legacy_bind_token_hash ?? null,
+        ])
         .filter((hash): hash is string => Boolean(hash)),
     ),
   ];
@@ -432,6 +441,14 @@ export const FindExistingCardImportErrors = async (
       AddImportRow(
         rowsByBindTokenHash,
         row.bind_token_hash,
+        row.row_number,
+      );
+    }
+
+    if (row.legacy_bind_token_hash) {
+      AddImportRow(
+        rowsByBindTokenHash,
+        row.legacy_bind_token_hash,
         row.row_number,
       );
     }
@@ -543,6 +560,9 @@ export const CreateCardsService = async (
   const rows: PreparedCardExcelRow[] = validation.rows.map((row) => ({
     ...row,
     bind_token_hash: IsValidCardBindToken(row.bind_token)
+      ? EncryptCardBindToken(row.bind_token)
+      : null,
+    legacy_bind_token_hash: IsValidCardBindToken(row.bind_token)
       ? HashCardBindToken(row.bind_token)
       : null,
   }));
