@@ -3,6 +3,7 @@ name: Deploy (prod)
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-prod-parks-server
@@ -52,10 +53,10 @@ jobs:
           cache-from: type=gha,scope=prod
           cache-to: type=gha,mode=max,scope=prod
 
-  deploy:
+  deploy-central-park:
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: prod
+    environment: production-central-park
     permissions:
       contents: read
       packages: read
@@ -65,8 +66,7 @@ jobs:
         with:
           host: ${{ secrets.VDS_HOST }}
           username: ${{ secrets.VDS_USER }}
-          key: ${{ secrets.VDS_SSH_KEY }}
-          passphrase: ${{ secrets.VDS_SSH_KEY_PASSPHRASE }}
+          password: ${{ secrets.VDS_PASSWORD }}
           script: |
             set -e
             cd /opt/apps/parks-server
