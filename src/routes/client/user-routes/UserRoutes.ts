@@ -5,13 +5,13 @@ import {
 } from "fastify";
 import { TelegramAuthMiddleware } from "../../../middlewares/telegram-auth-middlewar/TelegramAuthMiddleware";
 import {
-  acceptAgreementSchema,
   getMeSchema,
+  updateAgreementSchema,
   updateMeSchema,
 } from "./schema";
 import {
-  AcceptAgreementController,
   GetMeController,
+  UpdateAgreementController,
   UpdateMeController,
 } from "../../../controllers/client/user-controllers/UserController";
 
@@ -31,13 +31,13 @@ const UserRouter: FastifyPluginAsync = async (
     UpdateMeController,
   );
 
-  fastify.post(
+  fastify.put(
     "/agreement",
     {
-      schema: acceptAgreementSchema,
+      schema: updateAgreementSchema,
       preHandler: [TelegramAuthMiddleware],
     },
-    AcceptAgreementController,
+    UpdateAgreementController,
   );
 };
 

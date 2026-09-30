@@ -2,8 +2,8 @@ import { FastifyRequest } from "fastify";
 import { Unauthorized } from "../../../exceptions";
 import { makeReplyingController } from "../../../utils/controllerHelpers";
 import {
-  AcceptAgreementService,
   GetMeService,
+  UpdateAgreementService,
   UpdateMeService,
 } from "../../../services/client/user-services/UserServices";
 import { ReqData } from "../../../types/routes";
@@ -35,15 +35,16 @@ export const UpdateMeController = makeReplyingController(
   },
 );
 
-export const AcceptAgreementController = makeReplyingController(
+export const UpdateAgreementController = makeReplyingController(
   "agreement",
   async (request: FastifyRequest) => {
     const telegramUser = request.telegram_user;
+    const body = request.body as ReqData<UpdateAgreementData>;
 
     if (!telegramUser) {
       throw Unauthorized("TELEGRAM_USER_NOT_FOUND");
     }
 
-    return AcceptAgreementService(Number(telegramUser.id));
+    return UpdateAgreementService(Number(telegramUser.id), body.data);
   },
 );

@@ -63,22 +63,30 @@ export const getMeSchema = {
   },
 };
 
-export const acceptAgreementSchema = {
+export const updateAgreementSchema = {
   tags: ["Clients|User"],
-  summary: "Accept user agreement",
+  summary: "Update user agreement acceptance",
   description:
-    "Marks the current Telegram user's agreement as accepted. The user is identified by x-telegram-init-data.",
+    "Updates the current Telegram user's agreement acceptance. The user is identified by x-telegram-init-data.",
   security: [
     {
       InitDataHeader: [],
     },
   ],
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["agreement_accepted"],
+    additionalProperties: false,
+    properties: {
+      agreement_accepted: { type: "boolean" },
+    },
+  }),
   response: {
     200: successAnswerTemplate({
       agreement: {
         type: "object",
         properties: {
-          agreement_accepted: { type: "boolean", const: true },
+          agreement_accepted: { type: "boolean" },
         },
       },
     }),

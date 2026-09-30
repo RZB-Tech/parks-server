@@ -24,3 +24,7 @@ declare interface ValidatedTelegramInitDataI {
 declare interface UpdateMeData {
   fullname: string;
 }
+
+declare interface UpdateAgreementData {
+  agreement_accepted: boolean;
+}

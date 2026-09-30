@@ -83,10 +83,19 @@ export const UpdateMeService = async (
   return UserDTO(user);
 };
 
-export const AcceptAgreementService = async (telegramID: number) => {
+export const UpdateAgreementService = async (
+  telegramID: number,
+  body: UpdateAgreementData,
+) => {
   if (!telegramID || !Number.isSafeInteger(telegramID)) {
     throw BadRequest("TELEGRAM_USER_ID_INVALID");
   }
+
+  if (typeof body?.agreement_accepted !== "boolean") {
+    throw BadRequest("AGREEMENT_ACCEPTED_INVALID");
+  }
+
+  const { agreement_accepted } = body;
 
   const user = await UserModel.findOne({
     where: {
@@ -102,11 +111,11 @@ export const AcceptAgreementService = async (telegramID: number) => {
     throw BadRequest("USER_BLOCKED");
   }
 
-  if (!user.agreement_accepted) {
-    await user.update({ agreement_accepted: true });
+  if (user.agreement_accepted !== agreement_accepted) {
+    await user.update({ agreement_accepted });
   }
 
   return {
-    agreement_accepted: true,
+    agreement_accepted,
   };
 };

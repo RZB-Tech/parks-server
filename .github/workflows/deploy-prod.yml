@@ -32,6 +32,7 @@ jobs:
 
       - name: Set image tags
         id: meta
+        shell: bash
         run: |
           REPO="${REGISTRY}/${IMAGE_NAME}"
           REPO_LOWER="${REPO,,}"
@@ -48,26 +49,30 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.image }}
             ${{ steps.meta.outputs.image_prod }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=prod
+          cache-to: type=gha,mode=max,scope=prod
 
-  deploy-central-park:
+  deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: production-central-park
+    environment: prod
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VDS_HOST }}
           username: ${{ secrets.VDS_USER }}
-          password: ${{ secrets.VDS_PASSWORD }}
+          key: ${{ secrets.VDS_SSH_KEY }}
+          passphrase: ${{ secrets.VDS_SSH_KEY_PASSPHRASE }}
           script: |
             set -e
             cd /opt/apps/parks-server
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             export IMAGE="${{ needs.build-and-push.outputs.image }}"
-            docker compose pull app temporal-schedule
-            docker compose up -d --remove-orphans postgres app
-            docker compose run --rm temporal-schedule
+            docker compose -f docker-compose.yml --env-file .env pull app temporal-schedule
+            docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans postgres app
+            docker compose -f docker-compose.yml --env-file .env run --rm temporal-schedule
             docker image prune -f

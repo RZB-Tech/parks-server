@@ -2,18 +2,20 @@ import { FastifyReply, FastifyRequest } from "fastify";
 
 export class AppError extends Error {
   statusCode: number;
+  errors?: unknown[];
 
-  constructor(statusCode: number, message: string) {
+  constructor(statusCode: number, message: string, errors?: unknown[]) {
     super(message);
 
     this.statusCode = statusCode;
+    this.errors = errors;
 
     Object.setPrototypeOf(this, AppError.prototype);
   }
 }
 
-export const BadRequest = (message = "Bad request") =>
-  new AppError(400, message);
+export const BadRequest = (message = "Bad request", errors?: unknown[]) =>
+  new AppError(400, message, errors);
 
 export const Unauthorized = (message = "Unauthorized") =>
   new AppError(401, message);
@@ -49,6 +51,7 @@ export const ExceptionsHandler = (
     return rep.code(error.statusCode).send({
       statusCode: error.statusCode,
       message: error.message,
+      ...(error.errors ? { errors: error.errors } : {}),
     });
   }
 
