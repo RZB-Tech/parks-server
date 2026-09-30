@@ -16,15 +16,19 @@ import {
 } from "../../plugins/db/postgresql/db";
 import {
   CardImportValidationError,
+  NormalizeCardNfcID,
   NormalizedCardExcelRow,
   ParseCardExcel,
   ValidateCardExcel,
 } from "../../utils/excelHelpers";
 import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
 import {
+  col,
+  fn,
   Op,
   QueryTypes,
   UniqueConstraintError,
+  where as sequelizeWhere,
   WhereOptions,
 } from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
@@ -417,7 +421,14 @@ export const FindExistingCardImportErrors = async (
   const where: WhereOptions<CardsModelI>[] = [];
 
   if (cardIDs.length) where.push({ card: { [Op.in]: cardIDs } });
-  if (nfcIDs.length) where.push({ nfc: { [Op.in]: nfcIDs } });
+  if (nfcIDs.length) {
+    where.push(
+      sequelizeWhere(
+        fn("regexp_replace", col("nfc"), "^0", ""),
+        { [Op.in]: nfcIDs },
+      ) as WhereOptions<CardsModelI>,
+    );
+  }
   if (bindTokenHashes.length) {
     where.push({ bind_token_hash: { [Op.in]: bindTokenHashes } });
   }
@@ -469,12 +480,14 @@ export const FindExistingCardImportErrors = async (
       });
     }
 
-    for (const rowNumber of rowsByNfcID.get(existingCard.nfc) ?? []) {
+    const normalizedExistingNfc = NormalizeCardNfcID(existingCard.nfc);
+
+    for (const rowNumber of rowsByNfcID.get(normalizedExistingNfc) ?? []) {
       errors.push({
         code: "NFC_ID_ALREADY_EXISTS",
         field: "nfc_id",
         row: rowNumber,
-        nfc_id: existingCard.nfc,
+        nfc_id: normalizedExistingNfc,
         existing_record_id: existingRecordID,
       });
     }
