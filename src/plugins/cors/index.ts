@@ -1,5 +1,7 @@
 export const corsConfigs = {
-    origin: "*", // Временно
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-}
+  // Reflect the request origin so credentialed browser requests work.
+  // Replace this with an explicit allowlist when the frontend URLs are fixed.
+  origin: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  credentials: true,
+};
