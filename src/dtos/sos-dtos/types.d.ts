@@ -11,4 +11,6 @@ interface SOSCashboxOperatorDTOData extends CashboxOperatorModelI {
 declare interface SOSReportWithRelationsDTO extends SosModelI {
   attractionOperator?: SOSAttractionOperatorDTOData | null;
   cashboxOperator?: SOSCashboxOperatorDTOData | null;
+  directOperator?: EmployeeModelI | null;
+  directAttraction?: AttractionModelI | null;
 }

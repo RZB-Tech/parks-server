@@ -36,7 +36,7 @@ import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeM
 import {
   GetOpenAttractionReportService,
   GetOrCreateOpenAttractionRoundService,
-  GetPaymentOperatorAttractionService,
+  GetPaymentAttractionService,
 } from "../attraction-reports-services/AttractionReportsServices";
 import { AttractionRoundModel } from "../../models/postgresql/attraction-round-model/AttractionRoundModel";
 import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
@@ -742,17 +742,10 @@ export const CardPaymentTransactionService = async (
   const sequelize = CardTransactionModel.sequelize!;
 
   return sequelize.transaction(async (transaction) => {
-    const operatorAttraction = await GetPaymentOperatorAttractionService(
-      parsedOperatorID,
+    const attraction = await GetPaymentAttractionService(
       attractionID,
       transaction,
     );
-
-    const attraction = operatorAttraction.attractions;
-
-    if (!attraction) {
-      throw NotFound("Attraction not found!");
-    }
 
     const seats = Number(attraction.seats);
 

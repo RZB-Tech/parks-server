@@ -1,7 +1,6 @@
 import { Op } from "sequelize";
 import { BadRequest, NotFound } from "../../exceptions";
 import { AttractionOperatorModel } from "../../models/postgresql/attraction-operator-model/AttractionOperatorModel";
-import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { CashboxOperatorModel } from "../../models/postgresql/cashbox-operator-model/CashboxOperatorModel";
 import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
 import { SosModel } from "../../models/postgresql/sos-model/SosModel";
@@ -9,6 +8,9 @@ import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeM
 import { AttractionModel } from "../../models/postgresql/attraction-model/AttractionModel";
 import { CashboxModel } from "../../models/postgresql/cashbox-model/CashboxModel";
 import { SOSReportDTO } from "../../dtos/sos-dtos/SosDto";
+import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
+import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
+import { AttractionReportTypes } from "../../models/postgresql/attraction-model/enums";
 
 
 export const CreateSOSService = async (
@@ -45,22 +47,36 @@ export const CreateSOSService = async (
   return SosModel.sequelize!.transaction(async (transaction) => {
     let attractionOperatorID: number | null = null;
     let cashboxOperatorID: number | null = null;
+    let directOperatorID: number | null = null;
+    let attractionID: number | null = null;
 
     if (params.source === "attraction") {
-      const attractionOperator = await AttractionOperatorModel.findOne({
-        where: {
-          operator: operatorID,
-          attraction: sourceID,
-          status: AttractionOperatorStatusTypes.ACTIVE,
-        },
+      const attraction = await AttractionModel.findByPk(sourceID, {
+        attributes: ["id"],
         transaction,
       });
 
-      if (!attractionOperator) {
-        throw NotFound("Active attraction operator assignment not found!");
+      if (!attraction) {
+        throw NotFound("Attraction not found!");
       }
 
-      attractionOperatorID = Number(attractionOperator.id);
+      const openReport = await AttractionReportModel.findOne({
+        where: {
+          operator: operatorID,
+          attraction: sourceID,
+          report_type: AttractionReportTypes.XREPORT,
+          status: AttractionReportStatusTypes.OPEN,
+        },
+        attributes: ["id"],
+        transaction,
+      });
+
+      if (!openReport) {
+        throw NotFound("Open attraction report not found!");
+      }
+
+      directOperatorID = operatorID;
+      attractionID = sourceID;
     }
 
     if (params.source === "cashbox") {
@@ -84,6 +100,8 @@ export const CreateSOSService = async (
       {
         attraction_operator: attractionOperatorID,
         cashbox_operator: cashboxOperatorID,
+        operator: directOperatorID,
+        attraction: attractionID,
         description,
       },
       {
@@ -127,6 +145,16 @@ export const CreateSOSService = async (
             },
           ],
         },
+        {
+          model: EmployeeModel,
+          as: "directOperator",
+          required: false,
+        },
+        {
+          model: AttractionModel,
+          as: "directAttraction",
+          required: false,
+        },
       ],
       transaction,
     });
@@ -159,9 +187,10 @@ export const GetSOSReportsService = async (query: GetSOSReportsQuery) => {
   const { rows, count } = await SosModel.findAndCountAll({
     where: {
       ...(query.source === "attraction" && {
-        attraction_operator: {
-          [Op.not]: null,
-        },
+        [Op.or]: [
+          { attraction: { [Op.not]: null } },
+          { attraction_operator: { [Op.not]: null } },
+        ],
       }),
 
       ...(query.source === "cashbox" && {
@@ -206,6 +235,16 @@ export const GetSOSReportsService = async (query: GetSOSReportsQuery) => {
             as: "cashboxes",
           },
         ],
+      },
+      {
+        model: EmployeeModel,
+        as: "directOperator",
+        required: false,
+      },
+      {
+        model: AttractionModel,
+        as: "directAttraction",
+        required: false,
       },
     ],
 
