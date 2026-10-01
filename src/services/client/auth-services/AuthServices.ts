@@ -29,6 +29,7 @@ import {
   SendPreparedOtpService,
   VerifyOtpService,
 } from "../../otp-services/OtpServices";
+import { ParseUserLanguage } from "../../../utils/client/UserLanguage";
 
 type PreparedAuthRegistration =
   | {
@@ -54,6 +55,7 @@ export const AuthUserService = async (
   }
 
   const telegramID = telegramUser.id;
+  const language = ParseUserLanguage(telegramUser.language_code);
 
   const fullname = body.fullname?.trim();
 
@@ -173,6 +175,7 @@ export const AuthUserService = async (
 
             phone_verified_at: null,
             registered_at: null,
+            ...(language ? { language } : {}),
           },
           {
             transaction,
@@ -197,6 +200,7 @@ export const AuthUserService = async (
 
             phone_verified_at: null,
             registered_at: null,
+            ...(language ? { language } : {}),
           },
           {
             transaction,
@@ -224,6 +228,7 @@ export const AuthUserService = async (
 
             phone_verified_at: null,
             registered_at: null,
+            ...(language ? { language } : {}),
           },
           {
             transaction,
@@ -312,6 +317,7 @@ export const VerifyAuthOtpService = async (
   }
 
   const telegramID = telegramUser.id;
+  const language = ParseUserLanguage(telegramUser.language_code);
 
   const phoneNumber = NormalizeUzPhoneNumber(body.phone_number);
 
@@ -363,6 +369,7 @@ export const VerifyAuthOtpService = async (
 
           phone_verified_at: now,
           registered_at: now,
+          ...(language ? { language } : {}),
         },
         {
           transaction,

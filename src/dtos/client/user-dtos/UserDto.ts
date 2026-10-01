@@ -11,5 +11,6 @@ export const UserDTO = (data: UserModelI): UserResponseDTO => {
     status: data.status,
     registered_at: data.registered_at ?? null,
     agreement_accepted: data.agreement_accepted,
+    language: data.language,
   };
 };

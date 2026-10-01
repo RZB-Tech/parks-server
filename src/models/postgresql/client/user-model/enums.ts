@@ -3,3 +3,9 @@ export enum UserStatusTypes {
   ACTIVE = "active",
   BLOCKED = "blocked",
 }
+
+export enum UserLanguageTypes {
+  UZ = "uz",
+  RU = "ru",
+  EN = "en",
+}

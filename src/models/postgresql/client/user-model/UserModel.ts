@@ -1,5 +1,5 @@
 import { Model, DataTypes, Sequelize } from "sequelize";
-import { UserStatusTypes } from "./enums";
+import { UserLanguageTypes, UserStatusTypes } from "./enums";
 import { ModelsType } from "../../../../plugins/db/postgresql/db";
 
 export class UserModel
@@ -25,6 +25,7 @@ export class UserModel
   public phone_verified_at!: Date | null;
   public registered_at!: Date | null;
   public agreement_accepted!: boolean;
+  public language!: import("./enums").UserLanguageTypes;
 
   // timestamps
   public readonly created_at!: Date;
@@ -110,6 +111,15 @@ export class UserModel
           type: DataTypes.BOOLEAN,
           allowNull: false,
           defaultValue: false,
+        },
+
+        language: {
+          type: DataTypes.STRING(2),
+          allowNull: false,
+          defaultValue: UserLanguageTypes.UZ,
+          validate: {
+            isIn: [Object.values(UserLanguageTypes)],
+          },
         },
       },
       {

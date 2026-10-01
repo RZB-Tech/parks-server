@@ -1,14 +1,23 @@
 import { Op, Transaction } from "sequelize";
-import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
+import {
+  UserLanguageTypes,
+  UserStatusTypes,
+} from "../../models/postgresql/client/user-model/enums";
 import { UserModel } from "../../plugins/db/postgresql/db";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import {
-  ContactKeyboard,
+  GetContactKeyboard,
   HideTelegramMenuButton,
   RemoveKeyboard,
   SendTelegramMessage,
   ShowTelegramMenuButton,
 } from "./TelegramBotApiServices";
+import {
+  GetTelegramBotMessages,
+} from "./TelegramBotTranslations";
+import {
+  ParseUserLanguage,
+} from "../../utils/client/UserLanguage";
 
 const registrationStates = new Map<number, TelegramRegistrationState>();
 
@@ -59,21 +68,32 @@ const ParseDateOfBirth = (value?: string) => {
   return IsValidDate(year, month, day) ? FormatDate(year, month, day) : null;
 };
 
-const ShowMiniApp = async (chatID: number, text: string) => {
-  await ShowTelegramMenuButton(chatID);
+const ShowMiniApp = async (
+  chatID: number,
+  text: string,
+  language: UserLanguageTypes,
+) => {
+  await ShowTelegramMenuButton(chatID, language);
   await SendTelegramMessage(chatID, text, RemoveKeyboard);
 };
 
 const StartRegistration = async (message: TelegramMessage) => {
   const from = message.from!;
   const chatID = message.chat.id;
+  const detectedLanguage = ParseUserLanguage(from.language_code);
   const user = await UserModel.findOne({ where: { telegram_id: from.id } });
+  const language = detectedLanguage ?? user?.language ?? UserLanguageTypes.UZ;
+  const messages = GetTelegramBotMessages(language);
+
+  if (user && detectedLanguage && user.language !== detectedLanguage) {
+    await user.update({ language: detectedLanguage });
+  }
 
   if (user?.status === UserStatusTypes.BLOCKED) {
     registrationStates.delete(from.id);
     await SendTelegramMessage(
       chatID,
-      "Доступ к аккаунту временно ограничен. Наша служба поддержки поможет разобраться — пожалуйста, свяжитесь с нами.",
+      messages.blocked,
       RemoveKeyboard,
     );
     return;
@@ -87,16 +107,17 @@ const StartRegistration = async (message: TelegramMessage) => {
     registrationStates.delete(from.id);
     await ShowMiniApp(
       chatID,
-      `Рады видеть вас снова, ${user.telegram_first_name || user.fullname}! 🎡\n\nВсё готово — открывайте Central Park и выбирайте новые впечатления.`,
+      messages.welcomeBack(user.telegram_first_name || user.fullname),
+      language,
     );
     return;
   }
 
-  registrationStates.set(from.id, { step: "full_name" });
+  registrationStates.set(from.id, { step: "full_name", language });
   await HideTelegramMenuButton(chatID);
   await SendTelegramMessage(
     chatID,
-    "Добро пожаловать в Central Park! 🎡\n\nЛюбимые аттракционы, яркие эмоции и отдых для всей семьи — всё в одном приложении. Регистрация займёт меньше минуты.\n\nНачнём знакомство: напишите ваши имя и фамилию одним сообщением.",
+    messages.registrationWelcome,
     RemoveKeyboard,
   );
 };
@@ -135,6 +156,8 @@ const SaveRegisteredUser = async (
     }
 
     const now = new Date();
+    const language =
+      ParseUserLanguage(from.language_code) ?? state.language ?? null;
     const values = {
       telegram_id: from.id,
       telegram_chat_id: String(message.chat.id),
@@ -148,6 +171,7 @@ const SaveRegisteredUser = async (
       status: UserStatusTypes.ACTIVE,
       phone_verified_at: now,
       registered_at: now,
+      ...(language ? { language } : {}),
     };
 
     if (byPhone) {
@@ -170,20 +194,26 @@ const ProcessRegistration = async (
   const chatID = message.chat.id;
   const telegramID = message.from!.id;
   const text = message.text?.trim();
+  const detectedLanguage = ParseUserLanguage(message.from!.language_code);
+  const language =
+    detectedLanguage ?? state.language ?? UserLanguageTypes.UZ;
+  state.language = language;
+  const messages = GetTelegramBotMessages(language);
+  const contactKeyboard = GetContactKeyboard(language);
 
   if (state.step === "full_name") {
     const name = ParseFullName(text);
     if (!name) {
       await SendTelegramMessage(
         chatID,
-        "Кажется, в имени есть опечатка. Пожалуйста, напишите имя и фамилию полностью, например: Иван Петров.",
+        messages.invalidFullName,
       );
       return;
     }
     Object.assign(state, { step: "date_of_birth", ...name });
     await SendTelegramMessage(
       chatID,
-      `Приятно познакомиться, ${name.first_name}! 😊\n\nУкажите дату рождения в формате ДД.ММ.ГГГГ — например, 15.08.1995.`,
+      messages.askDateOfBirth(name.first_name),
     );
     return;
   }
@@ -193,15 +223,15 @@ const ProcessRegistration = async (
     if (!dateOfBirth) {
       await SendTelegramMessage(
         chatID,
-        "Не удалось распознать дату. Проверьте её и отправьте в формате ДД.ММ.ГГГГ — например, 15.08.1995.",
+        messages.invalidDateOfBirth,
       );
       return;
     }
     Object.assign(state, { step: "phone", date_of_birth: dateOfBirth });
     await SendTelegramMessage(
       chatID,
-      "Почти готово! Остался один шаг. 📱\n\nНажмите кнопку ниже и поделитесь своим номером телефона — это безопасно и нужно для привязки вашего аккаунта.",
-      ContactKeyboard,
+      messages.askPhone,
+      contactKeyboard,
     );
     return;
   }
@@ -210,8 +240,8 @@ const ProcessRegistration = async (
   if (!contact || contact.user_id !== telegramID) {
     await SendTelegramMessage(
       chatID,
-      "Для безопасности аккаунта необходимо отправить именно ваш номер. Пожалуйста, воспользуйтесь кнопкой ниже.",
-      ContactKeyboard,
+      messages.ownContactRequired,
+      contactKeyboard,
     );
     return;
   }
@@ -222,8 +252,8 @@ const ProcessRegistration = async (
   } catch {
     await SendTelegramMessage(
       chatID,
-      "Сейчас регистрация доступна для номеров Узбекистана. Пожалуйста, отправьте корректный номер с помощью кнопки ниже.",
-      ContactKeyboard,
+      messages.invalidUzPhone,
+      contactKeyboard,
     );
     return;
   }
@@ -238,18 +268,19 @@ const ProcessRegistration = async (
   } catch (error) {
     const messageText =
       error instanceof Error && error.message === "PHONE_NUMBER_ALREADY_REGISTERED"
-        ? "Этот номер уже привязан к другому Telegram-аккаунту. Если это ваш номер, служба поддержки поможет быстро восстановить доступ."
+        ? messages.phoneAlreadyRegistered
         : error instanceof Error && error.message === "USER_BLOCKED"
-          ? "Доступ к аккаунту временно ограничен. Пожалуйста, обратитесь в службу поддержки."
-          : "Что-то пошло не так, но ваши данные не потеряны. Попробуйте отправить номер ещё раз или нажмите /start, чтобы начать заново.";
+          ? messages.registrationBlocked
+          : messages.registrationError;
 
-    await SendTelegramMessage(chatID, messageText, ContactKeyboard);
+    await SendTelegramMessage(chatID, messageText, contactKeyboard);
     return;
   }
   registrationStates.delete(telegramID);
   await ShowMiniApp(
     chatID,
-    `Готово, ${state.first_name}! 🎉\n\nДобро пожаловать в Central Park — ваш мир ярких эмоций уже открыт. Откройте приложение с помощью кнопки меню слева от поля ввода и выбирайте развлечения!`,
+    messages.registrationComplete(state.first_name!),
+    language,
   );
 };
 
@@ -264,9 +295,10 @@ export const ProcessTelegramUpdate = async (update: TelegramUpdate) => {
 
   const state = registrationStates.get(message.from.id);
   if (!state) {
+    const messages = GetTelegramBotMessages(message.from.language_code);
     await SendTelegramMessage(
       message.chat.id,
-      "Добро пожаловать в Central Park! 🎡\n\nНажмите /start — регистрация займёт меньше минуты, и все возможности парка станут доступны.",
+      messages.noRegistration,
       RemoveKeyboard,
     );
     return;

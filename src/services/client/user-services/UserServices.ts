@@ -2,8 +2,12 @@ import { UserDTO } from "../../../dtos/client/user-dtos/UserDto";
 import { BadRequest } from "../../../exceptions";
 import { UserStatusTypes } from "../../../models/postgresql/client/user-model/enums";
 import { UserModel } from "../../../models/postgresql/client/user-model/UserModel";
+import { ParseUserLanguage } from "../../../utils/client/UserLanguage";
 
-export const GetMeService = async (telegramID: number) => {
+export const GetMeService = async (
+  telegramID: number,
+  languageCode?: string,
+) => {
   if (!telegramID || !Number.isSafeInteger(telegramID)) {
     throw BadRequest("TELEGRAM_USER_ID_INVALID");
   }
@@ -16,6 +20,12 @@ export const GetMeService = async (telegramID: number) => {
 
   if (!user) {
     throw BadRequest("USER_NOT_REGISTERED");
+  }
+
+  const language = ParseUserLanguage(languageCode);
+
+  if (language && user.language !== language) {
+    await user.update({ language });
   }
 
   if (user.status === UserStatusTypes.BLOCKED) {
