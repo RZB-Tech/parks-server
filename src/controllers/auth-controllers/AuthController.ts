@@ -6,6 +6,12 @@ import {
   LoginService,
 } from "../../services/auth-services/AuthServices";
 import "@fastify/cookie";
+import { AppError } from "../../exceptions";
+import {
+  AssertEmployeeLoginAllowed,
+  ClearEmployeeLoginFailures,
+  RegisterEmployeeLoginFailure,
+} from "../../utils/employeeLoginRateLimit";
 
 export const LoginController = makeReplyingController(
   "auth",
@@ -14,8 +20,22 @@ export const LoginController = makeReplyingController(
     reply: FastifyReply,
   ) => {
     const body = request.body.data;
+    const rateLimitKey = request.ip;
 
-    const result = await LoginService(body);
+    AssertEmployeeLoginAllowed(rateLimitKey);
+
+    let result: Awaited<ReturnType<typeof LoginService>>;
+
+    try {
+      result = await LoginService(body);
+      ClearEmployeeLoginFailures(rateLimitKey);
+    } catch (error) {
+      if (error instanceof AppError && error.statusCode === 401) {
+        RegisterEmployeeLoginFailure(rateLimitKey);
+      }
+
+      throw error;
+    }
 
     reply.setCookie("fingerprint", result.fingerprint, {
       httpOnly: true,

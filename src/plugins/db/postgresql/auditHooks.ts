@@ -13,7 +13,7 @@ const IGNORED_FIELDS = new Set([
   "deletedAt",
 ]);
 const SENSITIVE_FIELD_PATTERN =
-  /(^|_)(password|access_token|refresh_token|token|secret|fingerprint|authorization|cookie|otp|pin|cvv)($|_)/i;
+  /(^|_)(password|access_token|refresh_token|token|secret|fingerprint|authorization|cookie|otp|pin|cvv|nfc)($|_)/i;
 
 type PlainRecord = Record<string, unknown>;
 type CapturedRow = {

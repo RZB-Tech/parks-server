@@ -4,27 +4,16 @@ import crypto from "crypto";
 import { NotFound, Unauthorized } from "../../exceptions";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { EmployeeDTO } from "../../dtos/employees-dtos/EmployeeDto";
+import { EmployeeStatusTypes } from "../../models/postgresql/employees-model/enums";
+import {
+  HashEmployeeNfc,
+  IsValidEmployeeNfc,
+  NormalizeEmployeeNfc,
+} from "../../utils/employeeNfc";
 
-export const LoginService = async (body: LoginData) => {
-  const employee = await EmployeeModel.findOne({
-    where: {
-      phone_number: body.phone_number,
-    },
-  });
+const INVALID_CREDENTIALS = "INVALID_CREDENTIALS";
 
-  if (!employee) {
-    throw NotFound("Employee not found!");
-  }
-
-  const isPasswordValid = await bcrypt.compare(
-    body.password,
-    employee.password,
-  );
-
-  if (!isPasswordValid) {
-    throw Unauthorized("Invalid phone number or password");
-  }
-
+const CreateEmployeeAuth = (employee: EmployeeModel) => {
   const fingerprint = crypto.randomBytes(50).toString("hex");
 
   const fingerprintHash = crypto
@@ -49,6 +38,53 @@ export const LoginService = async (body: LoginData) => {
     jwtToken,
     fingerprint,
   };
+};
+
+export const LoginService = async (body: LoginData) => {
+  const hasNfc = body.nfc !== undefined;
+  const hasPhoneNumber = body.phone_number !== undefined;
+  const hasPassword = body.password !== undefined;
+  const isNfcLogin = hasNfc && !hasPhoneNumber && !hasPassword;
+  const isPasswordLogin = !hasNfc && hasPhoneNumber && hasPassword;
+
+  if (!isNfcLogin && !isPasswordLogin) {
+    throw Unauthorized(INVALID_CREDENTIALS);
+  }
+
+  let employee: EmployeeModel | null = null;
+
+  if (isNfcLogin) {
+    const nfc = NormalizeEmployeeNfc(body.nfc);
+
+    if (!IsValidEmployeeNfc(nfc)) {
+      throw Unauthorized(INVALID_CREDENTIALS);
+    }
+
+    employee = await EmployeeModel.findOne({
+      where: {
+        nfc_hash: HashEmployeeNfc(nfc),
+      },
+    });
+  } else {
+    employee = await EmployeeModel.findOne({
+      where: {
+        phone_number: body.phone_number!,
+      },
+    });
+
+    if (
+      !employee ||
+      !(await bcrypt.compare(body.password!, employee.password))
+    ) {
+      throw Unauthorized(INVALID_CREDENTIALS);
+    }
+  }
+
+  if (!employee || employee.status !== EmployeeStatusTypes.ACTIVE) {
+    throw Unauthorized(INVALID_CREDENTIALS);
+  }
+
+  return CreateEmployeeAuth(employee);
 };
 
 

@@ -13,6 +13,7 @@ import {
   DeleteEmployeesData,
   EmployeeParams,
   GetEmployeesQuery,
+  UpdateEmployeeData,
 } from "../../controllers/employee-controllers/types";
 
 const EmployeesRouter: FastifyPluginAsync = async (
@@ -43,7 +44,7 @@ const EmployeesRouter: FastifyPluginAsync = async (
     CreateEmployeesController,
   );
 
-  fastify.put<RouteWithParamsAndData<EmployeeParams, ReqData<CreateEmployeeData>>>(
+  fastify.put<RouteWithParamsAndData<EmployeeParams, ReqData<UpdateEmployeeData>>>(
     "/employee/:employeeID",
     { schema: updateEmployeesSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", "hr"])] },
     UpdateEmployeesController,

@@ -8,7 +8,9 @@ declare interface EmployeeShortAttractionDTO {
   name: string;
 }
 
-declare interface EmployeeResponseDTO extends Omit<EmployeeModelI, "password"> {
+declare interface EmployeeResponseDTO
+  extends Omit<EmployeeModelI, "password" | "nfc_hash"> {
+  has_nfc: boolean;
   attractions?: EmployeeShortAttractionDTO[];
   cashboxes?: EmployeeShortCashboxDTO[];
 }

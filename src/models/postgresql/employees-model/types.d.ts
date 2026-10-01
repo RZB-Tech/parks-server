@@ -10,4 +10,5 @@ declare interface EmployeeModelI {
   salary: number | null;
   file: number | null;
   password: string;
+  nfc_hash: string | null;
 }

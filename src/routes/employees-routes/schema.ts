@@ -14,6 +14,7 @@ export const EmployeeProperties = {
   salary: { type: "number" },
   status: { type: "string" },
   file: { type: "number" },
+  has_nfc: { type: "boolean" },
   cashboxes: {
     type: "array",
     items: {
@@ -222,6 +223,12 @@ export const createEmployeesSchema = {
       },
       telegram_username: { type: "string" },
       password: { type: "string", minLength: 6 },
+      nfc: {
+        oneOf: [
+          { type: "string", minLength: 1, maxLength: 255 },
+          { type: "null" },
+        ],
+      },
       role: { type: "integer", minimum: 1 },
       salary: { type: ["integer", "null"] },
       file: {
@@ -282,6 +289,12 @@ export const updateEmployeesSchema = {
       },
       telegram_username: { type: "string" },
       password: { type: "string", minLength: 6 },
+      nfc: {
+        oneOf: [
+          { type: "string", minLength: 1, maxLength: 255 },
+          { type: "null" },
+        ],
+      },
       role: { type: "integer", minimum: 1 },
       salary: { type: ["integer", "null"] },
       file: {

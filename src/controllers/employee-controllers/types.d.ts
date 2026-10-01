@@ -13,9 +13,15 @@ declare interface GetEmployeesQuery {
   limit?: number;
 }
 
-declare interface CreateEmployeeData extends Omit<EmployeeModelI, "id"> {}
+declare interface CreateEmployeeData
+  extends Omit<EmployeeModelI, "id" | "nfc_hash" | "status"> {
+  nfc?: string | null;
+}
 
-declare interface UpdateEmployeeData extends Omit<EmployeeModelI, "id"> {}
+declare interface UpdateEmployeeData
+  extends Partial<Omit<EmployeeModelI, "id" | "nfc_hash">> {
+  nfc?: string | null;
+}
 
 declare interface DeleteEmployeesData {
   employeeIDs: Array<number>;
