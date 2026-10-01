@@ -160,6 +160,13 @@ async function checkServerEnv(app: FastifyInstance) {
     process.exit(1);
   }
 
+  if (!process.env.EMPLOYEE_NFC_SECRET?.trim()) {
+    app.log.fatal(
+      "The environment variable used to hash employee NFC credentials is not set",
+    );
+    process.exit(1);
+  }
+
   // if (!process.env.TELEGRAM_BOT_TOKEN) {
   //   app.log.fatal(
   //     "The environment variable responsible for bot token is not set",

@@ -9,6 +9,7 @@ export const EmployeeDTO = (employee: GetEmployeeDTO): EmployeeResponseDTO => ({
   status: employee.status,
   salary: employee.salary,
   file: employee.file,
+  has_nfc: Boolean(employee.nfc_hash),
   ...(employee.cashboxes && employee.cashboxes.length > 0 && {
     cashboxes: employee.cashboxes,
   }),

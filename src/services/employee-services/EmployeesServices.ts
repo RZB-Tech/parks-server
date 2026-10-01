@@ -19,10 +19,41 @@ import {
   RoleModel,
   sequelize,
 } from "../../plugins/db/postgresql/db";
-import { Op, Transaction } from "sequelize";
+import { Op, Transaction, UniqueConstraintError } from "sequelize";
 import { MAX_OWNER_EMPLOYEES } from "../../consts/employee";
+import {
+  HashEmployeeNfc,
+  IsValidEmployeeNfc,
+  NormalizeEmployeeNfc,
+} from "../../utils/employeeNfc";
 
 const OWNER_CREATION_LOCK = "parks-server:create-owner-employee";
+
+const EmployeeNfcHash = (nfc: string | null | undefined): string | null => {
+  if (nfc === null || nfc === undefined) return null;
+
+  const normalizedNfc = NormalizeEmployeeNfc(nfc);
+
+  if (!IsValidEmployeeNfc(normalizedNfc)) {
+    throw BadRequest("EMPLOYEE_NFC_INVALID");
+  }
+
+  return HashEmployeeNfc(normalizedNfc);
+};
+
+const ThrowEmployeeNfcConstraintError = (error: unknown): never => {
+  const constraint = (error as any)?.parent?.constraint;
+  const fields = (error as UniqueConstraintError)?.fields;
+
+  if (
+    error instanceof UniqueConstraintError &&
+    (constraint === "employees_nfc_hash_unique" || fields?.nfc_hash)
+  ) {
+    throw Conflict("EMPLOYEE_NFC_ALREADY_EXISTS");
+  }
+
+  throw error;
+};
 
 const FindOwnerRole = (transaction?: Transaction) =>
   RoleModel.findOne({
@@ -284,68 +315,87 @@ export const GetEmployeesService = async (
 export const CreateEmployeesService = async (
   body: CreateEmployeeData,
 ): Promise<EmployeeResponseDTO> => {
-  return sequelize.transaction(async (transaction) => {
-    const role = await RoleModel.findOne({
-      where: {
-        id: body.role,
-      },
-      transaction,
-    });
+  const nfcHash = EmployeeNfcHash(body.nfc);
 
-    if (!role) throw NotFound("Not found role");
-
-    if (role.name === RoleTypes.OWNER) {
-      await sequelize.query(
-        "SELECT pg_advisory_xact_lock(hashtext(:lockName))",
-        {
-          replacements: { lockName: OWNER_CREATION_LOCK },
-          transaction,
+  try {
+    return await sequelize.transaction(async (transaction) => {
+      const role = await RoleModel.findOne({
+        where: {
+          id: body.role,
         },
-      );
-
-      const ownerCount = await EmployeeModel.count({
-        where: { role: role.id },
-        paranoid: false,
         transaction,
       });
 
-      if (ownerCount >= MAX_OWNER_EMPLOYEES) {
-        throw Conflict("Maximum number of owner employees reached");
+      if (!role) throw NotFound("Not found role");
+
+      if (role.name === RoleTypes.OWNER) {
+        await sequelize.query(
+          "SELECT pg_advisory_xact_lock(hashtext(:lockName))",
+          {
+            replacements: { lockName: OWNER_CREATION_LOCK },
+            transaction,
+          },
+        );
+
+        const ownerCount = await EmployeeModel.count({
+          where: { role: role.id },
+          paranoid: false,
+          transaction,
+        });
+
+        if (ownerCount >= MAX_OWNER_EMPLOYEES) {
+          throw Conflict("Maximum number of owner employees reached");
+        }
       }
-    }
 
-    const findEmployee = await EmployeeModel.findOne({
-      where: {
-        phone_number: body.phone_number,
-      },
-      transaction,
+      const findEmployee = await EmployeeModel.findOne({
+        where: {
+          phone_number: body.phone_number,
+        },
+        transaction,
+      });
+
+      if (findEmployee !== null) {
+        throw Conflict("Employee already exists at this phone number");
+      }
+
+      if (nfcHash) {
+        const employeeWithNfc = await EmployeeModel.findOne({
+          where: { nfc_hash: nfcHash },
+          paranoid: false,
+          transaction,
+        });
+
+        if (employeeWithNfc) {
+          throw Conflict("EMPLOYEE_NFC_ALREADY_EXISTS");
+        }
+      }
+
+      const hashedPassword = await bcrypt.hash(body.password, 10);
+
+      const employee = await EmployeeModel.create(
+        {
+          firstname: body.firstname,
+          lastname: body.lastname,
+          date_of_birth: body.date_of_birth,
+          phone_number: body.phone_number,
+          telegram_username: body.telegram_username,
+          role: body.role,
+          salary: body.salary,
+          file: body.file,
+          password: hashedPassword,
+          nfc_hash: nfcHash,
+          status: EmployeeStatusTypes.INACTIVE,
+        },
+        { transaction },
+      );
+
+      const employeeData = employee.get();
+      return EmployeeDTO(employeeData);
     });
-
-    if (findEmployee !== null) {
-      throw Conflict("Employee already exists at this phone number");
-    }
-
-    const hashedPassword = await bcrypt.hash(body.password, 10);
-
-    const employee = await EmployeeModel.create(
-      {
-        firstname: body.firstname,
-        lastname: body.lastname,
-        date_of_birth: body.date_of_birth,
-        phone_number: body.phone_number,
-        telegram_username: body.telegram_username,
-        role: body.role,
-        salary: body.salary,
-        file: body.file,
-        password: hashedPassword,
-        status: EmployeeStatusTypes.INACTIVE,
-      },
-      { transaction },
-    );
-
-    const employeeData = employee.get();
-    return EmployeeDTO(employeeData);
-  });
+  } catch (error) {
+    return ThrowEmployeeNfcConstraintError(error);
+  }
 };
 
 export const UpdateEmployeesService = async (
@@ -366,6 +416,23 @@ export const UpdateEmployeesService = async (
 
   if (body.password) {
     body.password = await bcrypt.hash(body.password, 10);
+  }
+
+  const shouldUpdateNfc = Object.prototype.hasOwnProperty.call(body, "nfc");
+  const nfcHash = shouldUpdateNfc ? EmployeeNfcHash(body.nfc) : undefined;
+
+  if (nfcHash) {
+    const employeeWithNfc = await EmployeeModel.findOne({
+      where: {
+        nfc_hash: nfcHash,
+        id: { [Op.ne]: employee.id },
+      },
+      paranoid: false,
+    });
+
+    if (employeeWithNfc) {
+      throw Conflict("EMPLOYEE_NFC_ALREADY_EXISTS");
+    }
   }
 
   if (body.role) {
@@ -390,7 +457,7 @@ export const UpdateEmployeesService = async (
     throw BadRequest("Invalid employee status");
   }
 
-  await employee.update({
+  const employeeUpdates: Partial<EmployeeModelI> = {
     firstname: body.firstname,
     lastname: body.lastname,
     date_of_birth: body.date_of_birth,
@@ -401,7 +468,15 @@ export const UpdateEmployeesService = async (
     salary: body.salary,
     file: body.file,
     password: body.password,
-  });
+  };
+
+  if (shouldUpdateNfc) employeeUpdates.nfc_hash = nfcHash ?? null;
+
+  try {
+    await employee.update(employeeUpdates);
+  } catch (error) {
+    ThrowEmployeeNfcConstraintError(error);
+  }
 
   const employeeData = employee.get();
   return EmployeeDTO(employeeData);

@@ -14,17 +14,17 @@ export const EmployeeProperties = {
   salary: { type: "number" },
   status: { type: "string" },
   file: { type: "number" },
+  has_nfc: { type: "boolean" },
 };
 
 
 export const loginSchema = {
   summary: "Login employee",
-  description: "Login employee by phone number and password",
+  description: "Login employee by phone number and password or by NFC",
   tags: ["Auth route"],
   body: reqBodyWrapper({
     type: "object",
     additionalProperties: false,
-    required: ["phone_number", "password"],
     properties: {
       phone_number: {
         type: "string",
@@ -35,7 +35,27 @@ export const loginSchema = {
         type: "string",
         minLength: 6,
       },
+      nfc: {
+        type: "string",
+        minLength: 1,
+        maxLength: 255,
+      },
     },
+    oneOf: [
+      {
+        required: ["phone_number", "password"],
+        not: { required: ["nfc"] },
+      },
+      {
+        required: ["nfc"],
+        not: {
+          anyOf: [
+            { required: ["phone_number"] },
+            { required: ["password"] },
+          ],
+        },
+      },
+    ],
   }),
   response: {
     200: successAnswerTemplate({

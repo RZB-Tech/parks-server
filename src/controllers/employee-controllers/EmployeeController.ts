@@ -12,6 +12,7 @@ import {
   DeleteEmployeesData,
   EmployeeParams,
   GetEmployeesQuery,
+  UpdateEmployeeData,
 } from "./types";
 import {
   CreateEmployeesService,
@@ -71,7 +72,7 @@ export const UpdateEmployeesController = makeReplyingController(
   "employee",
   async (
     request: FastifyRequest<
-      RouteWithParamsAndData<EmployeeParams, ReqData<CreateEmployeeData>>
+      RouteWithParamsAndData<EmployeeParams, ReqData<UpdateEmployeeData>>
     >,
   ) => {
     const params = request.params;

@@ -16,6 +16,7 @@ export class EmployeeModel
   public salary!: number | null;
   public file!: number | null;
   public password!: string;
+  public nfc_hash!: string | null;
 
   // timestamps
   public readonly created_at!: Date;
@@ -73,6 +74,10 @@ export class EmployeeModel
         password: {
           type: DataTypes.STRING,
           allowNull: false,
+        },
+        nfc_hash: {
+          type: DataTypes.STRING(64),
+          allowNull: true,
         },
       },
       {

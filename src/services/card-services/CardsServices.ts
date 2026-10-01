@@ -25,6 +25,7 @@ import { CardDTO, UpdateCardDTO } from "../../dtos/card-dtos/CardDto";
 import {
   col,
   fn,
+  literal,
   Op,
   QueryTypes,
   UniqueConstraintError,
@@ -244,7 +245,20 @@ export const GetCardsService = async (query: GetCardsQuery) => {
     ],
     limit,
     offset,
-    order: [["id", "ASC"]],
+    order: [
+      [
+        literal(`CASE WHEN "card" ~ '^[0-9]+$' THEN 0 ELSE 1 END`),
+        "ASC",
+      ],
+      [
+        literal(
+          `CASE WHEN "card" ~ '^[0-9]+$' THEN "card"::NUMERIC END`,
+        ),
+        "ASC",
+      ],
+      ["card", "ASC"],
+      ["id", "ASC"],
+    ],
   });
 
   const cards = rows.map((card) =>
