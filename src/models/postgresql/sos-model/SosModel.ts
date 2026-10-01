@@ -80,12 +80,6 @@ export class SosModel
             fields: ["cashbox_operator"],
           },
           {
-            fields: ["operator"],
-          },
-          {
-            fields: ["attraction"],
-          },
-          {
             fields: ["created_at"],
           },
         ],

@@ -1,6 +1,25 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { Sequelize } from "sequelize";
+import { SosModel } from "../src/models/postgresql/sos-model/SosModel";
 import { EnsureSosAttractionSchema } from "../src/plugins/db/postgresql/sosAttractionSchema";
+
+test("SOS sync does not index migration-controlled columns before they exist", () => {
+  const sequelize = new Sequelize("postgres://parks:parks@localhost:5432/parks", {
+    logging: false,
+  });
+
+  SosModel.initialize(sequelize);
+
+  const indexedFields = (SosModel.options.indexes ?? []).flatMap((index) =>
+    index.fields.map((field) =>
+      typeof field === "string" ? field : field.name,
+    ),
+  );
+
+  assert.equal(indexedFields.includes("operator"), false);
+  assert.equal(indexedFields.includes("attraction"), false);
+});
 
 test("SOS schema stores attraction sessions without assignment rows", async () => {
   const sql: string[] = [];
