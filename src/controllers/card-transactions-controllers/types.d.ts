@@ -21,6 +21,7 @@ declare interface CardTopUpTransactionData {
 declare interface GetCashboxCardTransactionsQuery {
   date?: string;
   type?: CardTransactionType;
+  activated_card?: boolean;
   transaction_id?: number;
   card_number?: string;
   page?: number;

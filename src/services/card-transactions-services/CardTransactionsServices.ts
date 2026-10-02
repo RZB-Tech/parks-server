@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { col, fn, Op } from "sequelize";
 import { CardDTO } from "../../dtos/card-dtos/CardDto";
 import {
   CardPaymentFailedDTO,
@@ -711,6 +711,24 @@ export const GetCardTransactionsService = async (
     where.type = query.type;
   }
 
+  if (query.activated_card !== undefined) {
+    if (typeof query.activated_card !== "boolean") {
+      throw BadRequest("ACTIVATED_CARD_FILTER_IS_INVALID");
+    }
+
+    if (
+      query.type !== undefined &&
+      query.type !== CardTransactionType.TOPUP
+    ) {
+      throw BadRequest("ACTIVATED_CARD_FILTER_REQUIRES_TOPUP");
+    }
+
+    where.type = CardTransactionType.TOPUP;
+    where.activation_amount = query.activated_card
+      ? { [Op.gt]: 0 }
+      : 0;
+  }
+
   if (hasTransactionID) {
     const transactionID = Number(query.transaction_id);
 
@@ -794,6 +812,43 @@ export const GetCardTransactionsService = async (
   const plainRows = rows.map(
     (transaction) => transaction.get({ plain: true }) as any,
   );
+  const activationCardIDs = [
+    ...new Set(
+      plainRows
+        .filter(
+          (transaction) =>
+            transaction.type === CardTransactionType.TOPUP &&
+            Number(transaction.activation_amount || 0) > 0,
+        )
+        .map((transaction) => Number(transaction.card))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  ];
+  const latestTransactionRows = activationCardIDs.length
+    ? await CardTransactionModel.findAll({
+        where: { card: { [Op.in]: activationCardIDs } },
+        attributes: [
+          "card",
+          [fn("MAX", col("id")), "latest_transaction_id"],
+        ],
+        group: ["card"],
+        raw: true,
+        paranoid: false,
+      })
+    : [];
+  const latestTransactionIDByCard = new Map(
+    latestTransactionRows.map((row) => {
+      const plain =
+        typeof (row as any).get === "function"
+          ? (row as any).get({ plain: true })
+          : row;
+
+      return [
+        Number((plain as any).card),
+        Number((plain as any).latest_transaction_id),
+      ];
+    }),
+  );
   const zReportIDs = [
     ...new Set(
       plainRows
@@ -833,11 +888,22 @@ export const GetCardTransactionsService = async (
       ? zReportStatusByID.get(zReportID) ?? null
       : null;
     const isTopUp = transaction.type === CardTransactionType.TOPUP;
+    const isActivationTopUp =
+      isTopUp && Number(transaction.activation_amount || 0) > 0;
+    const latestTransactionID = isActivationTopUp
+      ? latestTransactionIDByCard.get(Number(transaction.card))
+      : undefined;
     const cannotCancelReason = isTopUp
       ? GetTopUpCancellationBlockReason(
           transaction,
           Number(transaction.cards?.balance ?? 0),
           zReportStatus,
+          {
+            hasLaterTransactions:
+              isActivationTopUp &&
+              latestTransactionID !== Number(transaction.id),
+            cardStatus: transaction.cards?.status,
+          },
         )
       : null;
     const transactionDTO = CardTransactionHistoryDTO(
@@ -997,10 +1063,28 @@ export const CancelTopUpTransactionService = async (
     }
 
     const balanceBefore = Number(card.balance || 0);
+    const activationAmount = Number(originalTransaction.activation_amount || 0);
+    const isActivationTopUp = activationAmount > 0;
+    const laterTransaction = isActivationTopUp
+      ? await CardTransactionModel.findOne({
+          where: {
+            card: Number(card.id),
+            id: { [Op.gt]: transactionID },
+          },
+          attributes: ["id"],
+          transaction: dbTransaction,
+          lock: dbTransaction.LOCK.UPDATE,
+          paranoid: false,
+        })
+      : null;
     const blockReason = GetTopUpCancellationBlockReason(
       originalTransaction,
       balanceBefore,
       zReport.status,
+      {
+        hasLaterTransactions: Boolean(laterTransaction),
+        cardStatus: card.status,
+      },
     );
 
     if (blockReason) {
@@ -1008,6 +1092,7 @@ export const CancelTopUpTransactionService = async (
     }
 
     const amount = Number(originalTransaction.amount);
+    const totalAmount = amount + activationAmount;
     const balanceAfter = balanceBefore - amount;
     const reportAmounts = GetTopUpReportAmounts(originalTransaction);
     const cancelledAt = new Date();
@@ -1037,7 +1122,7 @@ export const CancelTopUpTransactionService = async (
         amount,
         balance_before: balanceBefore,
         balance_after: balanceAfter,
-        activation_amount: 0,
+        activation_amount: activationAmount,
         description: reason,
         promotion: null,
         promotion_code: null,
@@ -1057,10 +1142,55 @@ export const CancelTopUpTransactionService = async (
       { transaction: dbTransaction },
     );
 
-    await card.update(
-      { balance: balanceAfter },
-      { transaction: dbTransaction },
-    );
+    if (isActivationTopUp) {
+      const batch = await CardBatchModel.findByPk(card.batch, {
+        transaction: dbTransaction,
+        lock: dbTransaction.LOCK.UPDATE,
+      });
+
+      if (!batch) {
+        throw Conflict("CARD_BATCH_NOT_FOUND");
+      }
+
+      const activeCards = Number(batch.active_cards);
+      const inactiveCards = Number(batch.inactive_cards);
+
+      if (
+        !Number.isSafeInteger(activeCards) ||
+        activeCards <= 0 ||
+        !Number.isSafeInteger(inactiveCards) ||
+        inactiveCards < 0
+      ) {
+        throw Conflict("CARD_BATCH_TOTALS_MISMATCH");
+      }
+
+      await batch.update(
+        {
+          active_cards: activeCards - 1,
+          inactive_cards: inactiveCards + 1,
+        },
+        { transaction: dbTransaction },
+      );
+
+      await card.update(
+        {
+          balance: 0,
+          status: CardStatusTypes.INACTIVE,
+          type: batch.type ?? card.type,
+          user: null,
+          activated_at: null,
+          bound_at: null,
+          returned_at: null,
+          return_description: null,
+        },
+        { transaction: dbTransaction },
+      );
+    } else {
+      await card.update(
+        { balance: balanceAfter },
+        { transaction: dbTransaction },
+      );
+    }
     await originalTransaction.update(
       { status: CardTransactionStatusTypes.CANCELLED },
       { transaction: dbTransaction },
@@ -1073,7 +1203,7 @@ export const CancelTopUpTransactionService = async (
         card: Number(card.id),
         cashbox: cashboxID,
         cancelled_by: parsedHeadCashierID,
-        amount,
+        amount: totalAmount,
         reason,
         cancelled_at: cancelledAt,
       },
@@ -1093,6 +1223,8 @@ export const CancelTopUpTransactionService = async (
       cashbox: cashboxID,
       cancelled_by: parsedHeadCashierID,
       amount,
+      activation_amount: activationAmount,
+      total_amount: totalAmount,
       reason,
       cancelled_at: cancelledAt,
     };
