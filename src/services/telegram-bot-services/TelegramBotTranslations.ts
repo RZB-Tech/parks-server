@@ -5,6 +5,7 @@ type TelegramBotMessages = {
   blocked: string;
   welcomeBack: (name: string) => string;
   registrationWelcome: string;
+  askFullName: string;
   invalidFullName: string;
   askDateOfBirth: (firstName: string) => string;
   invalidDateOfBirth: string;
@@ -30,15 +31,17 @@ export const TelegramBotTranslations: Record<
     welcomeBack: (name) =>
       `Sizni yana ko‘rib turganimizdan xursandmiz, ${name}! 🎡\n\nHammasi tayyor — Central Park ilovasini oching va yangi taassurotlarni tanlang.`,
     registrationWelcome:
-      "Central Park’ka xush kelibsiz! 🎡\n\nSevimli attraksionlar, yorqin taassurotlar va butun oila uchun hordiq — barchasi bitta ilovada. Ro‘yxatdan o‘tish bir daqiqadan kam vaqt oladi.\n\nTanishishni boshlaymiz: ism va familiyangizni bitta xabarda yozing.",
+      "Central Park’ka xush kelibsiz! 🎡\n\nSevimli attraksionlar, yorqin taassurotlar va butun oila uchun hordiq — barchasi bitta ilovada. Ro‘yxatdan o‘tish bir daqiqadan kam vaqt oladi.",
+    askFullName:
+      "Tanishishni boshlaymiz: ism va familiyangizni bitta xabarda yozing.\n\nMasalan: Ali Valiyev.",
     invalidFullName:
-      "Ism yoki familiyada xatolik bor. Iltimos, ularni to‘liq yozing, masalan: Ali Valiyev.",
+      "Ism yoki familiyada xatolik bor. Iltimos, ularni to‘liq yozing.\n\nMasalan: Ali Valiyev.",
     askDateOfBirth: (firstName) =>
-      `Tanishganimdan xursandman, ${firstName}! 😊\n\nTug‘ilgan sanangizni KK.OO.YYYY formatida kiriting, masalan: 15.08.1995.`,
+      `Tanishganimdan xursandman, ${firstName}! 😊\n\nTug‘ilgan sanangizni KK.OO.YYYY formatida kiriting.\n\nMasalan: 15.08.1995.`,
     invalidDateOfBirth:
-      "Sanani aniqlab bo‘lmadi. Tekshirib, KK.OO.YYYY formatida qayta yuboring, masalan: 15.08.1995.",
+      "Sanani aniqlab bo‘lmadi. Tekshirib, KK.OO.YYYY formatida qayta yuboring.\n\nMasalan: 15.08.1995.",
     askPhone:
-      "Deyarli tayyor! Faqat bitta qadam qoldi. 📱\n\nQuyidagi tugmani bosib telefon raqamingizni yuboring — bu xavfsiz va akkauntingizni bog‘lash uchun kerak.",
+      "Deyarli tayyor! Faqat bitta qadam qoldi. 📱\n\nTelefon raqamingizni xavfsiz yuborish uchun quyidagi «Telefon raqamini yuborish 📱» tugmasini bosing.",
     ownContactRequired:
       "Akkaunt xavfsizligi uchun aynan o‘zingizning raqamingizni yuborishingiz kerak. Iltimos, quyidagi tugmadan foydalaning.",
     invalidUzPhone:
@@ -62,15 +65,17 @@ export const TelegramBotTranslations: Record<
     welcomeBack: (name) =>
       `Рады видеть вас снова, ${name}! 🎡\n\nВсё готово — открывайте Central Park и выбирайте новые впечатления.`,
     registrationWelcome:
-      "Добро пожаловать в Central Park! 🎡\n\nЛюбимые аттракционы, яркие эмоции и отдых для всей семьи — всё в одном приложении. Регистрация займёт меньше минуты.\n\nНачнём знакомство: напишите ваши имя и фамилию одним сообщением.",
+      "Добро пожаловать в Central Park! 🎡\n\nЛюбимые аттракционы, яркие эмоции и отдых для всей семьи — всё в одном приложении. Регистрация займёт меньше минуты.",
+    askFullName:
+      "Начнём знакомство: напишите ваши имя и фамилию одним сообщением.\n\nНапример: Иван Петров.",
     invalidFullName:
-      "Кажется, в имени есть опечатка. Пожалуйста, напишите имя и фамилию полностью, например: Иван Петров.",
+      "Кажется, в имени есть опечатка. Пожалуйста, напишите имя и фамилию полностью.\n\nНапример: Иван Петров.",
     askDateOfBirth: (firstName) =>
-      `Приятно познакомиться, ${firstName}! 😊\n\nУкажите дату рождения в формате ДД.ММ.ГГГГ — например, 15.08.1995.`,
+      `Приятно познакомиться, ${firstName}! 😊\n\nУкажите дату рождения в формате ДД.ММ.ГГГГ.\n\nНапример: 15.08.1995.`,
     invalidDateOfBirth:
-      "Не удалось распознать дату. Проверьте её и отправьте в формате ДД.ММ.ГГГГ — например, 15.08.1995.",
+      "Не удалось распознать дату. Проверьте её и отправьте в формате ДД.ММ.ГГГГ.\n\nНапример: 15.08.1995.",
     askPhone:
-      "Почти готово! Остался один шаг. 📱\n\nНажмите кнопку ниже и поделитесь своим номером телефона — это безопасно и нужно для привязки вашего аккаунта.",
+      "Почти готово! Остался один шаг. 📱\n\nЧтобы безопасно отправить номер телефона, нажмите кнопку «Поделиться номером 📱» ниже.",
     ownContactRequired:
       "Для безопасности аккаунта необходимо отправить именно ваш номер. Пожалуйста, воспользуйтесь кнопкой ниже.",
     invalidUzPhone:
@@ -94,15 +99,17 @@ export const TelegramBotTranslations: Record<
     welcomeBack: (name) =>
       `Welcome back, ${name}! 🎡\n\nEverything is ready — open Central Park and choose your next adventure.`,
     registrationWelcome:
-      "Welcome to Central Park! 🎡\n\nFavorite attractions, bright emotions, and fun for the whole family — all in one app. Registration takes less than a minute.\n\nLet’s get acquainted: send your first and last name in one message.",
+      "Welcome to Central Park! 🎡\n\nFavorite attractions, bright emotions, and fun for the whole family — all in one app. Registration takes less than a minute.",
+    askFullName:
+      "Let’s get acquainted: send your first and last name in one message.\n\nFor example: John Smith.",
     invalidFullName:
-      "There seems to be a typo in the name. Please enter your full first and last name, for example: John Smith.",
+      "There seems to be a typo in the name. Please enter your full first and last name.\n\nFor example: John Smith.",
     askDateOfBirth: (firstName) =>
-      `Nice to meet you, ${firstName}! 😊\n\nEnter your date of birth in DD.MM.YYYY format, for example: 15.08.1995.`,
+      `Nice to meet you, ${firstName}! 😊\n\nEnter your date of birth in DD.MM.YYYY format.\n\nFor example: 15.08.1995.`,
     invalidDateOfBirth:
-      "The date could not be recognized. Check it and send it in DD.MM.YYYY format, for example: 15.08.1995.",
+      "The date could not be recognized. Check it and send it in DD.MM.YYYY format.\n\nFor example: 15.08.1995.",
     askPhone:
-      "Almost done! Just one step left. 📱\n\nTap the button below to share your phone number — it is secure and required to link your account.",
+      "Almost done! Just one step left. 📱\n\nTo share your phone number securely, tap the “Share phone number 📱” button below.",
     ownContactRequired:
       "For account security, you must share your own phone number. Please use the button below.",
     invalidUzPhone:

@@ -27,6 +27,17 @@ test("bot translations include localized messages and buttons", () => {
   assert.match(GetTelegramBotMessages("uz").registrationWelcome, /xush kelibsiz/i);
   assert.match(GetTelegramBotMessages("ru").registrationWelcome, /Добро пожаловать/);
   assert.match(GetTelegramBotMessages("en").registrationWelcome, /Welcome/);
+  assert.doesNotMatch(
+    GetTelegramBotMessages("ru").registrationWelcome,
+    /Начнём знакомство/,
+  );
+  assert.match(GetTelegramBotMessages("uz").askFullName, /Masalan: Ali Valiyev/);
+  assert.match(GetTelegramBotMessages("ru").askFullName, /Например: Иван Петров/);
+  assert.match(GetTelegramBotMessages("en").askFullName, /For example: John Smith/);
+  assert.match(
+    GetTelegramBotMessages("ru").askDateOfBirth("Иван"),
+    /Например: 15\.08\.1995/,
+  );
   assert.equal(
     TelegramBotTranslations[UserLanguageTypes.UZ].contactButton,
     "Telefon raqamini yuborish 📱",
@@ -39,6 +50,43 @@ test("bot translations include localized messages and buttons", () => {
     TelegramBotTranslations[UserLanguageTypes.EN].menuButton,
     "Open Central Park",
   );
+});
+
+test("new user receives separate welcome and full-name prompt after /start", async (t) => {
+  const sentMessages: string[] = [];
+
+  t.mock.method(UserModel, "findOne", async () => null);
+  t.mock.method(
+    TelegramBotApi,
+    "HideTelegramMenuButton",
+    async () => undefined,
+  );
+  t.mock.method(
+    TelegramBotApi,
+    "SendTelegramMessage",
+    async (_chatID: number, text: string) => {
+      sentMessages.push(text);
+    },
+  );
+
+  await ProcessTelegramUpdate({
+    update_id: 2,
+    message: {
+      text: "/start",
+      chat: { id: 2002, type: "private" },
+      from: {
+        id: 2002,
+        first_name: "Ivan",
+        language_code: "ru",
+      },
+    },
+  });
+
+  assert.equal(sentMessages.length, 2);
+  assert.match(sentMessages[0], /Добро пожаловать в Central Park/);
+  assert.doesNotMatch(sentMessages[0], /Начнём знакомство/);
+  assert.match(sentMessages[1], /Начнём знакомство/);
+  assert.match(sentMessages[1], /Например: Иван Петров/);
 });
 
 test("users schema persists a normalized language for proactive messages", async () => {

@@ -120,6 +120,7 @@ const StartRegistration = async (message: TelegramMessage) => {
     messages.registrationWelcome,
     RemoveKeyboard,
   );
+  await SendTelegramMessage(chatID, messages.askFullName);
 };
 
 const SaveRegisteredUser = async (
