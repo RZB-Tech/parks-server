@@ -31,6 +31,22 @@ declare interface GetCardReturnsQuery {
   limit?: number;
 }
 
+declare interface GetCancellableTopUpsQuery {
+  transaction_id?: number;
+  card_number?: string;
+  page?: number;
+  limit?: number;
+}
+
+declare interface CancelTopUpParams {
+  cashboxID: number;
+  transactionID: number;
+}
+
+declare interface CancelTopUpData {
+  reason: string;
+}
+
 declare interface CardPaymentTransactionData {
   nfc: string;
   attractionID: number;

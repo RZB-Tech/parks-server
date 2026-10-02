@@ -3,6 +3,7 @@ import { makeReplyingController } from "../../utils/controllerHelpers";
 import {
   ReqData,
   RouteWithData,
+  RouteWithParamsAndData,
   RouteWithParamsAndQuery,
   RouteWithQuery,
 } from "../../types/routes";
@@ -14,6 +15,8 @@ import {
   CardPaymentTransactionService,
   CardRefundTransactionService,
   GetCardReturnsService,
+  GetCancellableTopUpsService,
+  CancelTopUpTransactionService,
 } from "../../services/card-transactions-services/CardTransactionsServices";
 
 export const CheckNfcCardController = makeReplyingController(
@@ -90,6 +93,45 @@ export const GetCashboxCardTransactionsController = makeReplyingController(
         totalPages: result.totalPages,
       },
     ];
+  },
+);
+
+export const GetCancellableTopUpsController = makeReplyingController(
+  ["topups", "pagination"],
+  async (
+    request: FastifyRequest<
+      RouteWithParamsAndQuery<CashboxParams, GetCancellableTopUpsQuery>
+    >,
+  ) => {
+    const result = await GetCancellableTopUpsService(
+      request.params,
+      request.query,
+    );
+
+    return [
+      result.topups,
+      {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      },
+    ];
+  },
+);
+
+export const CancelTopUpTransactionController = makeReplyingController(
+  "reversal",
+  async (
+    request: FastifyRequest<
+      RouteWithParamsAndData<CancelTopUpParams, ReqData<CancelTopUpData>>
+    >,
+  ) => {
+    return CancelTopUpTransactionService(
+      Number(request.employee?.id),
+      request.params,
+      request.body.data,
+    );
   },
 );
 

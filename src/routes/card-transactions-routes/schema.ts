@@ -785,3 +785,185 @@ export const cardPaymentTransactionSchema = {
     }),
   },
 };
+
+const cancellableTopUpProperties = {
+  id: { type: "integer" },
+  cashbox: { type: "integer" },
+  card: {
+    oneOf: [
+      {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          card: { type: "string" },
+          balance: { type: "number" },
+          status: { type: "string", enum: Object.values(CardStatusTypes) },
+        },
+      },
+      { type: "null" },
+    ],
+  },
+  operator: {
+    oneOf: [
+      {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          firstname: { type: "string" },
+          lastname: { type: "string" },
+        },
+      },
+      { type: "null" },
+    ],
+  },
+  amount: { type: "number" },
+  activation_amount: { type: "number" },
+  payment_type: { type: "string", enum: Object.values(PaymentType) },
+  payment_card_type: nullableEnum(Object.values(PaymentCardType)),
+  payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
+  status: {
+    type: "string",
+    enum: Object.values(CardTransactionStatusTypes),
+  },
+  description: nullableString,
+  balance_before: { type: "number" },
+  balance_after: { type: "number" },
+  xreport: nullableNumber,
+  zreport: nullableNumber,
+  zreport_status: {
+    oneOf: [{ type: "string" }, { type: "null" }],
+  },
+  can_cancel: { type: "boolean" },
+  cannot_cancel_reason: nullableString,
+  reversal: {
+    oneOf: [
+      {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          refund_transaction: { type: "integer" },
+          cancelled_by: { type: "integer" },
+          reason: { type: "string" },
+          cancelled_at: { type: "string" },
+        },
+      },
+      { type: "null" },
+    ],
+  },
+  created_at: { type: "string" },
+};
+
+export const getCancellableTopUpsSchema = {
+  summary: "Search cancellable card top-ups",
+  description:
+    "Head cashier searches top-ups in one cashbox by transaction ID or exact card number.",
+  tags: ["Card Transactions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: { type: "string" },
+    },
+  },
+  params: {
+    type: "object",
+    required: ["cashboxID"],
+    additionalProperties: false,
+    properties: {
+      cashboxID: { type: "integer", minimum: 1 },
+    },
+  },
+  querystring: {
+    type: "object",
+    additionalProperties: false,
+    oneOf: [
+      { required: ["transaction_id"] },
+      { required: ["card_number"] },
+    ],
+    properties: {
+      transaction_id: { type: "integer", minimum: 1 },
+      card_number: { type: "string", minLength: 1 },
+      page: { type: "integer", minimum: 1, default: 1 },
+      limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+    },
+  },
+  response: {
+    200: successAnswerTemplate({
+      topups: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: cancellableTopUpProperties,
+        },
+      },
+      pagination: {
+        type: "object",
+        properties: {
+          total: { type: "integer" },
+          page: { type: "integer" },
+          limit: { type: "integer" },
+          totalPages: { type: "integer" },
+        },
+      },
+    }),
+  },
+};
+
+export const cancelTopUpTransactionSchema = {
+  summary: "Cancel a card top-up",
+  description:
+    "Head cashier reverses an eligible manual top-up and its cashbox report totals.",
+  tags: ["Card Transactions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: { type: "string" },
+    },
+  },
+  params: {
+    type: "object",
+    required: ["cashboxID", "transactionID"],
+    additionalProperties: false,
+    properties: {
+      cashboxID: { type: "integer", minimum: 1 },
+      transactionID: { type: "integer", minimum: 1 },
+    },
+  },
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["reason"],
+    additionalProperties: false,
+    properties: {
+      reason: { type: "string", minLength: 1, maxLength: 500 },
+    },
+  }),
+  response: {
+    200: successAnswerTemplate({
+      reversal: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          original_transaction: { type: "integer" },
+          refund_transaction: { type: "integer" },
+          card: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              card: { type: "string" },
+              balance_before: { type: "number" },
+              balance_after: { type: "number" },
+            },
+          },
+          cashbox: { type: "integer" },
+          cancelled_by: { type: "integer" },
+          amount: { type: "number" },
+          reason: { type: "string" },
+          cancelled_at: { type: "string" },
+        },
+      },
+    }),
+  },
+};

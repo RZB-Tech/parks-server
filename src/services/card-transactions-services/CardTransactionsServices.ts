@@ -52,6 +52,11 @@ import { CalculateAttractionSalePrice } from "../../utils/attractionPricing";
 import { CardReturnModel } from "../../models/postgresql/card-return-model/CardReturnModel";
 import { CashboxModel } from "../../models/postgresql/cashbox-model/CashboxModel";
 import { CardReturnListItemDTO } from "../../dtos/card-return-dtos/CardReturnDto";
+import { CardTransactionReversalModel } from "../../models/postgresql/card-transaction-reversal-model/CardTransactionReversalModel";
+import {
+  GetTopUpCancellationBlockReason,
+  GetTopUpReportAmounts,
+} from "../../utils/topUpCancellation";
 
 export const CheckNfcCardService = async (
   operatorID: number,
@@ -715,6 +720,411 @@ export const GetCardTransactionsService = async (
     limit,
     totalPages: Math.ceil(count / limit),
   };
+};
+
+export const GetCancellableTopUpsService = async (
+  params: CashboxParams,
+  query: GetCancellableTopUpsQuery,
+) => {
+  const cashboxID = Number(params.cashboxID);
+
+  if (!Number.isInteger(cashboxID) || cashboxID <= 0) {
+    throw BadRequest("CASHBOX_ID_IS_INVALID");
+  }
+
+  const hasTransactionID = query.transaction_id !== undefined;
+  const cardNumber = query.card_number?.trim();
+  const hasCardNumber = Boolean(cardNumber);
+
+  if (hasTransactionID === hasCardNumber) {
+    throw BadRequest("USE_TRANSACTION_ID_OR_CARD_NUMBER");
+  }
+
+  const page = Number(query.page ?? 1);
+  const limit = Number(query.limit ?? 20);
+
+  if (!Number.isInteger(page) || page <= 0) {
+    throw BadRequest("PAGE_IS_INVALID");
+  }
+
+  if (!Number.isInteger(limit) || limit <= 0 || limit > 100) {
+    throw BadRequest("LIMIT_IS_INVALID");
+  }
+
+  const where: Record<string, unknown> = {
+    cashbox: cashboxID,
+    type: CardTransactionType.TOPUP,
+  };
+
+  if (hasTransactionID) {
+    const transactionID = Number(query.transaction_id);
+
+    if (!Number.isInteger(transactionID) || transactionID <= 0) {
+      throw BadRequest("TRANSACTION_ID_IS_INVALID");
+    }
+
+    where.id = transactionID;
+  }
+
+  const { rows, count } = await CardTransactionModel.findAndCountAll({
+    where,
+    include: [
+      {
+        model: CardModel,
+        as: "cards",
+        required: hasCardNumber,
+        ...(hasCardNumber ? { where: { card: cardNumber } } : {}),
+        attributes: ["id", "card", "balance", "status"],
+      },
+      {
+        model: EmployeeModel,
+        as: "operators",
+        required: false,
+        attributes: ["id", "firstname", "lastname"],
+      },
+      {
+        model: CardTransactionReversalModel,
+        as: "reversal",
+        required: false,
+        attributes: [
+          "id",
+          "refund_transaction",
+          "cancelled_by",
+          "reason",
+          "cancelled_at",
+        ],
+      },
+      {
+        model: CashboxReportModel,
+        as: "cashbox_reports",
+        required: false,
+        attributes: ["id", "zreport", "status"],
+      },
+    ],
+    distinct: true,
+    limit,
+    offset: (page - 1) * limit,
+    order: [
+      ["createdAt", "DESC"],
+      ["id", "DESC"],
+    ],
+  });
+
+  const plainRows = rows.map((row) => row.get({ plain: true }) as any);
+  const zReportIDs = [
+    ...new Set(
+      plainRows
+        .map((row) => Number(row.cashbox_reports?.zreport))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  ];
+  const zReports = zReportIDs.length
+    ? await CashboxReportModel.findAll({
+        where: { id: { [Op.in]: zReportIDs } },
+        attributes: ["id", "status"],
+      })
+    : [];
+  const zReportStatusByID = new Map(
+    zReports.map((report) => [Number(report.id), report.status]),
+  );
+
+  const topups = plainRows.map((transaction) => {
+    const cardBalance = Number(transaction.cards?.balance ?? 0);
+    const zReportID = transaction.cashbox_reports?.zreport
+      ? Number(transaction.cashbox_reports.zreport)
+      : null;
+    const zReportStatus = zReportID
+      ? zReportStatusByID.get(zReportID) ?? null
+      : null;
+    const cannotCancelReason = GetTopUpCancellationBlockReason(
+      transaction,
+      cardBalance,
+      zReportStatus,
+    );
+
+    return {
+      id: Number(transaction.id),
+      cashbox: Number(transaction.cashbox),
+      card: transaction.cards
+        ? {
+            id: Number(transaction.cards.id),
+            card: transaction.cards.card,
+            balance: cardBalance,
+            status: transaction.cards.status,
+          }
+        : null,
+      operator: transaction.operators
+        ? {
+            id: Number(transaction.operators.id),
+            firstname: transaction.operators.firstname,
+            lastname: transaction.operators.lastname,
+          }
+        : null,
+      amount: Number(transaction.amount),
+      activation_amount: Number(transaction.activation_amount || 0),
+      payment_type: transaction.payment_type,
+      payment_card_type: transaction.payment_card_type ?? null,
+      payment_service_type: transaction.payment_service ?? null,
+      status: transaction.status,
+      description: transaction.description ?? null,
+      balance_before: Number(transaction.balance_before),
+      balance_after: Number(transaction.balance_after),
+      xreport: transaction.cashbox_report
+        ? Number(transaction.cashbox_report)
+        : null,
+      zreport: zReportID,
+      zreport_status: zReportStatus,
+      can_cancel: cannotCancelReason === null,
+      cannot_cancel_reason: cannotCancelReason,
+      reversal: transaction.reversal
+        ? {
+            id: Number(transaction.reversal.id),
+            refund_transaction: Number(
+              transaction.reversal.refund_transaction,
+            ),
+            cancelled_by: Number(transaction.reversal.cancelled_by),
+            reason: transaction.reversal.reason,
+            cancelled_at: transaction.reversal.cancelled_at,
+          }
+        : null,
+      created_at: transaction.createdAt,
+    };
+  });
+
+  return {
+    topups,
+    total: count,
+    page,
+    limit,
+    totalPages: Math.ceil(count / limit),
+  };
+};
+
+const DecrementCashboxReportForTopUpCancellation = async (
+  report: CashboxReportModel,
+  amounts: Record<string, number>,
+  dbTransaction: import("sequelize").Transaction,
+) => {
+  const values: Record<string, number> = {};
+
+  for (const [field, amount] of Object.entries(amounts)) {
+    const currentValue = Number(report.get(field as any));
+
+    if (
+      !Number.isSafeInteger(currentValue) ||
+      !Number.isSafeInteger(amount) ||
+      amount < 0 ||
+      currentValue < amount
+    ) {
+      throw Conflict("CASHBOX_REPORT_TOTALS_MISMATCH");
+    }
+
+    values[field] = currentValue - amount;
+  }
+
+  await report.update(values, { transaction: dbTransaction });
+};
+
+export const CancelTopUpTransactionService = async (
+  headCashierID: number,
+  params: CancelTopUpParams,
+  body: CancelTopUpData,
+) => {
+  const parsedHeadCashierID = Number(headCashierID);
+  const cashboxID = Number(params.cashboxID);
+  const transactionID = Number(params.transactionID);
+  const reason = body.reason?.trim();
+
+  if (!Number.isInteger(parsedHeadCashierID) || parsedHeadCashierID <= 0) {
+    throw BadRequest("HEAD_CASHIER_ID_IS_INVALID");
+  }
+
+  if (!Number.isInteger(cashboxID) || cashboxID <= 0) {
+    throw BadRequest("CASHBOX_ID_IS_INVALID");
+  }
+
+  if (!Number.isInteger(transactionID) || transactionID <= 0) {
+    throw BadRequest("TRANSACTION_ID_IS_INVALID");
+  }
+
+  if (!reason) {
+    throw BadRequest("CANCELLATION_REASON_IS_REQUIRED");
+  }
+
+  if (reason.length > 500) {
+    throw BadRequest("CANCELLATION_REASON_IS_TOO_LONG");
+  }
+
+  const sequelize = CardTransactionModel.sequelize!;
+
+  return sequelize.transaction(async (dbTransaction) => {
+    const originalTransaction = await CardTransactionModel.findOne({
+      where: {
+        id: transactionID,
+        cashbox: cashboxID,
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!originalTransaction) {
+      throw NotFound("TOPUP_TRANSACTION_NOT_FOUND");
+    }
+
+    const existingReversal = await CardTransactionReversalModel.findOne({
+      where: { original_transaction: transactionID },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (existingReversal) {
+      throw Conflict("TOPUP_ALREADY_CANCELLED");
+    }
+
+    const card = await CardModel.findByPk(originalTransaction.card, {
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!card) {
+      throw NotFound("CARD_NOT_FOUND");
+    }
+
+    const xReportID = Number(originalTransaction.cashbox_report);
+
+    if (!Number.isInteger(xReportID) || xReportID <= 0) {
+      throw Conflict("X_REPORT_NOT_FOUND");
+    }
+
+    const xReport = await CashboxReportModel.findOne({
+      where: {
+        id: xReportID,
+        cashbox: cashboxID,
+        report_type: CashboxReportTypes.XREPORT,
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!xReport || !xReport.zreport) {
+      throw Conflict("X_REPORT_NOT_FOUND");
+    }
+
+    const zReport = await CashboxReportModel.findOne({
+      where: {
+        id: Number(xReport.zreport),
+        cashbox: cashboxID,
+        report_type: CashboxReportTypes.ZREPORT,
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!zReport) {
+      throw Conflict("Z_REPORT_NOT_FOUND");
+    }
+
+    const balanceBefore = Number(card.balance || 0);
+    const blockReason = GetTopUpCancellationBlockReason(
+      originalTransaction,
+      balanceBefore,
+      zReport.status,
+    );
+
+    if (blockReason) {
+      throw Conflict(blockReason);
+    }
+
+    const amount = Number(originalTransaction.amount);
+    const balanceAfter = balanceBefore - amount;
+    const reportAmounts = GetTopUpReportAmounts(originalTransaction);
+    const cancelledAt = new Date();
+
+    await DecrementCashboxReportForTopUpCancellation(
+      xReport,
+      reportAmounts,
+      dbTransaction,
+    );
+    await DecrementCashboxReportForTopUpCancellation(
+      zReport,
+      reportAmounts,
+      dbTransaction,
+    );
+
+    const refundTransaction = await CardTransactionModel.create(
+      {
+        card: Number(card.id),
+        operator: parsedHeadCashierID,
+        cashbox: cashboxID,
+        attraction: null,
+        attraction_tariff: null,
+        tariff_name: null,
+        xreport: null,
+        cashbox_report: xReportID,
+        type: CardTransactionType.REFUND,
+        amount,
+        balance_before: balanceBefore,
+        balance_after: balanceAfter,
+        activation_amount: 0,
+        description: reason,
+        promotion: null,
+        promotion_code: null,
+        promotion_name: null,
+        promotion_type: null,
+        discount_percent: 0,
+        people_count: 0,
+        original_unit_price: 0,
+        sale_unit_price: 0,
+        original_amount: 0,
+        discount_amount: 0,
+        payment_type: originalTransaction.payment_type,
+        payment_card_type: originalTransaction.payment_card_type,
+        payment_service: originalTransaction.payment_service,
+        status: CardTransactionStatusTypes.SUCCESS,
+      },
+      { transaction: dbTransaction },
+    );
+
+    await card.update(
+      { balance: balanceAfter },
+      { transaction: dbTransaction },
+    );
+    await originalTransaction.update(
+      { status: CardTransactionStatusTypes.CANCELLED },
+      { transaction: dbTransaction },
+    );
+
+    const reversal = await CardTransactionReversalModel.create(
+      {
+        original_transaction: transactionID,
+        refund_transaction: Number(refundTransaction.id),
+        card: Number(card.id),
+        cashbox: cashboxID,
+        cancelled_by: parsedHeadCashierID,
+        amount,
+        reason,
+        cancelled_at: cancelledAt,
+      },
+      { transaction: dbTransaction },
+    );
+
+    return {
+      id: Number(reversal.id),
+      original_transaction: transactionID,
+      refund_transaction: Number(refundTransaction.id),
+      card: {
+        id: Number(card.id),
+        card: card.card,
+        balance_before: balanceBefore,
+        balance_after: balanceAfter,
+      },
+      cashbox: cashboxID,
+      cancelled_by: parsedHeadCashierID,
+      amount,
+      reason,
+      cancelled_at: cancelledAt,
+    };
+  });
 };
 
 export const CardPaymentTransactionService = async (
