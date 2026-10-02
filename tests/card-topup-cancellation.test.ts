@@ -14,7 +14,7 @@ import {
 } from "../src/utils/topUpCancellation";
 import {
   CancelTopUpTransactionService,
-  GetCancellableTopUpsService,
+  GetCardTransactionsService,
 } from "../src/services/card-transactions-services/CardTransactionsServices";
 import { CardTransactionModel } from "../src/models/postgresql/card-transactions-model/CardTransactionModel";
 import { CardTransactionReversalModel } from "../src/models/postgresql/card-transaction-reversal-model/CardTransactionReversalModel";
@@ -103,16 +103,10 @@ test("reversal model prevents cancelling one top-up twice", () => {
   assert.equal(attributes.reason.allowNull, false);
 });
 
-test("top-up search requires exactly one supported search field", async () => {
+test("transaction search rejects simultaneous transaction and card filters", async () => {
   await assert.rejects(
-    GetCancellableTopUpsService({ cashboxID: 1 }, {}),
-    (error: any) =>
-      error?.statusCode === 400 &&
-      error?.message === "USE_TRANSACTION_ID_OR_CARD_NUMBER",
-  );
-
-  await assert.rejects(
-    GetCancellableTopUpsService(
+    GetCardTransactionsService(
+      9,
       { cashboxID: 1 },
       { transaction_id: 10, card_number: "100000001" },
     ),
@@ -122,20 +116,95 @@ test("top-up search requires exactly one supported search field", async () => {
   );
 });
 
-test("only head_cashier is allowed on top-up reversal routes", () => {
+test("top-up listing is consolidated and cancellation remains head_cashier-only", () => {
   const routes = readFileSync(
     "src/routes/card-transactions-routes/CardTransactionsRoutes.ts",
     "utf8",
   );
 
-  assert.match(
-    routes,
-    /\/cards\/cashboxes\/:cashboxID\/topups[\s\S]*?RoleMiddleware\(\["head_cashier"\]\)/,
-  );
+  assert.doesNotMatch(routes, /\/cards\/cashboxes\/:cashboxID\/topups/);
+  assert.match(routes, /\/cards\/cashboxes\/:cashboxID\/transactions/);
   assert.match(
     routes,
     /\/cards\/cashboxes\/:cashboxID\/transactions\/:transactionID\/cancel[\s\S]*?RoleMiddleware\(\["head_cashier"\]\)/,
   );
+});
+
+test("cashbox transaction filters expose refund reason and top-up reversal", async (t) => {
+  const originalFindAndCountAll = CardTransactionModel.findAndCountAll;
+  let queryOptions: any = null;
+
+  t.after(() => {
+    CardTransactionModel.findAndCountAll = originalFindAndCountAll;
+  });
+
+  CardTransactionModel.findAndCountAll = (async (options: any) => {
+    queryOptions = options;
+
+    return {
+      count: 1,
+      rows: [
+        {
+          get: () => ({
+            id: 202,
+            card: 11,
+            cashbox: 7,
+            operator: 9,
+            type: CardTransactionType.REFUND,
+            payment_type: PaymentType.CASH,
+            payment_card_type: null,
+            payment_service: null,
+            amount: 100_000,
+            activation_amount: 0,
+            description: "Wrong amount",
+            balance_before: 150_000,
+            balance_after: 50_000,
+            status: CardTransactionStatusTypes.SUCCESS,
+            xreport: null,
+            createdAt: new Date("2026-10-02T10:00:00.000Z"),
+            cards: {
+              id: 11,
+              card: "100000001",
+              balance: 50_000,
+              status: "active",
+            },
+            operators: {
+              id: 9,
+              firstname: "Head",
+              lastname: "Cashier",
+              file: null,
+            },
+            cashbox_reports: null,
+            reversal: null,
+            topup_reversal: {
+              id: 303,
+              original_transaction: 101,
+              refund_transaction: 202,
+              cancelled_by: 9,
+              reason: "Wrong amount",
+              cancelled_at: new Date("2026-10-02T10:00:00.000Z"),
+            },
+          }),
+        },
+      ],
+    } as any;
+  }) as any;
+
+  const result = await GetCardTransactionsService(
+    9,
+    { cashboxID: 7 },
+    { type: CardTransactionType.REFUND, transaction_id: 202 },
+  );
+
+  assert.deepEqual(queryOptions.where, {
+    cashbox: 7,
+    type: CardTransactionType.REFUND,
+    id: 202,
+  });
+  assert.equal(result.transactions[0].reason, "Wrong amount");
+  assert.equal(result.transactions[0].can_cancel, null);
+  assert.equal(result.transactions[0].topup_reversal.original_transaction, 101);
+  assert.equal(result.transactions[0].topup_reversal.reason, "Wrong amount");
 });
 
 test("cancelling a manual top-up is atomic across balance and reports", async (t) => {

@@ -52,6 +52,7 @@ export const CardTransactionHistoryCardDTO = (
   return {
     id: Number(data.id || 0),
     card: data.card ?? "",
+    balance: Number(data.balance || 0),
     status: data.status ?? "",
   };
 };

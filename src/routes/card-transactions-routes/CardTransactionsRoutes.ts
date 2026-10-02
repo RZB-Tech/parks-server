@@ -17,7 +17,6 @@ import {
   CardTopUpTransactionController,
   CancelTopUpTransactionController,
   CheckNfcCardController,
-  GetCancellableTopUpsController,
   GetCardReturnsController,
   GetCashboxCardTransactionsController,
 } from "../../controllers/card-transactions-controllers/CardTransactionController";
@@ -27,7 +26,6 @@ import {
   cardTopUpTransactionSchema,
   cancelTopUpTransactionSchema,
   checkNfcCardSchema,
-  getCancellableTopUpsSchema,
   getCardReturnsSchema,
   getCardTransactionsSchema,
 } from "./schema";
@@ -74,15 +72,6 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
       preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])],
     },
     GetCashboxCardTransactionsController,
-  );
-
-  fastify.get<RouteWithParamsAndQuery<CashboxParams, GetCancellableTopUpsQuery>>(
-    "/cards/cashboxes/:cashboxID/topups",
-    {
-      schema: getCancellableTopUpsSchema,
-      preHandler: [AuthMiddleware, RoleMiddleware(["head_cashier"])],
-    },
-    GetCancellableTopUpsController,
   );
 
   fastify.post<

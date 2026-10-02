@@ -44,6 +44,7 @@ declare interface CardTransactionResponseDTO {
 declare interface CardTransactionHistoryCardDTO {
   id: number;
   card: string;
+  balance: number;
   status: string;
 }
 

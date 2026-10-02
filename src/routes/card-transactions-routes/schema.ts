@@ -228,6 +228,10 @@ export const cardTransactionHistoryCardProperties = {
     type: "string",
   },
 
+  balance: {
+    type: "number",
+  },
+
   status: {
     type: "string",
     enum: Object.values(CardStatusTypes),
@@ -248,6 +252,15 @@ export const cardTransactionHistoryOperatorProperties = {
   },
 
   file: nullableNumber,
+};
+
+export const cardTransactionReversalProperties = {
+  id: { type: "integer" },
+  original_transaction: { type: "integer" },
+  refund_transaction: { type: "integer" },
+  cancelled_by: { type: "integer" },
+  reason: { type: "string" },
+  cancelled_at: { type: "string" },
 };
 
 export const cardTransactionHistoryProperties = {
@@ -304,6 +317,12 @@ export const cardTransactionHistoryProperties = {
 
   description: nullableString,
 
+  reason: {
+    ...nullableString,
+    description:
+      "Refund reason. It is null for top-up and payment transactions.",
+  },
+
   balance_before: {
     type: "number",
   },
@@ -322,6 +341,41 @@ export const cardTransactionHistoryProperties = {
   },
 
   xreport: nullableNumber,
+
+  zreport: nullableNumber,
+
+  zreport_status: nullableString,
+
+  can_cancel: {
+    oneOf: [{ type: "boolean" }, { type: "null" }],
+    description:
+      "Whether this top-up can be cancelled. It is null for other transaction types.",
+  },
+
+  cannot_cancel_reason: nullableString,
+
+  reversal: {
+    oneOf: [
+      {
+        type: "object",
+        properties: cardTransactionReversalProperties,
+      },
+      { type: "null" },
+    ],
+    description: "Cancellation metadata attached to an original top-up.",
+  },
+
+  topup_reversal: {
+    oneOf: [
+      {
+        type: "object",
+        properties: cardTransactionReversalProperties,
+      },
+      { type: "null" },
+    ],
+    description:
+      "Original top-up cancellation metadata attached to its refund transaction.",
+  },
 
   created_at: {
     type: "string",
@@ -635,9 +689,9 @@ export const getCardReturnsSchema = {
 };
 
 export const getCardTransactionsSchema = {
-  summary: "Get card transactions",
+  summary: "Get and search cashbox card transactions",
   description:
-    "Get card transactions by cashbox for the requested Tashkent date. Defaults to today.",
+    "Get cashbox transactions with optional type and search filters. Without a search field, date defaults to today. A transaction ID or card number search without date searches all dates.",
   tags: ["Card Transactions route"],
   params: {
     type: "object",
@@ -659,6 +713,26 @@ export const getCardTransactionsSchema = {
         type: "string",
         pattern: "^\\d{4}-\\d{2}-\\d{2}$",
         description: "Transaction date in YYYY-MM-DD format",
+      },
+
+      type: {
+        type: "string",
+        enum: Object.values(CardTransactionType),
+        description: "Filter by topup, payment, or refund.",
+      },
+
+      transaction_id: {
+        type: "integer",
+        minimum: 1,
+        description:
+          "Find an exact transaction in this cashbox. Cannot be combined with card_number.",
+      },
+
+      card_number: {
+        type: "string",
+        minLength: 1,
+        description:
+          "Find transactions by exact card number. Cannot be combined with transaction_id.",
       },
 
       page: {
@@ -781,130 +855,6 @@ export const cardPaymentTransactionSchema = {
       payment: {
         type: "object",
         properties: cardPaymentResponseProperties,
-      },
-    }),
-  },
-};
-
-const cancellableTopUpProperties = {
-  id: { type: "integer" },
-  cashbox: { type: "integer" },
-  card: {
-    oneOf: [
-      {
-        type: "object",
-        properties: {
-          id: { type: "integer" },
-          card: { type: "string" },
-          balance: { type: "number" },
-          status: { type: "string", enum: Object.values(CardStatusTypes) },
-        },
-      },
-      { type: "null" },
-    ],
-  },
-  operator: {
-    oneOf: [
-      {
-        type: "object",
-        properties: {
-          id: { type: "integer" },
-          firstname: { type: "string" },
-          lastname: { type: "string" },
-        },
-      },
-      { type: "null" },
-    ],
-  },
-  amount: { type: "number" },
-  activation_amount: { type: "number" },
-  payment_type: { type: "string", enum: Object.values(PaymentType) },
-  payment_card_type: nullableEnum(Object.values(PaymentCardType)),
-  payment_service_type: nullableEnum(Object.values(PaymentServiceType)),
-  status: {
-    type: "string",
-    enum: Object.values(CardTransactionStatusTypes),
-  },
-  description: nullableString,
-  balance_before: { type: "number" },
-  balance_after: { type: "number" },
-  xreport: nullableNumber,
-  zreport: nullableNumber,
-  zreport_status: {
-    oneOf: [{ type: "string" }, { type: "null" }],
-  },
-  can_cancel: { type: "boolean" },
-  cannot_cancel_reason: nullableString,
-  reversal: {
-    oneOf: [
-      {
-        type: "object",
-        properties: {
-          id: { type: "integer" },
-          refund_transaction: { type: "integer" },
-          cancelled_by: { type: "integer" },
-          reason: { type: "string" },
-          cancelled_at: { type: "string" },
-        },
-      },
-      { type: "null" },
-    ],
-  },
-  created_at: { type: "string" },
-};
-
-export const getCancellableTopUpsSchema = {
-  summary: "Search cancellable card top-ups",
-  description:
-    "Head cashier searches top-ups in one cashbox by transaction ID or exact card number.",
-  tags: ["Card Transactions route"],
-  headers: {
-    type: "object",
-    required: ["authorization"],
-    additionalProperties: true,
-    properties: {
-      authorization: { type: "string" },
-    },
-  },
-  params: {
-    type: "object",
-    required: ["cashboxID"],
-    additionalProperties: false,
-    properties: {
-      cashboxID: { type: "integer", minimum: 1 },
-    },
-  },
-  querystring: {
-    type: "object",
-    additionalProperties: false,
-    oneOf: [
-      { required: ["transaction_id"] },
-      { required: ["card_number"] },
-    ],
-    properties: {
-      transaction_id: { type: "integer", minimum: 1 },
-      card_number: { type: "string", minLength: 1 },
-      page: { type: "integer", minimum: 1, default: 1 },
-      limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
-    },
-  },
-  response: {
-    200: successAnswerTemplate({
-      topups: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: cancellableTopUpProperties,
-        },
-      },
-      pagination: {
-        type: "object",
-        properties: {
-          total: { type: "integer" },
-          page: { type: "integer" },
-          limit: { type: "integer" },
-          totalPages: { type: "integer" },
-        },
       },
     }),
   },

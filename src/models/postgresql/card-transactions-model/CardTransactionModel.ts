@@ -317,5 +317,10 @@ export class CardTransactionModel
       foreignKey: "original_transaction",
       as: "reversal",
     });
+
+    CardTransactionModel.hasOne(models.CardTransactionReversalModel, {
+      foreignKey: "refund_transaction",
+      as: "topup_reversal",
+    });
   }
 }

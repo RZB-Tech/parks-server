@@ -20,6 +20,9 @@ declare interface CardTopUpTransactionData {
 
 declare interface GetCashboxCardTransactionsQuery {
   date?: string;
+  type?: CardTransactionType;
+  transaction_id?: number;
+  card_number?: string;
   page?: number;
   limit?: number;
 }
@@ -27,13 +30,6 @@ declare interface GetCashboxCardTransactionsQuery {
 declare interface GetCardReturnsQuery {
   date?: string;
   cashbox?: number;
-  page?: number;
-  limit?: number;
-}
-
-declare interface GetCancellableTopUpsQuery {
-  transaction_id?: number;
-  card_number?: string;
   page?: number;
   limit?: number;
 }

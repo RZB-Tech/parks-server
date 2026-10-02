@@ -666,82 +666,21 @@ export const GetCardReturnsService = async (query: GetCardReturnsQuery) => {
 
 export const GetCardTransactionsService = async (
   operatorID: number,
-  params: CashboxReportsParams,
+  params: CashboxParams,
   query: GetCashboxCardTransactionsQuery,
 ) => {
-  if (!operatorID) {
+  if (!Number.isInteger(operatorID) || operatorID <= 0) {
     throw BadRequest("Operator is required!");
   }
 
-  const cashboxID = Number(params.cashboxID);
-
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
-  const offset = (page - 1) * limit;
-
-  const { startDate, endDate } = getTashkentDayRangeUTC(query.date);
-
-  const { rows, count } = await CardTransactionModel.findAndCountAll({
-    where: {
-      cashbox: cashboxID,
-      createdAt: {
-        [Op.between]: [startDate, endDate],
-      },
-    },
-    include: [
-      {
-        model: CardModel,
-        as: "cards",
-        required: false,
-        attributes: ["id", "card", "nfc", "status"],
-      },
-      {
-        model: EmployeeModel,
-        as: "operators",
-        required: false,
-        attributes: ["id", "firstname", "lastname", "file"],
-      },
-    ],
-    limit,
-    offset,
-    order: [["id", "DESC"]],
-  });
-
-  const transactions = rows.map((transaction) =>
-    CardTransactionHistoryDTO(
-      transaction.get({ plain: true }) as CardTransactionHistoryPlain,
-    ),
-  );
-
-  return {
-    transactions,
-    total: count,
-    page,
-    limit,
-    totalPages: Math.ceil(count / limit),
-  };
-};
-
-export const GetCancellableTopUpsService = async (
-  params: CashboxParams,
-  query: GetCancellableTopUpsQuery,
-) => {
   const cashboxID = Number(params.cashboxID);
 
   if (!Number.isInteger(cashboxID) || cashboxID <= 0) {
     throw BadRequest("CASHBOX_ID_IS_INVALID");
   }
 
-  const hasTransactionID = query.transaction_id !== undefined;
-  const cardNumber = query.card_number?.trim();
-  const hasCardNumber = Boolean(cardNumber);
-
-  if (hasTransactionID === hasCardNumber) {
-    throw BadRequest("USE_TRANSACTION_ID_OR_CARD_NUMBER");
-  }
-
   const page = Number(query.page ?? 1);
-  const limit = Number(query.limit ?? 20);
+  const limit = Number(query.limit ?? 10);
 
   if (!Number.isInteger(page) || page <= 0) {
     throw BadRequest("PAGE_IS_INVALID");
@@ -751,10 +690,26 @@ export const GetCancellableTopUpsService = async (
     throw BadRequest("LIMIT_IS_INVALID");
   }
 
-  const where: Record<string, unknown> = {
-    cashbox: cashboxID,
-    type: CardTransactionType.TOPUP,
-  };
+  if (
+    query.type !== undefined &&
+    !Object.values(CardTransactionType).includes(query.type)
+  ) {
+    throw BadRequest("TRANSACTION_TYPE_IS_INVALID");
+  }
+
+  const hasTransactionID = query.transaction_id !== undefined;
+  const hasCardNumber = query.card_number !== undefined;
+  const cardNumber = query.card_number?.trim();
+
+  if (hasTransactionID && hasCardNumber) {
+    throw BadRequest("USE_TRANSACTION_ID_OR_CARD_NUMBER");
+  }
+
+  const where: Record<string, unknown> = { cashbox: cashboxID };
+
+  if (query.type !== undefined) {
+    where.type = query.type;
+  }
 
   if (hasTransactionID) {
     const transactionID = Number(query.transaction_id);
@@ -766,6 +721,18 @@ export const GetCancellableTopUpsService = async (
     where.id = transactionID;
   }
 
+  if (hasCardNumber && !cardNumber) {
+    throw BadRequest("CARD_NUMBER_IS_INVALID");
+  }
+
+  if (query.date !== undefined || (!hasTransactionID && !hasCardNumber)) {
+    const { startDate, endDate } = getTashkentDayRangeUTC(query.date);
+
+    where.createdAt = {
+      [Op.between]: [startDate, endDate],
+    };
+  }
+
   const { rows, count } = await CardTransactionModel.findAndCountAll({
     where,
     include: [
@@ -774,13 +741,13 @@ export const GetCancellableTopUpsService = async (
         as: "cards",
         required: hasCardNumber,
         ...(hasCardNumber ? { where: { card: cardNumber } } : {}),
-        attributes: ["id", "card", "balance", "status"],
+        attributes: ["id", "card", "nfc", "balance", "status"],
       },
       {
         model: EmployeeModel,
         as: "operators",
         required: false,
-        attributes: ["id", "firstname", "lastname"],
+        attributes: ["id", "firstname", "lastname", "file"],
       },
       {
         model: CardTransactionReversalModel,
@@ -788,6 +755,20 @@ export const GetCancellableTopUpsService = async (
         required: false,
         attributes: [
           "id",
+          "original_transaction",
+          "refund_transaction",
+          "cancelled_by",
+          "reason",
+          "cancelled_at",
+        ],
+      },
+      {
+        model: CardTransactionReversalModel,
+        as: "topup_reversal",
+        required: false,
+        attributes: [
+          "id",
+          "original_transaction",
           "refund_transaction",
           "cancelled_by",
           "reason",
@@ -810,11 +791,15 @@ export const GetCancellableTopUpsService = async (
     ],
   });
 
-  const plainRows = rows.map((row) => row.get({ plain: true }) as any);
+  const plainRows = rows.map(
+    (transaction) => transaction.get({ plain: true }) as any,
+  );
   const zReportIDs = [
     ...new Set(
       plainRows
-        .map((row) => Number(row.cashbox_reports?.zreport))
+        .map((transaction) =>
+          Number(transaction.cashbox_reports?.zreport),
+        )
         .filter((id) => Number.isInteger(id) && id > 0),
     ),
   ];
@@ -828,71 +813,58 @@ export const GetCancellableTopUpsService = async (
     zReports.map((report) => [Number(report.id), report.status]),
   );
 
-  const topups = plainRows.map((transaction) => {
-    const cardBalance = Number(transaction.cards?.balance ?? 0);
+  const serializeReversal = (reversal?: any | null) =>
+    reversal
+      ? {
+          id: Number(reversal.id),
+          original_transaction: Number(reversal.original_transaction),
+          refund_transaction: Number(reversal.refund_transaction),
+          cancelled_by: Number(reversal.cancelled_by),
+          reason: reversal.reason,
+          cancelled_at: reversal.cancelled_at,
+        }
+      : null;
+
+  const transactions = plainRows.map((transaction) => {
     const zReportID = transaction.cashbox_reports?.zreport
       ? Number(transaction.cashbox_reports.zreport)
       : null;
     const zReportStatus = zReportID
       ? zReportStatusByID.get(zReportID) ?? null
       : null;
-    const cannotCancelReason = GetTopUpCancellationBlockReason(
-      transaction,
-      cardBalance,
-      zReportStatus,
+    const isTopUp = transaction.type === CardTransactionType.TOPUP;
+    const cannotCancelReason = isTopUp
+      ? GetTopUpCancellationBlockReason(
+          transaction,
+          Number(transaction.cards?.balance ?? 0),
+          zReportStatus,
+        )
+      : null;
+    const transactionDTO = CardTransactionHistoryDTO(
+      transaction as CardTransactionHistoryPlain,
     );
 
     return {
-      id: Number(transaction.id),
-      cashbox: Number(transaction.cashbox),
-      card: transaction.cards
-        ? {
-            id: Number(transaction.cards.id),
-            card: transaction.cards.card,
-            balance: cardBalance,
-            status: transaction.cards.status,
-          }
-        : null,
-      operator: transaction.operators
-        ? {
-            id: Number(transaction.operators.id),
-            firstname: transaction.operators.firstname,
-            lastname: transaction.operators.lastname,
-          }
-        : null,
-      amount: Number(transaction.amount),
-      activation_amount: Number(transaction.activation_amount || 0),
-      payment_type: transaction.payment_type,
-      payment_card_type: transaction.payment_card_type ?? null,
-      payment_service_type: transaction.payment_service ?? null,
-      status: transaction.status,
-      description: transaction.description ?? null,
-      balance_before: Number(transaction.balance_before),
-      balance_after: Number(transaction.balance_after),
-      xreport: transaction.cashbox_report
-        ? Number(transaction.cashbox_report)
-        : null,
+      ...transactionDTO,
+      reason:
+        transaction.type === CardTransactionType.REFUND
+          ? transaction.description ?? transaction.topup_reversal?.reason ?? null
+          : null,
+      xreport:
+        isTopUp && transaction.cashbox_report
+          ? Number(transaction.cashbox_report)
+          : transactionDTO.xreport,
       zreport: zReportID,
       zreport_status: zReportStatus,
-      can_cancel: cannotCancelReason === null,
+      can_cancel: isTopUp ? cannotCancelReason === null : null,
       cannot_cancel_reason: cannotCancelReason,
-      reversal: transaction.reversal
-        ? {
-            id: Number(transaction.reversal.id),
-            refund_transaction: Number(
-              transaction.reversal.refund_transaction,
-            ),
-            cancelled_by: Number(transaction.reversal.cancelled_by),
-            reason: transaction.reversal.reason,
-            cancelled_at: transaction.reversal.cancelled_at,
-          }
-        : null,
-      created_at: transaction.createdAt,
+      reversal: serializeReversal(transaction.reversal),
+      topup_reversal: serializeReversal(transaction.topup_reversal),
     };
   });
 
   return {
-    topups,
+    transactions,
     total: count,
     page,
     limit,

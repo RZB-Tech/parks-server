@@ -15,7 +15,6 @@ import {
   CardPaymentTransactionService,
   CardRefundTransactionService,
   GetCardReturnsService,
-  GetCancellableTopUpsService,
   CancelTopUpTransactionService,
 } from "../../services/card-transactions-services/CardTransactionsServices";
 
@@ -86,30 +85,6 @@ export const GetCashboxCardTransactionsController = makeReplyingController(
 
     return [
       result.transactions,
-      {
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-      },
-    ];
-  },
-);
-
-export const GetCancellableTopUpsController = makeReplyingController(
-  ["topups", "pagination"],
-  async (
-    request: FastifyRequest<
-      RouteWithParamsAndQuery<CashboxParams, GetCancellableTopUpsQuery>
-    >,
-  ) => {
-    const result = await GetCancellableTopUpsService(
-      request.params,
-      request.query,
-    );
-
-    return [
-      result.topups,
       {
         total: result.total,
         page: result.page,
