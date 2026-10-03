@@ -12,7 +12,6 @@ import {
   GetAccountingCashboxReportsController,
   GetNotConfirmedZReportDatesController,
   GetZReportsController,
-  ReopenZReportController,
   StatusCashboxReportController,
 } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
 import {
@@ -22,7 +21,6 @@ import {
   getNotConfirmedZReportDatesSchema,
   getZReportsSchema,
   openReportSchema,
-  reopenZReportsSchema,
   statusCashboxReportSchema,
 } from "./schema";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
@@ -66,18 +64,6 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
      "/zreports/confirmation",
      { schema: confirmZReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'head_cashier', 'head_accountant', 'head_marketing' ])] },
      ConfirmZReportsController,
-   );
-
-   fastify.put<RouteWithData<ReqData<ReopenZReportData>>>(
-     "/zreports/reopen",
-     {
-       schema: reopenZReportsSchema,
-       preHandler: [
-         AuthMiddleware,
-         RoleMiddleware(["head_operator", "head_cashier"]),
-       ],
-     },
-     ReopenZReportController,
    );
 
    fastify.get<RouteWithQuery<GetAccountingCashboxReportsQuery>>(

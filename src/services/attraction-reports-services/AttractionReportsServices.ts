@@ -473,8 +473,7 @@ export const UpdateAttractionReportStatusService = async (
      * OPEN    -> CLOSED
      * STOPPED -> OPEN
      * STOPPED -> CLOSED
-     *
-     * CLOSED report qayta ochilmaydi.
+     * CLOSED Z -> OPEN (faqat head_operator/head_cashier)
      */
     const allowedTransitions: Record<string, AttractionReportStatusTypes[]> = {
       [AttractionReportStatusTypes.OPEN]: [
@@ -487,7 +486,9 @@ export const UpdateAttractionReportStatusService = async (
         AttractionReportStatusTypes.CLOSED,
       ],
 
-      [AttractionReportStatusTypes.CLOSED]: [],
+      [AttractionReportStatusTypes.CLOSED]: [
+        AttractionReportStatusTypes.OPEN,
+      ],
       [AttractionReportStatusTypes.CONFIRMED]: [],
     };
 
@@ -497,6 +498,42 @@ export const UpdateAttractionReportStatusService = async (
       throw BadRequest(
         `Cannot change report status from ${report.status} to ${body.status}!`,
       );
+    }
+
+    const isReopeningClosedReport =
+      report.status === AttractionReportStatusTypes.CLOSED &&
+      body.status === AttractionReportStatusTypes.OPEN;
+
+    if (isReopeningClosedReport) {
+      if (!isZReport) {
+        throw BadRequest("Closed X report cannot be reopened!");
+      }
+
+      if (!["head_operator", "head_cashier"].includes(roleName)) {
+        throw Forbidden(
+          "Only head_operator or head_cashier can reopen a closed Z report!",
+        );
+      }
+
+      const activeZReport = await AttractionReportModel.findOne({
+        where: {
+          id: { [Op.ne]: Number(report.id) },
+          attraction: attractionID,
+          report_type: AttractionReportTypes.ZREPORT,
+          status: {
+            [Op.in]: [
+              AttractionReportStatusTypes.OPEN,
+              AttractionReportStatusTypes.STOPPED,
+            ],
+          },
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (activeZReport) {
+        throw Conflict("Attraction already has an active Z report!");
+      }
     }
 
     /*
@@ -579,6 +616,7 @@ export const UpdateAttractionReportStatusService = async (
      * STOPPED -> OPEN
      */
     if (body.status === AttractionReportStatusTypes.OPEN) {
+      updateData.description = null;
       updateData.stopped_at = null;
       updateData.closed_at = null;
     }
