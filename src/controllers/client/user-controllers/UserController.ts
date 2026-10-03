@@ -17,7 +17,7 @@ export const GetMeController = makeReplyingController(
       throw Unauthorized("TELEGRAM_USER_NOT_FOUND");
     }
 
-    return await GetMeService(telegramUser.id);
+    return await GetMeService(telegramUser.id, telegramUser.language_code);
   },
 );
 

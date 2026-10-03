@@ -31,6 +31,7 @@ declare interface CardTransactionResponseDTO {
   payment_service_type: PaymentServiceType | null;
   amount: number;
   activation_amount: number;
+  total_amount: number;
   description: string | null;
   balance_before: number;
   balance_after: number;
@@ -44,6 +45,7 @@ declare interface CardTransactionResponseDTO {
 declare interface CardTransactionHistoryCardDTO {
   id: number;
   card: string;
+  balance: number;
   status: string;
 }
 
@@ -67,6 +69,7 @@ declare interface CardTransactionHistoryResponseDTO {
 
   amount: number;
   activation_amount: number;
+  total_amount: number;
   description: string | null;
   balance_before: number;
   balance_after: number;

@@ -1,4 +1,7 @@
-import { UserStatusTypes } from "../../../models/postgresql/client/user-model/enums";
+import {
+  UserLanguageTypes,
+  UserStatusTypes,
+} from "../../../models/postgresql/client/user-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../../schemas";
 
 const nullableStringSchema = {
@@ -57,6 +60,10 @@ export const getMeSchema = {
           },
           registered_at: nullableDateTimeSchema,
           agreement_accepted: { type: "boolean" },
+          language: {
+            type: "string",
+            enum: Object.values(UserLanguageTypes),
+          },
         },
       },
     }),

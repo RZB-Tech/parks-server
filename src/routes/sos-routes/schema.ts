@@ -107,7 +107,7 @@ export const createSosSchema = {
   summary: "Create SOS report",
 
   description:
-    "Create an SOS report from an active attraction operator or cashbox operator.",
+    "Create an SOS report from an operator with an open attraction report or an active cashbox operator.",
 
   tags: ["SOS route"],
 

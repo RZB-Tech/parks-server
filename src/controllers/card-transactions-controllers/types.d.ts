@@ -20,6 +20,10 @@ declare interface CardTopUpTransactionData {
 
 declare interface GetCashboxCardTransactionsQuery {
   date?: string;
+  type?: CardTransactionType;
+  activated_card?: boolean;
+  transaction_id?: number;
+  card_number?: string;
   page?: number;
   limit?: number;
 }
@@ -29,6 +33,15 @@ declare interface GetCardReturnsQuery {
   cashbox?: number;
   page?: number;
   limit?: number;
+}
+
+declare interface CancelTopUpParams {
+  cashboxID: number;
+  transactionID: number;
+}
+
+declare interface CancelTopUpData {
+  reason: string;
 }
 
 declare interface CardPaymentTransactionData {

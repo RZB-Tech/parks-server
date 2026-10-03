@@ -5,8 +5,6 @@ import {
   AttractionReportTypes,
   AttractionStatusTypes,
 } from "../../models/postgresql/attraction-model/enums";
-import { AttractionOperatorModel } from "../../models/postgresql/attraction-operator-model/AttractionOperatorModel";
-import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { AttractionReportModel } from "../../models/postgresql/attraction-report-model/AttractionReportModel";
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
 import { AttractionRoundModel } from "../../models/postgresql/attraction-round-model/AttractionRoundModel";
@@ -36,6 +34,7 @@ import {
   getSoftDeleteVisibilityWhere,
   isVisibleAt,
 } from "../../utils/softDeleteVisibility";
+import { FinalizeAttractionRoundService } from "../attraction-rounds-services/AttractionRoundsServices";
 
 export const OpenAttractionReportService = async (
   operatorID: number,
@@ -55,6 +54,13 @@ export const OpenAttractionReportService = async (
   if (!attractionID || Number.isNaN(attractionID)) {
     throw BadRequest("Attraction ID is invalid!");
   }
+
+  /*
+   * Temporal 03:00 schedule kechiksa ham oldingi business-day reporti
+   * yangi operatorni bloklamasligi kerak. Bu service faqat cutoffdan oldin
+   * ochilgan OPEN/STOPPED reportlarni yopadi.
+   */
+  await AutoCloseUnclosedAttractionReportsService(new Date(), attractionID);
 
   const sequelize = AttractionReportModel.sequelize!;
 
@@ -96,10 +102,6 @@ export const OpenAttractionReportService = async (
             AttractionReportStatusTypes.STOPPED,
           ],
         },
-        opened_at: {
-          [Op.gte]: startDate,
-          [Op.lt]: endDate,
-        },
       },
       transaction,
       lock: transaction.LOCK.UPDATE,
@@ -107,8 +109,10 @@ export const OpenAttractionReportService = async (
 
     if (activeXReport) {
       if (Number(activeXReport.operator) === operatorID) {
-        throw Conflict(
-          "You already have an active X report on this attraction!",
+        return AttractionReportDTO(
+          activeXReport.get({
+            plain: true,
+          }),
         );
       }
 
@@ -205,39 +209,25 @@ export const OpenAttractionReportService = async (
   });
 };
 
-export const GetPaymentOperatorAttractionService = async (
-  operatorID: number,
+export const GetPaymentAttractionService = async (
   attractionID: number,
   transaction: Transaction,
 ) => {
-  const operatorAttraction = await AttractionOperatorModel.findOne({
+  const attraction = await AttractionModel.findOne({
     where: {
-      operator: operatorID,
-      attraction: attractionID,
-      status: AttractionOperatorStatusTypes.ACTIVE,
+      id: attractionID,
+      status: AttractionStatusTypes.ACTIVE,
     },
-    include: [
-      {
-        model: AttractionModel,
-        as: "attractions",
-        required: true,
-        where: {
-          status: AttractionStatusTypes.ACTIVE,
-        },
-        attributes: ["id", "name", "price", "seats"],
-      },
-    ],
+    attributes: ["id", "name", "price", "seats"],
     transaction,
     lock: transaction.LOCK.UPDATE,
   });
 
-  if (operatorAttraction === null) {
-    throw NotFound("Operator attraction not found!");
+  if (attraction === null) {
+    throw NotFound("Active attraction not found!");
   }
 
-  return operatorAttraction.get({
-    plain: true,
-  }) as PaymentOperatorAttractionData;
+  return attraction;
 };
 
 export const GetOpenAttractionReportService = async (
@@ -440,20 +430,6 @@ export const UpdateAttractionReportStatusService = async (
     const isSuperAdmin = roleName === "superadmin";
 
     /*
-     * Operator shu attractionga ACTIVE holatda
-     * biriktirilganini tekshiramiz.
-     */
-    const operatorAttraction = await AttractionOperatorModel.findOne({
-      where: {
-        operator: operatorID,
-        attraction: attractionID,
-        status: AttractionOperatorStatusTypes.ACTIVE,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    /*
      * Report ID global bo‘lgani uchun kalendar kuniga bog‘lamaymiz. Bu
      * 00:00-02:59 oralig‘ida oldingi business-day reportini yopishga imkon
      * beradi.
@@ -485,10 +461,6 @@ export const UpdateAttractionReportStatusService = async (
      * Superadmin istalgan X-reportni boshqarishi mumkin.
      */
     if (isXReport && !isSuperAdmin) {
-      if (!operatorAttraction) {
-        throw Forbidden("Operator is not assigned to this attraction!");
-      }
-
       if (Number(report.operator) !== operatorID) {
         throw Forbidden("You can update only your own X report!");
       }
@@ -1671,11 +1643,11 @@ export const GetNotConfirmedAttractionZReportDatesService = async () => {
 
 export const AutoCloseUnclosedAttractionReportsService = async (
   referenceTime: string | Date = new Date(),
+  attractionID?: number,
 ) => {
   const sequelize = AttractionReportModel.sequelize!;
 
   return await sequelize.transaction(async (transaction) => {
-    const now = new Date();
     const cutoff = getMostRecentTashkentCutoffUTC(
       referenceTime,
       BUSINESS_DAY_CUTOFF_HOUR,
@@ -1689,6 +1661,7 @@ export const AutoCloseUnclosedAttractionReportsService = async (
 
     const xreports = await AttractionReportModel.findAll({
       where: {
+        ...(attractionID !== undefined ? { attraction: attractionID } : {}),
         report_type: AttractionReportTypes.XREPORT,
         status: {
           [Op.in]: closeableStatuses,
@@ -1697,19 +1670,106 @@ export const AutoCloseUnclosedAttractionReportsService = async (
           [Op.lt]: cutoff,
         },
       },
-      attributes: ["id", "zreport"],
+      attributes: ["id", "zreport", "attraction"],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
 
     const xreportIDs = xreports.map((item) => Number(item.id));
+    let finalizedRounds = 0;
     let closedXReports = 0;
 
     if (xreportIDs.length > 0) {
+      const openRounds = await AttractionRoundModel.findAll({
+        where: {
+          report: { [Op.in]: xreportIDs },
+          status: AttractionRoundStatusTypes.OPEN,
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      const zreportIDs = [
+        ...new Set(
+          xreports
+            .map((report) => Number(report.zreport))
+            .filter((id) => Number.isInteger(id) && id > 0),
+        ),
+      ];
+      const attractionIDs = [
+        ...new Set(xreports.map((report) => Number(report.attraction))),
+      ];
+      const [parentZReports, attractions] = await Promise.all([
+        zreportIDs.length
+          ? AttractionReportModel.findAll({
+              where: {
+                id: { [Op.in]: zreportIDs },
+                report_type: AttractionReportTypes.ZREPORT,
+              },
+              transaction,
+              lock: transaction.LOCK.UPDATE,
+            })
+          : Promise.resolve([]),
+        AttractionModel.findAll({
+          where: { id: { [Op.in]: attractionIDs } },
+          attributes: ["id", "duration"],
+          paranoid: false,
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        }),
+      ]);
+      const xreportsByID = new Map(
+        xreports.map((report) => [Number(report.id), report]),
+      );
+      const zreportsByID = new Map(
+        parentZReports.map((report) => [Number(report.id), report]),
+      );
+      const attractionsByID = new Map(
+        attractions.map((attraction) => [Number(attraction.id), attraction]),
+      );
+
+      for (const round of openRounds) {
+        const xreport = xreportsByID.get(Number(round.report));
+        const zreport = xreport
+          ? zreportsByID.get(Number(xreport.zreport))
+          : undefined;
+        const attraction = xreport
+          ? attractionsByID.get(Number(xreport.attraction))
+          : undefined;
+
+        if (!xreport || !zreport || !attraction) {
+          const fallbackStatus =
+            Number(round.people_count || 0) > 0
+              ? AttractionRoundStatusTypes.FINISHED
+              : AttractionRoundStatusTypes.CANCELLED;
+
+          await round.update(
+            {
+              status: fallbackStatus,
+              finished_at: cutoff,
+            },
+            { transaction },
+          );
+          finalizedRounds += 1;
+          continue;
+        }
+
+        await FinalizeAttractionRoundService({
+          round,
+          xReport: xreport,
+          zReport: zreport,
+          attractionDuration: attraction.duration,
+          transaction,
+          emptyRoundAction: "cancel",
+          finishedAt: cutoff,
+        });
+        finalizedRounds += 1;
+      }
+
       [closedXReports] = await AttractionReportModel.update(
         {
           status: AttractionReportStatusTypes.CLOSED,
-          closed_at: now,
+          closed_at: cutoff,
         },
         {
           where: {
@@ -1732,6 +1792,7 @@ export const AutoCloseUnclosedAttractionReportsService = async (
      */
     const zreports = await AttractionReportModel.findAll({
       where: {
+        ...(attractionID !== undefined ? { attraction: attractionID } : {}),
         report_type: AttractionReportTypes.ZREPORT,
         status: {
           [Op.in]: closeableStatuses,
@@ -1780,7 +1841,7 @@ export const AutoCloseUnclosedAttractionReportsService = async (
       [closedZReports] = await AttractionReportModel.update(
         {
           status: AttractionReportStatusTypes.CLOSED,
-          closed_at: now,
+          closed_at: cutoff,
         },
         {
           where: {
@@ -1847,6 +1908,7 @@ export const AutoCloseUnclosedAttractionReportsService = async (
     }
 
     return {
+      finalized_rounds: finalizedRounds,
       closed_xreports: closedXReports,
       closed_zreports: closedZReports,
       reconciled_attractions: reconciledAttractions,

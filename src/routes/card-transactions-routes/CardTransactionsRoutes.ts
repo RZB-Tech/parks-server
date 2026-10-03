@@ -7,6 +7,7 @@ import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware
 import {
   ReqData,
   RouteWithData,
+  RouteWithParamsAndData,
   RouteWithParamsAndQuery,
   RouteWithQuery,
 } from "../../types/routes";
@@ -14,6 +15,7 @@ import {
   CardPaymentTransactionController,
   CardRefundTransactionController,
   CardTopUpTransactionController,
+  CancelTopUpTransactionController,
   CheckNfcCardController,
   GetCardReturnsController,
   GetCashboxCardTransactionsController,
@@ -22,6 +24,7 @@ import {
   cardPaymentTransactionSchema,
   cardRefundTransactionSchema,
   cardTopUpTransactionSchema,
+  cancelTopUpTransactionSchema,
   checkNfcCardSchema,
   getCardReturnsSchema,
   getCardTransactionsSchema,
@@ -69,6 +72,17 @@ const CardTransactionsRouter: FastifyPluginAsync = async (
       preHandler: [AuthMiddleware, RoleMiddleware(['superadmin', 'admin', 'owner', 'director', 'head_accountant', 'head_marketing', 'head_cashier', 'cashier', 'head_operator', 'operator'])],
     },
     GetCashboxCardTransactionsController,
+  );
+
+  fastify.post<
+    RouteWithParamsAndData<CancelTopUpParams, ReqData<CancelTopUpData>>
+  >(
+    "/cards/cashboxes/:cashboxID/transactions/:transactionID/cancel",
+    {
+      schema: cancelTopUpTransactionSchema,
+      preHandler: [AuthMiddleware, RoleMiddleware(["head_cashier"])],
+    },
+    CancelTopUpTransactionController,
   );
 };
 

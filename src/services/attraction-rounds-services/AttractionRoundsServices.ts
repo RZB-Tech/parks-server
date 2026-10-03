@@ -1,4 +1,4 @@
-import { col, fn, Op } from "sequelize";
+import { col, fn, Op, Transaction } from "sequelize";
 import {
   AttractionRoundDTO,
   AttractionRoundTransactionDTO,
@@ -8,8 +8,6 @@ import { AttractionReportModel } from "../../models/postgresql/attraction-report
 import { AttractionReportStatusTypes } from "../../models/postgresql/attraction-report-model/enums";
 import { AttractionRoundModel } from "../../models/postgresql/attraction-round-model/AttractionRoundModel";
 import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
-import { AttractionOperatorModel } from "../../models/postgresql/attraction-operator-model/AttractionOperatorModel";
-import { AttractionOperatorStatusTypes } from "../../models/postgresql/attraction-operator-model/enums";
 import { AttractionModel } from "../../models/postgresql/attraction-model/AttractionModel";
 import {
   AttractionReportTypes,
@@ -464,6 +462,189 @@ export const GetTodayRoundsService = async (
     .filter((round): round is AttractionRoundResponseDTO => round !== null);
 };
 
+export const FinalizeAttractionRoundService = async (data: {
+  round: AttractionRoundModel;
+  xReport: AttractionReportModel;
+  zReport: AttractionReportModel;
+  attractionDuration: string | number | null;
+  transaction: Transaction;
+  emptyRoundAction?: "reject" | "cancel";
+  finishedAt?: Date;
+}): Promise<AttractionRoundResponseDTO> => {
+  const {
+    round,
+    xReport,
+    zReport,
+    attractionDuration,
+    transaction,
+    emptyRoundAction = "reject",
+  } = data;
+  const peopleCount = Number(round.people_count || 0);
+
+  if (peopleCount <= 0) {
+    if (emptyRoundAction === "reject") {
+      throw BadRequest("Round has no people!");
+    }
+
+    const finishedAt = data.finishedAt ?? new Date();
+
+    await round.update(
+      {
+        status: AttractionRoundStatusTypes.CANCELLED,
+        finished_at: finishedAt,
+      },
+      { transaction },
+    );
+
+    const roundData = round.get({ plain: true }) as AttractionRoundModelI;
+
+    return AttractionRoundDTO({
+      ...roundData,
+      status: AttractionRoundStatusTypes.CANCELLED,
+      finished_at: finishedAt,
+    });
+  }
+
+  const duration = Number(attractionDuration || 0);
+  const startedAt = new Date(round.started_at);
+  const finishedAt =
+    data.finishedAt ??
+    (duration > 0
+      ? new Date(startedAt.getTime() + duration * 60 * 1000)
+      : new Date());
+
+  await round.update(
+    {
+      status: AttractionRoundStatusTypes.FINISHED,
+      finished_at: finishedAt,
+    },
+    { transaction },
+  );
+
+  const attractionID = Number(round.attraction);
+  const roundTransactionIDs = Array.isArray(round.transactions)
+    ? round.transactions
+        .map(Number)
+        .filter(
+          (transactionID) =>
+            Number.isInteger(transactionID) && transactionID > 0,
+        )
+    : [];
+
+  const roundTransactions = roundTransactionIDs.length
+    ? await CardTransactionModel.findAll({
+        where: {
+          id: { [Op.in]: roundTransactionIDs },
+          attraction: attractionID,
+          xreport: Number(xReport.id),
+          type: CardTransactionType.PAYMENT,
+          status: CardTransactionStatusTypes.SUCCESS,
+        },
+        include: [
+          {
+            model: CardModel,
+            as: "cards",
+            required: true,
+            attributes: ["type"],
+          },
+        ],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      })
+    : [];
+
+  const standardTotals = {
+    total_people: 0,
+    total_offline: 0,
+    total_online: 0,
+    total_virtual: 0,
+    total_classic: 0,
+    total_vip: 0,
+    total_organization: 0,
+    paid_amount: 0,
+    total_amount: 0,
+  };
+  const promotionKeys = new Set<string>();
+
+  for (const payment of roundTransactions) {
+    const paymentData = payment.get({ plain: true }) as CardTransactionModelI & {
+      cards: Pick<CardsModelI, "type">;
+    };
+
+    if (paymentData.promotion !== null) {
+      promotionKeys.add(
+        [
+          "promotion",
+          Number(paymentData.promotion),
+          Number(paymentData.discount_percent || 0),
+          Number(paymentData.original_unit_price || 0),
+          Number(paymentData.sale_unit_price || 0),
+        ].join(":"),
+      );
+      continue;
+    }
+
+    const paymentPeople = Number(paymentData.people_count || 0);
+
+    standardTotals.total_people += paymentPeople;
+    standardTotals.total_online +=
+      paymentData.payment_type === PaymentType.ONLINE ? paymentPeople : 0;
+    standardTotals.total_offline +=
+      paymentData.payment_type === PaymentType.ONLINE ? 0 : paymentPeople;
+    standardTotals.total_virtual +=
+      paymentData.cards.type === CardType.VIRTUAL ? paymentPeople : 0;
+    standardTotals.total_classic +=
+      paymentData.cards.type === CardType.CLASSIC ? paymentPeople : 0;
+    standardTotals.total_vip +=
+      paymentData.cards.type === CardType.VIP ? paymentPeople : 0;
+    standardTotals.total_organization +=
+      paymentData.cards.type === CardType.ORGANIZATION ? paymentPeople : 0;
+    standardTotals.paid_amount +=
+      paymentData.cards.type === CardType.CLASSIC ||
+      paymentData.cards.type === CardType.VIRTUAL
+        ? Number(paymentData.amount || 0)
+        : 0;
+    standardTotals.total_amount +=
+      Number(paymentData.sale_unit_price || 0) * paymentPeople;
+  }
+
+  if (standardTotals.total_people > 0) {
+    await xReport.increment({ total_rounds: 1 }, { transaction });
+    await zReport.increment(
+      {
+        total_rounds: 1,
+        ...standardTotals,
+      },
+      { transaction },
+    );
+  }
+
+  for (const promotionKey of promotionKeys) {
+    const promotionReport = await PromotionReportModel.findOne({
+      where: {
+        attraction: attractionID,
+        xreport: Number(xReport.id),
+        zreport: Number(zReport.id),
+        promotion_key: promotionKey,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (promotionReport) {
+      await promotionReport.increment({ rounds_count: 1 }, { transaction });
+    }
+  }
+
+  const roundData = round.get({ plain: true }) as AttractionRoundModelI;
+
+  return AttractionRoundDTO({
+    ...roundData,
+    status: AttractionRoundStatusTypes.FINISHED,
+    finished_at: finishedAt,
+  });
+};
+
 export const CloseCurrentAttractionRoundService = async (
   operatorID: number,
   params: AttractionRoundParams,
@@ -486,39 +667,19 @@ export const CloseCurrentAttractionRoundService = async (
 
       const attractionID = Number(round.attraction);
 
-      const operatorAttraction = await AttractionOperatorModel.findOne({
+      const attraction = await AttractionModel.findOne({
         where: {
-          operator: operatorID,
-          attraction: attractionID,
-          status: AttractionOperatorStatusTypes.ACTIVE,
+          id: attractionID,
+          status: AttractionStatusTypes.ACTIVE,
         },
-        include: [
-          {
-            model: AttractionModel,
-            as: "attractions",
-            required: true,
-            where: {
-              status: AttractionStatusTypes.ACTIVE,
-            },
-            attributes: ["id", "duration"],
-          },
-        ],
+        attributes: ["id", "duration"],
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
 
-      if (operatorAttraction === null) {
-        throw NotFound("Operator attraction not found!");
+      if (attraction === null) {
+        throw NotFound("Active attraction not found!");
       }
-
-      const operatorAttractionData = operatorAttraction.get({
-        plain: true,
-      }) as AttractionOperatorModelI & {
-        attractions: {
-          id: number | string;
-          duration: string;
-        };
-      };
 
       const xReport = await AttractionReportModel.findOne({
         where: {
@@ -555,175 +716,12 @@ export const CloseCurrentAttractionRoundService = async (
         throw BadRequest("Open Z report required!");
       }
 
-      const peopleCount = Number(round.people_count || 0);
-
-      if (peopleCount <= 0) {
-        throw BadRequest("Round has no people!");
-      }
-
-      const duration = Number(operatorAttractionData.attractions.duration || 0);
-
-      const startedAt = new Date(round.started_at);
-
-      const finishedAt =
-        duration > 0
-          ? new Date(startedAt.getTime() + duration * 60 * 1000)
-          : new Date();
-
-      await round.update(
-        {
-          status: AttractionRoundStatusTypes.FINISHED,
-          finished_at: finishedAt,
-        },
-        {
-          transaction,
-        },
-      );
-
-      const roundTransactionIDs = Array.isArray(round.transactions)
-        ? round.transactions
-            .map(Number)
-            .filter(
-              (transactionID) =>
-                Number.isInteger(transactionID) && transactionID > 0,
-            )
-        : [];
-
-      const roundTransactions = roundTransactionIDs.length
-        ? await CardTransactionModel.findAll({
-            where: {
-              id: {
-                [Op.in]: roundTransactionIDs,
-              },
-              attraction: attractionID,
-              xreport: Number(xReport.id),
-              type: CardTransactionType.PAYMENT,
-              status: CardTransactionStatusTypes.SUCCESS,
-            },
-            include: [
-              {
-                model: CardModel,
-                as: "cards",
-                required: true,
-                attributes: ["type"],
-              },
-            ],
-            transaction,
-            lock: transaction.LOCK.UPDATE,
-          })
-        : [];
-
-      const standardTotals = {
-        total_people: 0,
-        total_offline: 0,
-        total_online: 0,
-        total_virtual: 0,
-        total_classic: 0,
-        total_vip: 0,
-        total_organization: 0,
-        paid_amount: 0,
-        total_amount: 0,
-      };
-
-      const promotionKeys = new Set<string>();
-
-      for (const payment of roundTransactions) {
-        const paymentData = payment.get({
-          plain: true,
-        }) as CardTransactionModelI & {
-          cards: Pick<CardsModelI, "type">;
-        };
-
-        if (paymentData.promotion !== null) {
-          promotionKeys.add(
-            [
-              "promotion",
-              Number(paymentData.promotion),
-              Number(paymentData.discount_percent || 0),
-              Number(paymentData.original_unit_price || 0),
-              Number(paymentData.sale_unit_price || 0),
-            ].join(":"),
-          );
-          continue;
-        }
-
-        const paymentPeople = Number(paymentData.people_count || 0);
-
-        standardTotals.total_people += paymentPeople;
-        standardTotals.total_online +=
-          paymentData.payment_type === PaymentType.ONLINE ? paymentPeople : 0;
-        standardTotals.total_offline +=
-          paymentData.payment_type === PaymentType.ONLINE ? 0 : paymentPeople;
-        standardTotals.total_virtual +=
-          paymentData.cards.type === CardType.VIRTUAL ? paymentPeople : 0;
-        standardTotals.total_classic +=
-          paymentData.cards.type === CardType.CLASSIC ? paymentPeople : 0;
-        standardTotals.total_vip +=
-          paymentData.cards.type === CardType.VIP ? paymentPeople : 0;
-        standardTotals.total_organization +=
-          paymentData.cards.type === CardType.ORGANIZATION ? paymentPeople : 0;
-        standardTotals.paid_amount +=
-          paymentData.cards.type === CardType.CLASSIC ||
-          paymentData.cards.type === CardType.VIRTUAL
-            ? Number(paymentData.amount || 0)
-            : 0;
-        standardTotals.total_amount +=
-          Number(paymentData.sale_unit_price || 0) * paymentPeople;
-      }
-
-      if (standardTotals.total_people > 0) {
-        await xReport.increment(
-          {
-            total_rounds: 1,
-          },
-          {
-            transaction,
-          },
-        );
-
-        await zReport.increment(
-          {
-            total_rounds: 1,
-            ...standardTotals,
-          },
-          {
-            transaction,
-          },
-        );
-      }
-
-      for (const promotionKey of promotionKeys) {
-        const promotionReport = await PromotionReportModel.findOne({
-          where: {
-            attraction: attractionID,
-            xreport: Number(xReport.id),
-            zreport: Number(zReport.id),
-            promotion_key: promotionKey,
-          },
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        });
-
-        if (promotionReport) {
-          await promotionReport.increment(
-            {
-              rounds_count: 1,
-            },
-            {
-              transaction,
-            },
-          );
-        }
-      }
-
-      const roundData = round.get({
-        plain: true,
-      }) as AttractionRoundModelI;
-
-      return AttractionRoundDTO({
-        ...roundData,
-        status: AttractionRoundStatusTypes.FINISHED,
-        finished_at: finishedAt,
+      return FinalizeAttractionRoundService({
+        round,
+        xReport,
+        zReport,
+        attractionDuration: attraction.duration,
+        transaction,
       });
     },
   );

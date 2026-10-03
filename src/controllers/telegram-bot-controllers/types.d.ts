@@ -9,6 +9,7 @@ declare interface TelegramRegistrationState {
   first_name?: string;
   last_name?: string;
   date_of_birth?: string;
+  language?: import("../../models/postgresql/client/user-model/enums").UserLanguageTypes;
 }
 
 declare interface TelegramBotUser {
@@ -16,6 +17,7 @@ declare interface TelegramBotUser {
   first_name: string;
   last_name?: string;
   username?: string;
+  language_code?: string;
 }
 
 declare interface TelegramContact {

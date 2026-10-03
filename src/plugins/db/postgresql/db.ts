@@ -28,6 +28,7 @@ import { AttractionRoundRefundModel } from "../../../models/postgresql/attractio
 import { AttractionTariffModel } from "../../../models/postgresql/attraction-tariff-model/AttractionTariffModel";
 import { CardReturnModel } from "../../../models/postgresql/card-return-model/CardReturnModel";
 import { AuditLogModel } from "../../../models/postgresql/audit-log-model/AuditLogModel";
+import { CardTransactionReversalModel } from "../../../models/postgresql/card-transaction-reversal-model/CardTransactionReversalModel";
 import { registerAuditHooks } from "./auditHooks";
 
 const sequelizeConfig: Options = {
@@ -56,6 +57,7 @@ const models = {
   CardModel,
   CashboxReportModel,
   CardTransactionModel,
+  CardTransactionReversalModel,
   AttractionReportModel,
   AttractionRoundModel,
   SosModel,
@@ -104,6 +106,7 @@ export {
   CardModel,
   CashboxReportModel,
   CardTransactionModel,
+  CardTransactionReversalModel,
   AttractionReportModel,
   AttractionRoundModel,
   SosModel,

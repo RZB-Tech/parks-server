@@ -1,4 +1,6 @@
 import axios from "axios";
+import { UserLanguageTypes } from "../../models/postgresql/client/user-model/enums";
+import { TelegramBotTranslations } from "./TelegramBotTranslations";
 
 const GetBotToken = (): string => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -37,7 +39,10 @@ export const HideTelegramMenuButton = async (chatID: number) => {
   });
 };
 
-export const ShowTelegramMenuButton = async (chatID: number) => {
+export const ShowTelegramMenuButton = async (
+  chatID: number,
+  language: UserLanguageTypes,
+) => {
   const miniAppURL = process.env.TELEGRAM_MINI_APP_URL;
 
   if (!miniAppURL) {
@@ -48,16 +53,23 @@ export const ShowTelegramMenuButton = async (chatID: number) => {
     chat_id: chatID,
     menu_button: {
       type: "web_app",
-      text: "Открыть Central Park",
+      text: TelegramBotTranslations[language].menuButton,
       web_app: { url: miniAppURL },
     },
   });
 };
 
-export const ContactKeyboard = {
-  keyboard: [[{ text: "Поделиться номером 📱", request_contact: true }]],
+export const GetContactKeyboard = (language: UserLanguageTypes) => ({
+  keyboard: [
+    [
+      {
+        text: TelegramBotTranslations[language].contactButton,
+        request_contact: true,
+      },
+    ],
+  ],
   resize_keyboard: true,
   one_time_keyboard: true,
-};
+});
 
 export const RemoveKeyboard = { remove_keyboard: true };

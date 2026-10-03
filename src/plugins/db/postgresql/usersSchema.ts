@@ -18,15 +18,24 @@ export const EnsureUsersSchema = async (
       `
         ALTER TABLE "users"
           ADD COLUMN IF NOT EXISTS "agreement_accepted"
-            BOOLEAN NOT NULL DEFAULT FALSE;
+            BOOLEAN NOT NULL DEFAULT FALSE,
+          ADD COLUMN IF NOT EXISTS "language"
+            VARCHAR(2) NOT NULL DEFAULT 'uz';
 
         UPDATE "users"
         SET "agreement_accepted" = FALSE
         WHERE "agreement_accepted" IS NULL;
 
+        UPDATE "users"
+        SET "language" = 'uz'
+        WHERE "language" IS NULL
+           OR "language" NOT IN ('uz', 'ru', 'en');
+
         ALTER TABLE "users"
           ALTER COLUMN "agreement_accepted" SET DEFAULT FALSE,
-          ALTER COLUMN "agreement_accepted" SET NOT NULL;
+          ALTER COLUMN "agreement_accepted" SET NOT NULL,
+          ALTER COLUMN "language" SET DEFAULT 'uz',
+          ALTER COLUMN "language" SET NOT NULL;
       `,
       { transaction },
     );

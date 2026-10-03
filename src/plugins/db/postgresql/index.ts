@@ -7,6 +7,7 @@ import { EnsureAttractionsSchema } from "./attractionsSchema";
 import { EnsureUsersSchema } from "./usersSchema";
 import { EnsureVirtualCardSequences } from "./virtualCardSequences";
 import { EnsureEmployeeNfcSchema } from "./employeeNfcSchema";
+import { EnsureSosAttractionSchema } from "./sosAttractionSchema";
 
 const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   try {
@@ -19,6 +20,7 @@ const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     await EnsureCardBindingSchema(sequelize);
     await EnsureVirtualCardSequences(sequelize);
     await EnsureEmployeeNfcSchema(sequelize);
+    await EnsureSosAttractionSchema(sequelize);
 
     fastify.decorate("sequelize", sequelize);
 

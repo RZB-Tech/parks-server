@@ -51,6 +51,11 @@ export const cardLastTransactionProperties = {
       "Card activation fee stored separately from amount on the first top-up.",
   },
 
+  total_amount: {
+    type: "number",
+    description: "Transaction amount plus the card activation fee.",
+  },
+
   description: nullableString,
 
   balance_before: {
@@ -192,6 +197,11 @@ export const cardTransactionProperties = {
       "Card activation fee stored separately from amount on the first top-up.",
   },
 
+  total_amount: {
+    type: "number",
+    description: "Transaction amount plus the card activation fee.",
+  },
+
   description: nullableString,
 
   balance_before: {
@@ -228,6 +238,10 @@ export const cardTransactionHistoryCardProperties = {
     type: "string",
   },
 
+  balance: {
+    type: "number",
+  },
+
   status: {
     type: "string",
     enum: Object.values(CardStatusTypes),
@@ -248,6 +262,15 @@ export const cardTransactionHistoryOperatorProperties = {
   },
 
   file: nullableNumber,
+};
+
+export const cardTransactionReversalProperties = {
+  id: { type: "integer" },
+  original_transaction: { type: "integer" },
+  refund_transaction: { type: "integer" },
+  cancelled_by: { type: "integer" },
+  reason: { type: "string" },
+  cancelled_at: { type: "string" },
 };
 
 export const cardTransactionHistoryProperties = {
@@ -302,7 +325,18 @@ export const cardTransactionHistoryProperties = {
       "Card activation fee stored separately from amount on the first top-up.",
   },
 
+  total_amount: {
+    type: "number",
+    description: "Transaction amount plus the card activation fee.",
+  },
+
   description: nullableString,
+
+  reason: {
+    ...nullableString,
+    description:
+      "Refund reason. It is null for top-up and payment transactions.",
+  },
 
   balance_before: {
     type: "number",
@@ -322,6 +356,41 @@ export const cardTransactionHistoryProperties = {
   },
 
   xreport: nullableNumber,
+
+  zreport: nullableNumber,
+
+  zreport_status: nullableString,
+
+  can_cancel: {
+    oneOf: [{ type: "boolean" }, { type: "null" }],
+    description:
+      "Whether this top-up can be cancelled. It is null for other transaction types.",
+  },
+
+  cannot_cancel_reason: nullableString,
+
+  reversal: {
+    oneOf: [
+      {
+        type: "object",
+        properties: cardTransactionReversalProperties,
+      },
+      { type: "null" },
+    ],
+    description: "Cancellation metadata attached to an original top-up.",
+  },
+
+  topup_reversal: {
+    oneOf: [
+      {
+        type: "object",
+        properties: cardTransactionReversalProperties,
+      },
+      { type: "null" },
+    ],
+    description:
+      "Original top-up cancellation metadata attached to its refund transaction.",
+  },
 
   created_at: {
     type: "string",
@@ -635,9 +704,9 @@ export const getCardReturnsSchema = {
 };
 
 export const getCardTransactionsSchema = {
-  summary: "Get card transactions",
+  summary: "Get and search cashbox card transactions",
   description:
-    "Get card transactions by cashbox for the requested Tashkent date. Defaults to today.",
+    "Get cashbox transactions with optional type and search filters. Without a search field, date defaults to today. A transaction ID or card number search without date searches all dates.",
   tags: ["Card Transactions route"],
   params: {
     type: "object",
@@ -659,6 +728,32 @@ export const getCardTransactionsSchema = {
         type: "string",
         pattern: "^\\d{4}-\\d{2}-\\d{2}$",
         description: "Transaction date in YYYY-MM-DD format",
+      },
+
+      type: {
+        type: "string",
+        enum: Object.values(CardTransactionType),
+        description: "Filter by topup, payment, or refund.",
+      },
+
+      activated_card: {
+        type: "boolean",
+        description:
+          "When true, returns only first top-ups with an activation fee. When false, returns top-ups without an activation fee.",
+      },
+
+      transaction_id: {
+        type: "integer",
+        minimum: 1,
+        description:
+          "Find an exact transaction in this cashbox. Cannot be combined with card_number.",
+      },
+
+      card_number: {
+        type: "string",
+        minLength: 1,
+        description:
+          "Find transactions by exact card number. Cannot be combined with transaction_id.",
       },
 
       page: {
@@ -781,6 +876,66 @@ export const cardPaymentTransactionSchema = {
       payment: {
         type: "object",
         properties: cardPaymentResponseProperties,
+      },
+    }),
+  },
+};
+
+export const cancelTopUpTransactionSchema = {
+  summary: "Cancel a card top-up",
+  description:
+    "Head cashier reverses an eligible manual top-up and its cashbox report totals. Cancelling an unused activation top-up restores the card to its inactive, unbound state.",
+  tags: ["Card Transactions route"],
+  headers: {
+    type: "object",
+    required: ["authorization"],
+    additionalProperties: true,
+    properties: {
+      authorization: { type: "string" },
+    },
+  },
+  params: {
+    type: "object",
+    required: ["cashboxID", "transactionID"],
+    additionalProperties: false,
+    properties: {
+      cashboxID: { type: "integer", minimum: 1 },
+      transactionID: { type: "integer", minimum: 1 },
+    },
+  },
+  body: reqBodyWrapper({
+    type: "object",
+    required: ["reason"],
+    additionalProperties: false,
+    properties: {
+      reason: { type: "string", minLength: 1, maxLength: 500 },
+    },
+  }),
+  response: {
+    200: successAnswerTemplate({
+      reversal: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          original_transaction: { type: "integer" },
+          refund_transaction: { type: "integer" },
+          card: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              card: { type: "string" },
+              balance_before: { type: "number" },
+              balance_after: { type: "number" },
+            },
+          },
+          cashbox: { type: "integer" },
+          cancelled_by: { type: "integer" },
+          amount: { type: "number" },
+          activation_amount: { type: "number" },
+          total_amount: { type: "number" },
+          reason: { type: "string" },
+          cancelled_at: { type: "string" },
+        },
       },
     }),
   },

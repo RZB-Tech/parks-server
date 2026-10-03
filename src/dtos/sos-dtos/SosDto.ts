@@ -3,12 +3,16 @@ export const SOSReportDTO = (data: SOSReportWithRelationsDTO) => {
   const cashboxOperator = data.cashboxOperator ?? null;
 
   const employee =
-    attractionOperator?.operators ?? cashboxOperator?.operators ?? null;
+    data.directOperator ??
+    attractionOperator?.operators ??
+    cashboxOperator?.operators ??
+    null;
 
-  const attraction = attractionOperator?.attractions ?? null;
+  const attraction =
+    data.directAttraction ?? attractionOperator?.attractions ?? null;
   const cashbox = cashboxOperator?.cashboxes ?? null;
 
-  const source = data.attraction_operator
+  const source = data.attraction || data.attraction_operator
     ? "attraction"
     : data.cashbox_operator
       ? "cashbox"

@@ -9,6 +9,8 @@ export class SosModel
 
   public attraction_operator!: number | null;
   public cashbox_operator!: number | null;
+  public operator!: number | null;
+  public attraction!: number | null;
 
   public description!: string;
   public fixed_at!: Date | null;
@@ -36,6 +38,16 @@ export class SosModel
         },
 
         cashbox_operator: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+        },
+
+        operator: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+        },
+
+        attraction: {
           type: DataTypes.BIGINT,
           allowNull: true,
         },
@@ -86,6 +98,20 @@ export class SosModel
     SosModel.belongsTo(models.CashboxOperatorModel, {
       foreignKey: "cashbox_operator",
       as: "cashboxOperator",
+      onUpdate: "CASCADE",
+      onDelete: "SET NULL",
+    });
+
+    SosModel.belongsTo(models.EmployeeModel, {
+      foreignKey: "operator",
+      as: "directOperator",
+      onUpdate: "CASCADE",
+      onDelete: "SET NULL",
+    });
+
+    SosModel.belongsTo(models.AttractionModel, {
+      foreignKey: "attraction",
+      as: "directAttraction",
       onUpdate: "CASCADE",
       onDelete: "SET NULL",
     });
