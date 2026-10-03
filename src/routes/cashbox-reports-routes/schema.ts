@@ -614,9 +614,9 @@ export const confirmZReportsSchema = {
 };
 
 export const reopenZReportsSchema = {
-  summary: "Reopen Z reports",
+  summary: "Reopen a closed Z report",
   description:
-    "Reopen or cancel all today's Z reports. All today Z report ids must be sent.",
+    "Reopen one closed cashbox Z report. Only head_operator and head_cashier can perform this action.",
   tags: ["Cashbox Reports route"],
 
   body: reqBodyWrapper({
@@ -625,7 +625,8 @@ export const reopenZReportsSchema = {
     additionalProperties: false,
     properties: {
       zreport: {
-        type: "number",
+        type: "integer",
+        minimum: 1,
       },
     },
   }),
