@@ -584,6 +584,89 @@ export const StatusCashboxReportService = async (
   });
 };
 
+export const ReopenZReportService = async (
+  operatorID: number,
+  body: ReopenZReportData,
+) => {
+  if (!operatorID || !Number.isInteger(Number(operatorID))) {
+    throw BadRequest("Operator is required!");
+  }
+
+  const zReportID = Number(body.zreport);
+
+  if (!Number.isInteger(zReportID) || zReportID <= 0) {
+    throw BadRequest("Z report ID is invalid!");
+  }
+
+  const sequelize = CashboxReportModel.sequelize!;
+
+  return await sequelize.transaction(async (dbTransaction) => {
+    const zReport = await CashboxReportModel.findOne({
+      where: {
+        id: zReportID,
+        report_type: CashboxReportTypes.ZREPORT,
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!zReport) {
+      throw NotFound("Z report not found!");
+    }
+
+    if (zReport.status !== CashboxReportStatusTypes.CLOSED) {
+      throw BadRequest("Only closed Z report can be reopened!");
+    }
+
+    const cashbox = await CashboxModel.findByPk(Number(zReport.cashbox), {
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!cashbox) {
+      throw NotFound("Cashbox not found!");
+    }
+
+    const activeZReport = await CashboxReportModel.findOne({
+      where: {
+        id: { [Op.ne]: zReportID },
+        cashbox: Number(zReport.cashbox),
+        report_type: CashboxReportTypes.ZREPORT,
+        status: {
+          [Op.in]: [
+            CashboxReportStatusTypes.OPEN,
+            CashboxReportStatusTypes.STOPPED,
+          ],
+        },
+      },
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (activeZReport) {
+      throw Conflict("Cashbox already has an active Z report!");
+    }
+
+    await zReport.update(
+      {
+        status: CashboxReportStatusTypes.OPEN,
+        checked_by: null,
+        stopped_at: null,
+        closed_at: null,
+        description: null,
+      },
+      { transaction: dbTransaction },
+    );
+
+    await cashbox.update(
+      { status: CashboxStatusTypes.ACTIVE },
+      { transaction: dbTransaction },
+    );
+
+    return true;
+  });
+};
+
 export const GetZReportsService = async (query: GetZReportsQuery) => {
   const businessRange = getTashkentBusinessDayRangeUTC(query.date);
   const calendarRange = getTashkentDayRangeUTC(query.date);

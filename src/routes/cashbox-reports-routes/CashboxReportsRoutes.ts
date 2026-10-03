@@ -5,8 +5,26 @@ import {
 } from "fastify";
 import { AuthMiddleware } from "../../middlewares/auth-middleware/AuthMiddleware";
 
-import { CashboxReportOpenController, CashboxReportsTodayController, ConfirmZReportsController, GetAccountingCashboxReportsController, GetNotConfirmedZReportDatesController, GetZReportsController, StatusCashboxReportController } from "../../controllers/cashbox-reports-controllers/CashboxReportController";
-import { cashboxReportsTodaySchema, confirmZReportsSchema, getAccountingCashboxReportsSchema, getNotConfirmedZReportDatesSchema, getZReportsSchema, openReportSchema, statusCashboxReportSchema } from "./schema";
+import {
+  CashboxReportOpenController,
+  CashboxReportsTodayController,
+  ConfirmZReportsController,
+  GetAccountingCashboxReportsController,
+  GetNotConfirmedZReportDatesController,
+  GetZReportsController,
+  ReopenZReportController,
+  StatusCashboxReportController,
+} from "../../controllers/cashbox-reports-controllers/CashboxReportController";
+import {
+  cashboxReportsTodaySchema,
+  confirmZReportsSchema,
+  getAccountingCashboxReportsSchema,
+  getNotConfirmedZReportDatesSchema,
+  getZReportsSchema,
+  openReportSchema,
+  reopenZReportsSchema,
+  statusCashboxReportSchema,
+} from "./schema";
 import { RoleMiddleware } from "../../middlewares/role-middleware/RoleMiddleware";
 import {
   ReqData,
@@ -48,6 +66,18 @@ const CashboxReportsRouter: FastifyPluginAsync = async (
      "/zreports/confirmation",
      { schema: confirmZReportsSchema, preHandler: [AuthMiddleware, RoleMiddleware(["superadmin", 'head_cashier', 'head_accountant', 'head_marketing' ])] },
      ConfirmZReportsController,
+   );
+
+   fastify.put<RouteWithData<ReqData<ReopenZReportData>>>(
+     "/zreports/reopen",
+     {
+       schema: reopenZReportsSchema,
+       preHandler: [
+         AuthMiddleware,
+         RoleMiddleware(["head_operator", "head_cashier"]),
+       ],
+     },
+     ReopenZReportController,
    );
 
    fastify.get<RouteWithQuery<GetAccountingCashboxReportsQuery>>(
