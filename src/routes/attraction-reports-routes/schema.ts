@@ -506,7 +506,7 @@ export const updateAttractionReportStatusSchema = {
         type: "string",
 
         description:
-          "Send open to reopen stopped report, stopped to pause report, or closed to close report.",
+          "Send open to reopen a stopped report. A closed Z report can be reopened only by head_operator or head_cashier.",
 
         enum: [
           AttractionReportStatusTypes.OPEN,

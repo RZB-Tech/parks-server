@@ -14,6 +14,7 @@ declare interface GetAttractionReportsQuery {
 
 declare interface UpdateAttractionReportStatusData {
   status:
+    | AttractionReportStatusTypes.OPEN
     | AttractionReportStatusTypes.STOPPED
     | AttractionReportStatusTypes.CLOSED;
 
