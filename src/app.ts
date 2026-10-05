@@ -50,6 +50,7 @@ import { AuditContextMiddleware } from "./middlewares/audit-context-middleware/A
 import AttractionPnlRouter from "./routes/attraction-pnl-routes/AttractionPnlRoutes";
 import CashboxStatisticsRouter from "./routes/cashbox-statistics-routes/CashboxStatisticsRoutes";
 import AttractionStatisticsRouter from "./routes/attraction-statistics-routes/AttractionStatisticsRoutes";
+import ReportManagementRouter from "./routes/report-management-routes/ReportManagementRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -101,6 +102,7 @@ export const build = async () => {
   app.register(PromotionRouter, { prefix: SERVER.API_PREFIX });
   app.register(PaymentsRouter, { prefix: SERVER.API_PREFIX });
   app.register(OnlinePaymentReportsRouter, { prefix: SERVER.API_PREFIX });
+  app.register(ReportManagementRouter, { prefix: SERVER.API_PREFIX });
   app.register(AuditLogsRouter, { prefix: SERVER.API_PREFIX });
   app.register(TelegramBotRouter, { prefix: SERVER.API_PREFIX });
 
