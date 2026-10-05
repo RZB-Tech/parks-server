@@ -24,6 +24,8 @@ import {
   ZReportDTO,
 } from "../../dtos/cashbox-reports-dtos/CashboxReportDto";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
+import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
+import { RoleTypes } from "../../models/postgresql/role-model/enums";
 import {
   AccountingCashboxReportsResponseDTO,
   CashboxReportWithOperatorPlain,
@@ -344,6 +346,15 @@ export const StatusCashboxReportService = async (
   return await sequelize.transaction(async (dbTransaction) => {
     const now = new Date();
 
+    const cashbox = await CashboxModel.findByPk(cashboxID, {
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+
+    if (!cashbox) {
+      throw NotFound("Cashbox not found!");
+    }
+
     const reportWhere: any = {
       id: reportID,
       cashbox: cashboxID,
@@ -379,8 +390,7 @@ export const StatusCashboxReportService = async (
      * OPEN    -> CLOSED
      * STOPPED -> OPEN
      * STOPPED -> CLOSED
-     *
-     * CLOSED report qayta ochilmaydi.
+     * CLOSED Z -> OPEN (faqat head_cashier/superadmin)
      */
     const allowedTransitions: Record<string, CashboxReportStatusTypes[]> = {
       [CashboxReportStatusTypes.OPEN]: [
@@ -393,7 +403,9 @@ export const StatusCashboxReportService = async (
         CashboxReportStatusTypes.CLOSED,
       ],
 
-      [CashboxReportStatusTypes.CLOSED]: [],
+      [CashboxReportStatusTypes.CLOSED]: [
+        CashboxReportStatusTypes.OPEN,
+      ],
     };
 
     const transitions = allowedTransitions[report.status] ?? [];
@@ -402,6 +414,71 @@ export const StatusCashboxReportService = async (
       throw BadRequest(
         `Cannot change report status from ${report.status} to ${body.status}!`,
       );
+    }
+
+    const isReopeningClosedReport =
+      report.status === CashboxReportStatusTypes.CLOSED &&
+      body.status === CashboxReportStatusTypes.OPEN;
+
+    if (isReopeningClosedReport) {
+      if (body.report_type !== CashboxReportTypes.ZREPORT) {
+        throw BadRequest("Closed X report cannot be reopened!");
+      }
+
+      if (cashbox.type === CashboxTypes.VIRTUAL) {
+        throw BadRequest("VIRTUAL_CASHBOX_OPERATION_NOT_ALLOWED");
+      }
+
+      const currentEmployee = await EmployeeModel.findByPk(operatorID, {
+        attributes: ["id", "role"],
+        transaction: dbTransaction,
+      });
+
+      if (!currentEmployee) {
+        throw NotFound("Employee not found!");
+      }
+
+      const currentRole = await RoleModel.findByPk(
+        Number(currentEmployee.role),
+        {
+          attributes: ["id", "name"],
+          transaction: dbTransaction,
+        },
+      );
+
+      if (!currentRole) {
+        throw Forbidden("Employee role not found!");
+      }
+
+      if (
+        ![RoleTypes.HEADCASHIER, RoleTypes.SUPERADMIN].includes(
+          currentRole.name,
+        )
+      ) {
+        throw Forbidden(
+          "Only head_cashier or superadmin can reopen a closed Z report!",
+        );
+      }
+
+      const activeZReport = await CashboxReportModel.findOne({
+        where: {
+          id: { [Op.ne]: Number(report.id) },
+          cashbox: cashboxID,
+          report_type: CashboxReportTypes.ZREPORT,
+          status: {
+            [Op.in]: [
+              CashboxReportStatusTypes.OPEN,
+              CashboxReportStatusTypes.STOPPED,
+            ],
+          },
+        },
+        transaction: dbTransaction,
+        lock: dbTransaction.LOCK.UPDATE,
+      });
+
+      if (activeZReport) {
+        throw Conflict("Cashbox already has an active Z report!");
+      }
     }
 
     /*

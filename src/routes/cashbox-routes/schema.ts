@@ -197,7 +197,7 @@ export const getCashboxesSchema = {
       cashboxes: {
         type: "array",
         items: {
-          tyep: "object",
+          type: "object",
           properties: {
             ...cashboxProperties,
 
