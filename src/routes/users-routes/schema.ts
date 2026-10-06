@@ -38,7 +38,7 @@ export const usersStatisticsSchema = {
   summary: "Get user age statistics",
   description:
     "Returns all registered users and users registered in the selected period, grouped by current age in Asia/Tashkent.",
-  tags: ["Users route"],
+  tags: ["User statistics route"],
   headers: authorizationHeaders,
   querystring: statisticsQuerystring,
   response: {
