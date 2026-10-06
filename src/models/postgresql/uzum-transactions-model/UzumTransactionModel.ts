@@ -13,13 +13,21 @@ export class UzumTransactionModel
   public merchant_operation_id!: string | null;
   public order_number!: string;
   public amount!: number;
-  public redirect_url!: string;
+  public redirect_url!: string | null;
+  public service_id!: number | null;
   public state!: UzumTransactionStateTypes;
   public operation_type!: string | null;
   public rrn!: string | null;
   public card_type!: number | null;
   public binding_id!: string | null;
+  public payment_source!: string | null;
+  public tariff!: string | null;
+  public processing_reference_number!: string | null;
+  public phone!: string | null;
   public raw_callback!: Record<string, unknown> | null;
+  public raw_create!: Record<string, unknown> | null;
+  public raw_confirm!: Record<string, unknown> | null;
+  public raw_reverse!: Record<string, unknown> | null;
   public registered_at!: Date;
   public completed_at!: Date | null;
   public declined_at!: Date | null;
@@ -66,7 +74,11 @@ export class UzumTransactionModel
         },
         redirect_url: {
           type: DataTypes.TEXT,
-          allowNull: false,
+          allowNull: true,
+        },
+        service_id: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
         },
         state: {
           type: DataTypes.ENUM(...Object.values(UzumTransactionStateTypes)),
@@ -89,7 +101,35 @@ export class UzumTransactionModel
           type: DataTypes.STRING(128),
           allowNull: true,
         },
+        payment_source: {
+          type: DataTypes.STRING(64),
+          allowNull: true,
+        },
+        tariff: {
+          type: DataTypes.STRING(64),
+          allowNull: true,
+        },
+        processing_reference_number: {
+          type: DataTypes.STRING(128),
+          allowNull: true,
+        },
+        phone: {
+          type: DataTypes.STRING(32),
+          allowNull: true,
+        },
         raw_callback: {
+          type: DataTypes.JSONB,
+          allowNull: true,
+        },
+        raw_create: {
+          type: DataTypes.JSONB,
+          allowNull: true,
+        },
+        raw_confirm: {
+          type: DataTypes.JSONB,
+          allowNull: true,
+        },
+        raw_reverse: {
           type: DataTypes.JSONB,
           allowNull: true,
         },

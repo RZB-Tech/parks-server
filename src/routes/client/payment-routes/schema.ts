@@ -58,5 +58,5 @@ export const createClientUzumOrderSchema = {
   ...createClientPaymeOrderSchema,
   summary: "Create Uzum card top-up order",
   description:
-    "Registers a one-step Uzum Checkout payment and returns the redirect URL.",
+    "Creates or reuses a pending Uzum Merchant order and returns the configured Uzum payment link with order_id.",
 };

@@ -1,11 +1,5 @@
-import axios from "axios";
-import { randomUUID } from "crypto";
-import { Transaction } from "sequelize";
-import {
-  BadRequest,
-  InternalServerError,
-  NotFound,
-} from "../../../exceptions";
+import { createHash, timingSafeEqual } from "crypto";
+import { Transaction, UniqueConstraintError } from "sequelize";
 import {
   CardTransactionStatusTypes,
   CardTransactionType,
@@ -18,298 +12,341 @@ import {
   PaymentOrderStatusTypes,
   PaymentProviderTypes,
 } from "../../../models/postgresql/payment-orders-model/enums";
+import { PaymentOrderModel } from "../../../models/postgresql/payment-orders-model/PaymentOrderModel";
+import { UzumTransactionModel } from "../../../models/postgresql/uzum-transactions-model/UzumTransactionModel";
 import { UzumTransactionStateTypes } from "../../../models/postgresql/uzum-transactions-model/enums";
 import {
   CardModel,
   CardTransactionModel,
-  PaymentOrderModel,
-  UzumTransactionModel,
   sequelize,
+  UzumTransactionModel as UzumTransaction,
 } from "../../../plugins/db/postgresql/db";
 import { AddOnlinePaymentToDailyZReportService } from "../OnlinePaymentReportServices";
 
-const GetUzumConfig = () => {
-  const apiURL = process.env.UZUM_API_URL;
-  const terminalID = process.env.UZUM_TERMINAL_ID;
-  const apiKey = process.env.UZUM_API_KEY;
+export const UZUM_MERCHANT_ERROR_CODES = {
+  ACCESS_DENIED: "10001",
+  INVALID_JSON: "10002",
+  INVALID_OPERATION: "10003",
+  REQUIRED_PARAMETER_MISSING: "10005",
+  INVALID_SERVICE_ID: "10006",
+  PAYMENT_ATTRIBUTE_NOT_FOUND: "10007",
+  PAYMENT_ALREADY_PAID: "10008",
+  PAYMENT_CANCELLED: "10009",
+  TRANSACTION_ALREADY_CREATED: "10010",
+  INVALID_AMOUNT: "10011",
+  AMOUNT_BELOW_MINIMUM: "10012",
+  AMOUNT_ABOVE_MAXIMUM: "10013",
+  TRANSACTION_NOT_FOUND: "10014",
+  TRANSACTION_CANCELLED: "10015",
+  TRANSACTION_ALREADY_CONFIRMED: "10016",
+  TRANSACTION_CANNOT_BE_REVERSED: "10017",
+  TRANSACTION_ALREADY_REVERSED: "10018",
+  INTERNAL_ERROR: "99999",
+} as const;
 
-  if (!apiURL || !terminalID || !apiKey) {
-    throw InternalServerError("UZUM_PAYMENT_NOT_CONFIGURED");
+export type UzumMerchantErrorCode =
+  (typeof UZUM_MERCHANT_ERROR_CODES)[keyof typeof UZUM_MERCHANT_ERROR_CODES];
+
+export class UzumMerchantError extends Error {
+  public readonly errorCode: UzumMerchantErrorCode;
+
+  constructor(errorCode: UzumMerchantErrorCode, message?: string) {
+    super(message || errorCode);
+    this.errorCode = errorCode;
+    Object.setPrototypeOf(this, UzumMerchantError.prototype);
+  }
+}
+
+function fail(
+  errorCode: UzumMerchantErrorCode,
+  message?: string,
+): never {
+  throw new UzumMerchantError(errorCode, message);
+}
+
+const getMerchantServiceID = () => {
+  const serviceID = Number(process.env.UZUM_MERCHANT_SERVICE_ID);
+
+  if (!Number.isSafeInteger(serviceID) || serviceID <= 0) {
+    fail(UZUM_MERCHANT_ERROR_CODES.INTERNAL_ERROR, "SERVICE_ID_NOT_CONFIGURED");
   }
 
-  let parsedURL: URL;
+  return serviceID;
+};
+
+const assertServiceID = (serviceID: number) => {
+  if (serviceID !== getMerchantServiceID()) {
+    fail(UZUM_MERCHANT_ERROR_CODES.INVALID_SERVICE_ID);
+  }
+};
+
+const secureStringEqual = (left: string, right: string) => {
+  const leftHash = createHash("sha256").update(left).digest();
+  const rightHash = createHash("sha256").update(right).digest();
+  return timingSafeEqual(leftHash, rightHash);
+};
+
+export const AssertUzumMerchantAuthorization = (
+  authorization: string | undefined,
+) => {
+  const username = process.env.UZUM_MERCHANT_USERNAME;
+  const password = process.env.UZUM_MERCHANT_PASSWORD;
+
+  if (!username || !password) {
+    fail(UZUM_MERCHANT_ERROR_CODES.INTERNAL_ERROR, "AUTH_NOT_CONFIGURED");
+  }
+
+  if (!authorization?.startsWith("Basic ")) {
+    fail(UZUM_MERCHANT_ERROR_CODES.ACCESS_DENIED);
+  }
+
+  let decoded = "";
   try {
-    parsedURL = new URL(apiURL);
+    decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
   } catch {
-    throw InternalServerError("UZUM_API_URL_INVALID");
+    fail(UZUM_MERCHANT_ERROR_CODES.ACCESS_DENIED);
   }
 
-  if (parsedURL.protocol !== "https:") {
-    throw InternalServerError("UZUM_API_URL_INVALID");
+  const separator = decoded.indexOf(":");
+  if (separator < 0) {
+    fail(UZUM_MERCHANT_ERROR_CODES.ACCESS_DENIED);
   }
 
-  return {
-    apiURL: parsedURL.toString().replace(/\/+$/, ""),
-    headers: {
-      "X-Terminal-Id": terminalID,
-      "X-API-Key": apiKey,
-      "Content-Language": process.env.UZUM_CONTENT_LANGUAGE || "ru-RU",
-    },
-  };
-};
-
-const GetSessionTimeout = () => {
-  const parsed = Number(process.env.UZUM_SESSION_TIMEOUT_SECONDS);
-  return Number.isInteger(parsed) && parsed >= 600 && parsed <= 1800
-    ? parsed
-    : 900;
-};
-
-const EnsureRedirectURL = (value: string | undefined, error: string) => {
-  if (!value) throw InternalServerError(error);
-
-  try {
-    const url = new URL(value);
-    if (!["http:", "https:"].includes(url.protocol)) throw new Error();
-    return url.toString();
-  } catch {
-    throw InternalServerError(error);
+  const actualUsername = decoded.slice(0, separator);
+  const actualPassword = decoded.slice(separator + 1);
+  if (
+    !secureStringEqual(actualUsername, username) ||
+    !secureStringEqual(actualPassword, password)
+  ) {
+    fail(UZUM_MERCHANT_ERROR_CODES.ACCESS_DENIED);
   }
 };
 
-const BuildMerchantParams = (order: PaymentOrderModel) => {
-  if (process.env.UZUM_AUTO_FISCALIZATION !== "true") return {};
-
-  const spic = process.env.UZUM_IKPU_CODE;
-  const packageCode = process.env.UZUM_PACKAGE_CODE;
-  const productID = process.env.UZUM_PRODUCT_ID;
-  const vatPercent = Number(process.env.UZUM_VAT_PERCENT);
+const getOrderID = (params: UzumMerchantParams) => {
+  const rawOrderID = params?.order_id;
+  const orderID = Number(rawOrderID);
 
   if (
-    !spic ||
-    !packageCode ||
-    !productID ||
-    !Number.isInteger(vatPercent) ||
-    vatPercent < 0
+    (typeof rawOrderID !== "string" && typeof rawOrderID !== "number") ||
+    !Number.isSafeInteger(orderID) ||
+    orderID <= 0
   ) {
-    throw InternalServerError("UZUM_FISCALIZATION_NOT_CONFIGURED");
+    fail(UZUM_MERCHANT_ERROR_CODES.PAYMENT_ATTRIBUTE_NOT_FOUND);
   }
 
-  const total = Number(order.amount) * 100;
-  return {
-    cart: {
-      cartId: randomUUID(),
-      receiptType: "PURCHASE",
-      total,
-      items: [
-        {
-          title: "Пополнение карты Central Park",
-          productId: productID,
-          quantity: 1,
-          unitPrice: total,
-          total,
-          receiptParams: {
-            spic,
-            packageCode,
-            vatPercent,
-          },
-        },
-      ],
-    },
-  };
+  return orderID;
 };
 
-export const RegisterUzumPaymentService = async (
-  order: PaymentOrderModel,
-  clientID: string,
-  cardNumber: string,
+const getOrder = async (
+  orderID: number,
+  transaction?: Transaction,
 ) => {
-  const config = GetUzumConfig();
-  const successURL = EnsureRedirectURL(
-    process.env.UZUM_SUCCESS_URL,
-    "UZUM_SUCCESS_URL_INVALID",
-  );
-  const failureURL = EnsureRedirectURL(
-    process.env.UZUM_FAILURE_URL,
-    "UZUM_FAILURE_URL_INVALID",
-  );
-  const request: UzumRegisterPaymentRequest = {
-    amount: Number(order.amount) * 100,
-    clientId: clientID,
-    currency: 860,
-    paymentDetails: `Пополнение карты Central Park №${cardNumber}. Заказ №${order.id}`,
-    orderNumber: String(order.id),
-    successUrl: successURL,
-    failureUrl: failureURL,
-    viewType: "REDIRECT",
-    paymentParams: {
-      operationType: "PAYMENT",
-      payType: "ONE_STEP",
-    },
-    merchantParams: BuildMerchantParams(order),
-    sessionTimeoutSecs: GetSessionTimeout(),
-  };
-
-  let response: UzumRegisterPaymentResponse;
-  try {
-    const result = await axios.post<UzumRegisterPaymentResponse>(
-      `${config.apiURL}/api/v1/payment/register`,
-      request,
-      { headers: config.headers, timeout: 15_000 },
-    );
-    response = result.data;
-  } catch {
-    throw InternalServerError("UZUM_REGISTER_REQUEST_FAILED");
-  }
-
-  const uzumOrderID = response.result?.orderId;
-  const checkoutURL = response.result?.paymentRedirectUrl;
-  if (response.errorCode !== 0 || !uzumOrderID || !checkoutURL) {
-    throw InternalServerError("UZUM_REGISTER_FAILED");
-  }
-
-  return {
-    uzum_order_id: uzumOrderID,
-    checkout_url: EnsureRedirectURL(checkoutURL, "UZUM_CHECKOUT_URL_INVALID"),
-  };
-};
-
-export const GetUzumOrderStatusService = async (uzumOrderID: string) => {
-  const config = GetUzumConfig();
-
-  let response: UzumOrderStatusResponse;
-  try {
-    const result = await axios.post<UzumOrderStatusResponse>(
-      `${config.apiURL}/api/v1/payment/getOrderStatus`,
-      { orderId: uzumOrderID },
-      { headers: config.headers, timeout: 15_000 },
-    );
-    response = result.data;
-  } catch {
-    throw InternalServerError("UZUM_STATUS_REQUEST_FAILED");
-  }
-
-  if (response.errorCode !== 0 || !response.result) {
-    throw InternalServerError("UZUM_STATUS_REQUEST_FAILED");
-  }
-
-  return response.result;
-};
-
-const StringValue = (value: unknown) =>
-  typeof value === "string" || typeof value === "number"
-    ? String(value)
-    : null;
-
-const StatusValue = (result: Record<string, unknown>) =>
-  StringValue(
-    result.status ?? result.orderStatus ?? result.operationState ?? result.state,
-  )?.toUpperCase() ?? null;
-
-const NormalizeState = (status: string | null) => {
-  switch (status) {
-    case "SUCCESS":
-    case "COMPLETED":
-      return UzumTransactionStateTypes.COMPLETED;
-    case "DECLINED":
-    case "FAILED":
-    case "CANCELLED":
-      return UzumTransactionStateTypes.DECLINED;
-    case "REFUNDED":
-      return UzumTransactionStateTypes.REFUNDED;
-    case "REGISTERED":
-    case "PROCESSING":
-    case "PENDING":
-      return UzumTransactionStateTypes.REGISTERED;
-    default:
-      throw BadRequest("UZUM_STATUS_UNKNOWN");
-  }
-};
-
-const ValidateStatusResult = (
-  result: Record<string, unknown>,
-  transaction: UzumTransactionModel,
-) => {
-  const statusOrderID = StringValue(result.orderId ?? result.order_id);
-  if (statusOrderID && statusOrderID !== transaction.uzum_order_id) {
-    throw BadRequest("UZUM_ORDER_ID_MISMATCH");
-  }
-
-  const statusOrderNumber = StringValue(
-    result.orderNumber ?? result.order_number ?? result.merchantOrderId,
-  );
-  if (statusOrderNumber && statusOrderNumber !== transaction.order_number) {
-    throw BadRequest("UZUM_ORDER_NUMBER_MISMATCH");
-  }
-
-  const rawAmount = result.amount;
-  if (rawAmount !== undefined && rawAmount !== null) {
-    const amount = Number(rawAmount);
-    if (!Number.isSafeInteger(amount) || amount !== Number(transaction.amount) * 100) {
-      throw BadRequest("UZUM_AMOUNT_MISMATCH");
-    }
-  }
-};
-
-const CompleteUzumPayment = async (
-  callback: UzumCallbackBody,
-  transaction: Transaction,
-) => {
-  const uzumTransaction = await UzumTransactionModel.findOne({
-    where: { uzum_order_id: callback.orderId },
-    transaction,
-    lock: transaction.LOCK.UPDATE,
+  const order = await PaymentOrderModel.findByPk(orderID, {
+    ...(transaction
+      ? { transaction, lock: transaction.LOCK.UPDATE }
+      : {}),
   });
-  if (!uzumTransaction) throw NotFound("UZUM_TRANSACTION_NOT_FOUND");
-
-  const order = await PaymentOrderModel.findByPk(
-    uzumTransaction.payment_order,
-    { transaction, lock: transaction.LOCK.UPDATE },
-  );
-  if (!order) throw NotFound("PAYMENT_ORDER_NOT_FOUND");
 
   if (
-    uzumTransaction.state === UzumTransactionStateTypes.COMPLETED &&
-    order.status === PaymentOrderStatusTypes.PAID &&
-    uzumTransaction.card_transaction
-  ) {
-    await uzumTransaction.update(
-      { raw_callback: callback },
-      { transaction },
-    );
-    return;
-  }
-
-  if (
+    !order ||
     order.provider !== PaymentProviderTypes.UZUM ||
-    order.purpose !== PaymentOrderPurposeTypes.CARD_TOPUP ||
-    order.status !== PaymentOrderStatusTypes.PROCESSING
+    order.purpose !== PaymentOrderPurposeTypes.CARD_TOPUP
   ) {
-    throw BadRequest("UZUM_ORDER_CANNOT_BE_COMPLETED");
+    fail(UZUM_MERCHANT_ERROR_CODES.PAYMENT_ATTRIBUTE_NOT_FOUND);
   }
 
+  if (order.status === PaymentOrderStatusTypes.PAID) {
+    fail(UZUM_MERCHANT_ERROR_CODES.PAYMENT_ALREADY_PAID);
+  }
+
+  if (
+    [
+      PaymentOrderStatusTypes.CANCELLED,
+      PaymentOrderStatusTypes.EXPIRED,
+    ].includes(order.status)
+  ) {
+    fail(UZUM_MERCHANT_ERROR_CODES.PAYMENT_CANCELLED);
+  }
+
+  if (order.expires_at && order.expires_at.getTime() <= Date.now()) {
+    fail(UZUM_MERCHANT_ERROR_CODES.PAYMENT_CANCELLED);
+  }
+
+  return order;
+};
+
+const getActiveOrderCard = async (
+  order: PaymentOrderModel,
+  transaction?: Transaction,
+) => {
   const card = await CardModel.findByPk(order.card, {
-    transaction,
-    lock: transaction.LOCK.UPDATE,
+    ...(transaction
+      ? { transaction, lock: transaction.LOCK.UPDATE }
+      : {}),
   });
+
   if (
     !card ||
     card.status !== CardStatusTypes.ACTIVE ||
     card.user === null ||
-    String(card.user) !== String(order.user)
+    Number(card.user) !== Number(order.user)
   ) {
-    throw BadRequest("CARD_MUST_BE_ACTIVE");
+    fail(UZUM_MERCHANT_ERROR_CODES.PAYMENT_ATTRIBUTE_NOT_FOUND);
   }
 
+  return card;
+};
+
+const orderData = (
+  order: PaymentOrderModel,
+  card?: CardModel,
+): UzumMerchantData => {
+  const data: UzumMerchantData = {
+    order_id: { value: String(order.id) },
+    amount: { value: String(order.amount) },
+  };
+
+  if (card?.card) {
+    data.card = { value: `****${String(card.card).slice(-4)}` };
+  }
+
+  return data;
+};
+
+const amountInTiyin = (order: PaymentOrderModel) => {
+  const amount = Number(order.amount) * 100;
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    fail(UZUM_MERCHANT_ERROR_CODES.INVALID_AMOUNT);
+  }
+  return amount;
+};
+
+const getConfirmTimeoutMs = () => {
+  const minutes = Number(process.env.UZUM_CONFIRM_TIMEOUT_MINUTES);
+  const validMinutes =
+    Number.isSafeInteger(minutes) && minutes > 0 ? minutes : 30;
+  return validMinutes * 60 * 1000;
+};
+
+const isConfirmationExpired = (transaction: UzumTransactionModel) =>
+  transaction.registered_at.getTime() + getConfirmTimeoutMs() <= Date.now();
+
+export const CheckUzumMerchantPaymentService = async (
+  body: UzumCheckRequest,
+): Promise<UzumCheckResponse> => {
+  assertServiceID(body.serviceId);
+  const order = await getOrder(getOrderID(body.params));
+  const card = await getActiveOrderCard(order);
+
+  return {
+    serviceId: body.serviceId,
+    timestamp: Date.now(),
+    status: "OK",
+    data: orderData(order, card),
+  };
+};
+
+export const CreateUzumMerchantTransactionService = async (
+  body: UzumCreateRequest,
+): Promise<UzumCreateResponse> => {
+  assertServiceID(body.serviceId);
+
+  try {
+    return await sequelize.transaction(async (transaction) => {
+      const duplicateTransaction = await UzumTransaction.findOne({
+        where: { uzum_order_id: body.transId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (duplicateTransaction) {
+        fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_ALREADY_CREATED);
+      }
+
+      const order = await getOrder(getOrderID(body.params), transaction);
+      const card = await getActiveOrderCard(order, transaction);
+
+      if (body.amount !== amountInTiyin(order)) {
+        fail(UZUM_MERCHANT_ERROR_CODES.INVALID_AMOUNT);
+      }
+
+      const orderTransaction = await UzumTransaction.findOne({
+        where: { payment_order: order.id },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (orderTransaction) {
+        fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_ALREADY_CREATED);
+      }
+
+      const now = new Date();
+      await UzumTransaction.create(
+        {
+          payment_order: Number(order.id),
+          card_transaction: null,
+          uzum_order_id: body.transId,
+          merchant_operation_id: null,
+          order_number: String(order.id),
+          amount: Number(order.amount),
+          redirect_url: null,
+          service_id: body.serviceId,
+          state: UzumTransactionStateTypes.REGISTERED,
+          operation_type: null,
+          rrn: null,
+          card_type: null,
+          binding_id: null,
+          payment_source: null,
+          tariff: null,
+          processing_reference_number: null,
+          phone: null,
+          raw_callback: { ...body },
+          raw_create: { ...body },
+          raw_confirm: null,
+          raw_reverse: null,
+          registered_at: now,
+          completed_at: null,
+          declined_at: null,
+          refunded_at: null,
+        },
+        { transaction },
+      );
+
+      await order.update(
+        { status: PaymentOrderStatusTypes.PROCESSING },
+        { transaction },
+      );
+
+      return {
+        serviceId: body.serviceId,
+        transId: body.transId,
+        status: "CREATED" as const,
+        transTime: now.getTime(),
+        data: orderData(order, card),
+        amount: body.amount,
+      };
+    });
+  } catch (error) {
+    if (error instanceof UniqueConstraintError) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_ALREADY_CREATED);
+    }
+    throw error;
+  }
+};
+
+const createSuccessfulTopUp = async (
+  order: PaymentOrderModel,
+  card: CardModel,
+  transaction: Transaction,
+) => {
   const amount = Number(order.amount);
   const balanceBefore = Number(card.balance);
   const balanceAfter = balanceBefore + amount;
+
   if (
     !Number.isSafeInteger(amount) ||
     !Number.isSafeInteger(balanceBefore) ||
     !Number.isSafeInteger(balanceAfter)
   ) {
-    throw InternalServerError("CARD_BALANCE_OVERFLOW");
+    fail(UZUM_MERCHANT_ERROR_CODES.INTERNAL_ERROR, "CARD_BALANCE_OVERFLOW");
   }
 
   const report = await AddOnlinePaymentToDailyZReportService(
@@ -348,109 +385,152 @@ const CompleteUzumPayment = async (
     },
     { transaction },
   );
-  const now = new Date();
+
   await card.update({ balance: balanceAfter }, { transaction });
-  await uzumTransaction.update(
-    {
-      card_transaction: Number(cardTransaction.id),
-      merchant_operation_id: callback.merchantOperationId || null,
-      state: UzumTransactionStateTypes.COMPLETED,
-      operation_type: callback.operationType,
-      rrn: callback.rrn || null,
-      card_type: callback.cardType ?? null,
-      binding_id: callback.bindingId || null,
-      raw_callback: callback,
-      completed_at: now,
-    },
-    { transaction },
-  );
-  await order.update(
-    { status: PaymentOrderStatusTypes.PAID, performed_at: now },
-    { transaction },
-  );
+  return cardTransaction;
 };
 
-const DeclineUzumPayment = async (
-  callback: UzumCallbackBody,
-  transaction: Transaction,
-) => {
-  const uzumTransaction = await UzumTransactionModel.findOne({
-    where: { uzum_order_id: callback.orderId },
-    transaction,
-    lock: transaction.LOCK.UPDATE,
-  });
-  if (!uzumTransaction) throw NotFound("UZUM_TRANSACTION_NOT_FOUND");
-  if (uzumTransaction.state === UzumTransactionStateTypes.COMPLETED) {
-    throw BadRequest("UZUM_COMPLETED_TRANSACTION_CANNOT_BE_DECLINED");
-  }
-  const order = await PaymentOrderModel.findByPk(
-    uzumTransaction.payment_order,
-    { transaction, lock: transaction.LOCK.UPDATE },
-  );
-  if (!order) throw NotFound("PAYMENT_ORDER_NOT_FOUND");
+export const ConfirmUzumMerchantTransactionService = async (
+  body: UzumConfirmRequest,
+): Promise<UzumConfirmResponse> => {
+  assertServiceID(body.serviceId);
 
-  const now = new Date();
-  await uzumTransaction.update(
-    {
-      merchant_operation_id: callback.merchantOperationId || null,
-      state: UzumTransactionStateTypes.DECLINED,
-      operation_type: callback.operationType,
-      rrn: callback.rrn || null,
-      raw_callback: callback,
-      declined_at: now,
-    },
-    { transaction },
-  );
-  await order.update(
-    { status: PaymentOrderStatusTypes.CANCELLED, cancelled_at: now },
-    { transaction },
-  );
+  const result = await sequelize.transaction(async (transaction) => {
+    const uzumTransaction = await UzumTransaction.findOne({
+      where: { uzum_order_id: body.transId },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!uzumTransaction) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_NOT_FOUND);
+    }
+    if (uzumTransaction.state === UzumTransactionStateTypes.COMPLETED) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_ALREADY_CONFIRMED);
+    }
+    if (
+      [
+        UzumTransactionStateTypes.REFUNDED,
+        UzumTransactionStateTypes.DECLINED,
+      ].includes(uzumTransaction.state)
+    ) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANCELLED);
+    }
+
+    const order = await PaymentOrderModel.findByPk(
+      uzumTransaction.payment_order,
+      { transaction, lock: transaction.LOCK.UPDATE },
+    );
+    if (!order) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_NOT_FOUND);
+    }
+
+    if (isConfirmationExpired(uzumTransaction)) {
+      const now = new Date();
+      await uzumTransaction.update(
+        {
+          state: UzumTransactionStateTypes.DECLINED,
+          raw_confirm: { ...body },
+          raw_callback: { ...body },
+          declined_at: now,
+        },
+        { transaction },
+      );
+      await order.update(
+        {
+          status: PaymentOrderStatusTypes.EXPIRED,
+          cancelled_at: now,
+        },
+        { transaction },
+      );
+      return { failed: true as const };
+    }
+
+    if (
+      order.provider !== PaymentProviderTypes.UZUM ||
+      order.purpose !== PaymentOrderPurposeTypes.CARD_TOPUP ||
+      order.status !== PaymentOrderStatusTypes.PROCESSING
+    ) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANCELLED);
+    }
+
+    const card = await getActiveOrderCard(order, transaction);
+    const cardTransaction = await createSuccessfulTopUp(
+      order,
+      card,
+      transaction,
+    );
+    const now = new Date();
+
+    await uzumTransaction.update(
+      {
+        card_transaction: Number(cardTransaction.id),
+        state: UzumTransactionStateTypes.COMPLETED,
+        payment_source: body.paymentSource,
+        tariff: body.tariff ?? null,
+        processing_reference_number:
+          body.processingReferenceNumber ?? null,
+        phone: body.phone,
+        card_type: body.cardType ?? null,
+        raw_confirm: { ...body },
+        raw_callback: { ...body },
+        completed_at: now,
+      },
+      { transaction },
+    );
+    await order.update(
+      {
+        status: PaymentOrderStatusTypes.PAID,
+        performed_at: now,
+      },
+      { transaction },
+    );
+
+    return {
+      failed: false as const,
+      response: {
+        serviceId: body.serviceId,
+        transId: body.transId,
+        status: "CONFIRMED" as const,
+        confirmTime: now.getTime(),
+        data: orderData(order, card),
+        amount: amountInTiyin(order),
+      },
+    };
+  });
+
+  if (result.failed) {
+    fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANCELLED);
+  }
+  return result.response;
 };
 
-const ApplyUzumRefund = async (
-  callback: UzumCallbackBody,
+const reverseConfirmedTopUp = async (
+  uzumTransaction: UzumTransactionModel,
+  order: PaymentOrderModel,
   transaction: Transaction,
 ) => {
-  const uzumTransaction = await UzumTransactionModel.findOne({
-    where: { uzum_order_id: callback.orderId },
-    transaction,
-    lock: transaction.LOCK.UPDATE,
-  });
-  if (!uzumTransaction) throw NotFound("UZUM_TRANSACTION_NOT_FOUND");
-  if (uzumTransaction.state === UzumTransactionStateTypes.REFUNDED) {
-    await uzumTransaction.update({ raw_callback: callback }, { transaction });
-    return;
-  }
-  if (
-    uzumTransaction.state !== UzumTransactionStateTypes.COMPLETED ||
-    !uzumTransaction.card_transaction
-  ) {
-    throw BadRequest("UZUM_TRANSACTION_NOT_COMPLETED");
+  const cardTransactionID = uzumTransaction.card_transaction;
+  if (!cardTransactionID) {
+    fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANNOT_BE_REVERSED);
   }
 
-  const order = await PaymentOrderModel.findByPk(
-    uzumTransaction.payment_order,
-    { transaction, lock: transaction.LOCK.UPDATE },
-  );
-  if (!order) throw NotFound("PAYMENT_ORDER_NOT_FOUND");
   const originalCardTransaction = await CardTransactionModel.findByPk(
-    uzumTransaction.card_transaction,
+    cardTransactionID,
     { transaction, lock: transaction.LOCK.UPDATE },
   );
-  if (!originalCardTransaction) {
-    throw NotFound("UZUM_CARD_TRANSACTION_NOT_FOUND");
-  }
   const card = await CardModel.findByPk(order.card, {
     transaction,
     lock: transaction.LOCK.UPDATE,
   });
-  if (!card) throw NotFound("CARD_NOT_FOUND");
+  if (!originalCardTransaction || !card) {
+    fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANNOT_BE_REVERSED);
+  }
 
   const amount = Number(order.amount);
   const balanceBefore = Number(card.balance);
   const balanceAfter = balanceBefore - amount;
   if (!Number.isSafeInteger(balanceAfter) || balanceAfter < 0) {
-    throw BadRequest("INSUFFICIENT_CARD_BALANCE_FOR_UZUM_REFUND");
+    fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANNOT_BE_REVERSED);
   }
 
   await CardTransactionModel.create(
@@ -484,72 +564,164 @@ const ApplyUzumRefund = async (
     },
     { transaction },
   );
-  const now = new Date();
   await card.update({ balance: balanceAfter }, { transaction });
-  await uzumTransaction.update(
-    {
-      merchant_operation_id: callback.merchantOperationId || null,
-      state: UzumTransactionStateTypes.REFUNDED,
-      operation_type: callback.operationType,
-      rrn: callback.rrn || null,
-      raw_callback: callback,
-      refunded_at: now,
-    },
-    { transaction },
-  );
+
+  return card;
 };
 
-export const ProcessUzumCallbackService = async (
-  callback: UzumCallbackBody,
-): Promise<UzumCallbackResponse> => {
-  if (
-    !callback ||
-    typeof callback.orderId !== "string" ||
-    !callback.orderId ||
-    typeof callback.orderNumber !== "string" ||
-    !callback.orderNumber ||
-    typeof callback.operationState !== "string" ||
-    typeof callback.operationType !== "string"
-  ) {
-    throw BadRequest("UZUM_CALLBACK_INVALID");
-  }
+export const ReverseUzumMerchantTransactionService = async (
+  body: UzumReverseRequest,
+): Promise<UzumReverseResponse> => {
+  assertServiceID(body.serviceId);
 
-  const localTransaction = await UzumTransactionModel.findOne({
-    where: { uzum_order_id: callback.orderId },
-  });
-  if (!localTransaction) throw NotFound("UZUM_TRANSACTION_NOT_FOUND");
-  if (localTransaction.order_number !== callback.orderNumber) {
-    throw BadRequest("UZUM_ORDER_NUMBER_MISMATCH");
-  }
+  return sequelize.transaction(async (transaction) => {
+    const uzumTransaction = await UzumTransaction.findOne({
+      where: { uzum_order_id: body.transId },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!uzumTransaction) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_NOT_FOUND);
+    }
+    if (uzumTransaction.state === UzumTransactionStateTypes.REFUNDED) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_ALREADY_REVERSED);
+    }
+    if (uzumTransaction.state === UzumTransactionStateTypes.DECLINED) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANNOT_BE_REVERSED);
+    }
 
-  const statusResult = await GetUzumOrderStatusService(callback.orderId);
-  ValidateStatusResult(statusResult, localTransaction);
-  const state = NormalizeState(StatusValue(statusResult));
+    const order = await PaymentOrderModel.findByPk(
+      uzumTransaction.payment_order,
+      { transaction, lock: transaction.LOCK.UPDATE },
+    );
+    if (!order) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_NOT_FOUND);
+    }
 
-  await sequelize.transaction(async (transaction) => {
-    if (state === UzumTransactionStateTypes.COMPLETED) {
-      await CompleteUzumPayment(callback, transaction);
-    } else if (state === UzumTransactionStateTypes.DECLINED) {
-      await DeclineUzumPayment(callback, transaction);
-    } else if (state === UzumTransactionStateTypes.REFUNDED) {
-      await ApplyUzumRefund(callback, transaction);
-    } else {
-      const current = await UzumTransactionModel.findOne({
-        where: { uzum_order_id: callback.orderId },
+    let card = await CardModel.findByPk(order.card, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!card) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANNOT_BE_REVERSED);
+    }
+
+    if (uzumTransaction.state === UzumTransactionStateTypes.COMPLETED) {
+      card = await reverseConfirmedTopUp(
+        uzumTransaction,
+        order,
         transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-      if (!current) throw NotFound("UZUM_TRANSACTION_NOT_FOUND");
-      await current.update(
+      );
+    }
+
+    const now = new Date();
+    await uzumTransaction.update(
+      {
+        state: UzumTransactionStateTypes.REFUNDED,
+        raw_reverse: { ...body },
+        raw_callback: { ...body },
+        refunded_at: now,
+      },
+      { transaction },
+    );
+    await order.update(
+      {
+        status: PaymentOrderStatusTypes.CANCELLED,
+        cancelled_at: now,
+      },
+      { transaction },
+    );
+
+    return {
+      serviceId: body.serviceId,
+      transId: body.transId,
+      status: "REVERSED",
+      reverseTime: now.getTime(),
+      data: orderData(order, card),
+      amount: amountInTiyin(order),
+    };
+  });
+};
+
+const protocolStatus = (state: UzumTransactionStateTypes) => {
+  switch (state) {
+    case UzumTransactionStateTypes.REGISTERED:
+      return "CREATED" as const;
+    case UzumTransactionStateTypes.COMPLETED:
+      return "CONFIRMED" as const;
+    case UzumTransactionStateTypes.REFUNDED:
+      return "REVERSED" as const;
+    case UzumTransactionStateTypes.DECLINED:
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANCELLED);
+  }
+};
+
+export const GetUzumMerchantTransactionStatusService = async (
+  body: UzumStatusRequest,
+): Promise<UzumStatusResponse> => {
+  assertServiceID(body.serviceId);
+
+  const result = await sequelize.transaction(async (transaction) => {
+    const uzumTransaction = await UzumTransaction.findOne({
+      where: { uzum_order_id: body.transId },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!uzumTransaction) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_NOT_FOUND);
+    }
+    const order = await PaymentOrderModel.findByPk(
+      uzumTransaction.payment_order,
+      { transaction, lock: transaction.LOCK.UPDATE },
+    );
+    if (!order) {
+      fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_NOT_FOUND);
+    }
+
+    if (
+      uzumTransaction.state === UzumTransactionStateTypes.REGISTERED &&
+      isConfirmationExpired(uzumTransaction)
+    ) {
+      const now = new Date();
+      await uzumTransaction.update(
         {
-          merchant_operation_id: callback.merchantOperationId || null,
-          operation_type: callback.operationType,
-          raw_callback: callback,
+          state: UzumTransactionStateTypes.DECLINED,
+          declined_at: now,
         },
         { transaction },
       );
+      await order.update(
+        {
+          status: PaymentOrderStatusTypes.EXPIRED,
+          cancelled_at: now,
+        },
+        { transaction },
+      );
+      return { failed: true as const };
     }
+
+    if (uzumTransaction.state === UzumTransactionStateTypes.DECLINED) {
+      return { failed: true as const };
+    }
+
+    const card = await CardModel.findByPk(order.card, { transaction });
+    return {
+      failed: false as const,
+      response: {
+        serviceId: body.serviceId,
+        transId: body.transId,
+        status: protocolStatus(uzumTransaction.state),
+        transTime: uzumTransaction.registered_at.getTime(),
+        confirmTime: uzumTransaction.completed_at?.getTime() ?? null,
+        reverseTime: uzumTransaction.refunded_at?.getTime() ?? null,
+        data: orderData(order, card ?? undefined),
+        amount: amountInTiyin(order),
+      },
+    };
   });
 
-  return { ok: true };
+  if (result.failed) {
+    fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_CANCELLED);
+  }
+  return result.response;
 };

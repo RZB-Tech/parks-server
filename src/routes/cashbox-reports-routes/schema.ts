@@ -2,6 +2,7 @@ import {
   CashboxReportStatusTypes,
   CashboxReportTypes,
 } from "../../models/postgresql/cashbox-report-model/enums";
+import { CashboxTypes } from "../../models/postgresql/cashbox-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
 
 export const cashboxReportOperatorProperties = {
@@ -275,6 +276,10 @@ export const zReportCashboxWithReportsProperties = {
   name: { type: "string" },
   place: { type: "string" },
   status: { type: "string" },
+  type: {
+    type: "string",
+    enum: Object.values(CashboxTypes),
+  },
 
   description: {
     oneOf: [{ type: "string" }, { type: "null" }],
@@ -481,7 +486,8 @@ export const cashboxReportsTodaySchema = {
 
 export const statusCashboxReportSchema = {
   summary: "Update report status",
-  description: "Update the status of a cashbox report",
+  description:
+    "Update a cashbox report status. A head_cashier or superadmin can reopen a closed physical Z report when the cashbox has no other active Z report.",
   tags: ["Cashbox Reports route"],
 
   params: {
@@ -505,8 +511,6 @@ export const statusCashboxReportSchema = {
           CashboxReportStatusTypes.OPEN,
           CashboxReportStatusTypes.STOPPED,
           CashboxReportStatusTypes.CLOSED,
-          CashboxReportStatusTypes.CONFIRMED,
-          CashboxReportStatusTypes.CANCELLED,
         ],
       },
       report_type: {
@@ -602,30 +606,6 @@ export const confirmZReportsSchema = {
             },
           },
         },
-      },
-    },
-  }),
-
-  response: {
-    200: successAnswerTemplate({
-      success: { type: "boolean", const: true },
-    }),
-  },
-};
-
-export const reopenZReportsSchema = {
-  summary: "Reopen Z reports",
-  description:
-    "Reopen or cancel all today's Z reports. All today Z report ids must be sent.",
-  tags: ["Cashbox Reports route"],
-
-  body: reqBodyWrapper({
-    type: "object",
-    required: ["zreport"],
-    additionalProperties: false,
-    properties: {
-      zreport: {
-        type: "number",
       },
     },
   }),

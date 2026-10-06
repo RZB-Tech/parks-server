@@ -1,4 +1,7 @@
-import { CashboxStatusTypes } from "../../../models/postgresql/cashbox-model/enums";
+import {
+  CashboxStatusTypes,
+  CashboxTypes,
+} from "../../../models/postgresql/cashbox-model/enums";
 import { successAnswerTemplate } from "../../schemas";
 
 const nullableStringSchema = {
@@ -25,6 +28,10 @@ export const getClientCashboxesSchema = {
             name: { type: "string" },
             place: nullableStringSchema,
             status: { type: "string" },
+            type: {
+              type: "string",
+              enum: Object.values(CashboxTypes),
+            },
             description: nullableStringSchema,
             latitude: { type: "string" },
             longitude: { type: "string" },

@@ -86,6 +86,7 @@ export const ZReportCashboxWithReportsDTO = (data: CashboxWithZReportsPlain) => 
     name: data.name,
     place: data.place,
     status: data.status,
+    type: data.type,
     description: data.description,
 
     zreports: Array.isArray(data.reports)

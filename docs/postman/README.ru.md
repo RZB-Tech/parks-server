@@ -1,113 +1,74 @@
-# Central Park — Uzum Checkout
+# Central Park — Uzum Merchant API
 
-Postman-коллекция текущего API Central Park для пополнения карты парка через Uzum Checkout. Сохранённые ответы содержат вымышленные данные и показывают формат; они не являются результатами живых платежей.
+Коллекция реализует входящие вебхуки Uzum Merchant API согласно официальной документации:
 
-Тестовый backend: `https://api.dev.wonder-walk.uz` — уже указан в environment.
+- `POST /check`
+- `POST /create`
+- `POST /confirm`
+- `POST /reverse`
+- `POST /status`
 
-Production backend: `https://api.central-park.wonder-walk.uz` — справочный адрес, не выбран для запросов в комплекте.
-
-Callback для тестовой среды: `https://api.dev.wonder-walk.uz/api/v1/payments/uzum/callback`.
-
-## Файлы
-
-- `Central-Park-Uzum.postman_collection.json` — коллекция v2.1 с запросами, примерами ответов и проверками.
-- `Central-Park-Uzum.postman_environment.json` — шаблон окружения TEST.
-
-## Основной endpoint для команды Uzum
+## Base URL
 
 ```text
-POST {{base_url}}/api/v1/payments/uzum/callback
-Content-Type: application/json
+https://api.dev.wonder-walk.uz/api/v1/payments/uzum
+```
+
+Все запросы используют `Content-Type: application/json` и HTTP Basic Authentication. Тела и ответы передаются без дополнительной обёртки `data`.
+
+## Переменные
+
+| Переменная | Описание |
+|---|---|
+| `base_url` | Полный базовый URL без завершающего `/` |
+| `basic_username` | Логин, настроенный на backend |
+| `basic_password` | Пароль, настроенный на backend |
+| `service_id` | Тестовый ServiceId; после приёмки заменяется значением Uzum |
+| `order_id` | Идентификатор заранее созданного заказа Central Park |
+| `amount_tiyin` | Сумма заказа в тийинах: сумма в UZS × 100 |
+| `trans_id` | UUID транзакции Uzum; генерируется автоматически, если пустой |
+| `timestamp` | Unix timestamp в миллисекундах; обновляется перед каждым запросом |
+
+## Подготовка тестового заказа
+
+Заказ создаётся из Telegram Mini App через:
+
+```http
+POST /api/v1/client/payments/uzum
 ```
 
 ```json
 {
-  "orderId": "{{uzum_order_id}}",
-  "operationState": "{{callback_operation_state}}",
-  "operationType": "{{callback_operation_type}}",
-  "orderNumber": "{{order_id}}"
+  "data": {
+    "card": 44,
+    "amount": 10000
+  }
 }
 ```
 
-Все четыре поля обязательны и имеют строковый тип. Дополнительно поддерживаются `merchantOperationId`, `rrn`, `bindingId` (строки), `cardType` (целое число). Тело callback передаётся без обёртки `data`.
+В Postman необходимо перенести `data.payment.order_id` в `order_id`, а сумму умножить на 100 и указать в `amount_tiyin`.
 
-Текущий backend не требует Telegram initData или API Key в заголовках входящего callback. Он проверяет существование транзакции, совпадение `orderNumber` и запрашивает фактический статус через Uzum `POST /api/v1/payment/getOrderStatus`, используя серверные реквизиты.
+## Порядок запуска
 
-Ответ после обработки:
+1. `check` — должен вернуть `status: OK`.
+2. `create` — должен вернуть `status: CREATED`.
+3. `confirm` — должен вернуть `status: CONFIRMED`; баланс карты увеличивается один раз.
+4. `status` — должен вернуть `status: CONFIRMED`.
+5. `reverse` — должен вернуть `status: REVERSED`; подтверждённое пополнение возвращается, если на карте достаточно средств.
 
-```json
-{"ok": true}
+Повторный `create`, `confirm` или `reverse` возвращает HTTP 400 и соответствующий `errorCode` из спецификации Uzum. Неверная Basic Authentication возвращает `10001`, неверный `serviceId` — `10006`, неизвестный `order_id` — `10007`, неизвестный `transId` — `10014`.
+
+## Backend environment
+
+```dotenv
+UZUM_ENABLED=true
+UZUM_MERCHANT_USERNAME=
+UZUM_MERCHANT_PASSWORD=
+UZUM_MERCHANT_SERVICE_ID=101202
+UZUM_MERCHANT_PAYMENT_URL=
+UZUM_MERCHANT_ACCOUNT_PARAM=order_id
+UZUM_ORDER_EXPIRES_MINUTES=30
+UZUM_CONFIRM_TIMEOUT_MINUTES=30
 ```
 
-HTTP 200 означает обработку события. При ещё не завершённом платеже этот ответ также возможен; подтверждать зачисление нужно по состоянию платежа и балансу карты. Подмена `operationState` в Postman не переводит платёж в нужный статус на стороне Uzum.
-
-## Импорт и переменные
-
-В Postman импортируйте оба JSON-файла через **Import**, затем выберите окружение **Central Park — Uzum — TEST**.
-
-| Переменная | Что указать |
-|---|---|
-| `base_url` | Уже заполнен: `https://api.dev.wonder-walk.uz`. Без завершающего `/` и без `/api/v1`. |
-| `telegram_init_data` | Для клиентских запросов: исходная строка `Telegram.WebApp.initData` зарегистрированного тестового пользователя. Получается при открытии Mini App через Telegram. Не `initDataUnsafe` и не токен бота. |
-| `card_id` | Числовой `id` активной карты пользователя из запроса 01. Это не напечатанный номер карты. |
-| `amount_uzs` | Положительное целое число в сумах. По умолчанию 10 000 сум. Backend сам переводит сумму в тийины при обращении к Uzum. |
-| `order_id` | Наш номер заказа. Запрос 02 сохраняет его автоматически; в callback он передаётся как `orderNumber`. Для проверки только callback его можно заполнить вручную. |
-| `uzum_order_id` | Отдельный идентификатор Uzum для того же заказа. Его предоставляет Uzum либо команда Central Park из записи тестовой транзакции. Клиентский endpoint его не возвращает. |
-| `callback_operation_state` | Значение из фактического тестового события Uzum. `COMPLETED` в шаблоне — пример. |
-| `callback_operation_type` | Значение из фактического тестового события Uzum. `PAYMENT` в шаблоне — пример. |
-| `checkout_url` | Ссылка для оплаты, автоматически сохраняется запросом 02. |
-| `selected_card_balance` | Последний прочитанный баланс выбранной карты, сохраняется запросом 01. Каждое чтение заменяет предыдущее значение. |
-
-Заполняйте переменные в выбранном environment. Предварительные скрипты пропускают запрос с пояснением в Postman Console, если обязательные настройки отсутствуют. Срок действия `telegram_init_data` задаётся backend; после истечения нужно получить свежую строку из Mini App.
-
-## Порядок проверки
-
-1. Команда Central Park настраивает тестовый backend и тестовые реквизиты Uzum. Пользователь должен завершить регистрацию в боте и иметь активную привязанную карту.
-2. Выполните **01 — Карты пользователя и баланс**. Выберите нужную карту и заполните `card_id`. Повторите запрос и запишите исходный баланс.
-3. Выполните **02 — Создать заказ Uzum Checkout**. Ответ содержит `data.payment` с `order_id`, `amount`, `status: processing`, `checkout_url`. Скрипт сохраняет номер заказа и ссылку; ранее заполненный `uzum_order_id` очищается, чтобы не смешивать разные заказы.
-4. Откройте `checkout_url` в браузере и выполните тестовую оплату. Collection Runner останавливается после запроса 02: этот шаг выполняется вручную.
-5. Для ручного повтора callback заполните `uzum_order_id` и поля события данными именно этого заказа. Выполните **03 — Callback Uzum → Central Park**. Uzum также может доставить callback автоматически на согласованный адрес.
-6. Повторите запрос 01. После подтверждённой успешной оплаты баланс должен увеличиться на сумму пополнения. Отправьте тот же callback повторно и снова проверьте баланс: повторного зачисления быть не должно. При сравнении не выполняйте другие операции с этой картой.
-
-Команда Uzum может проверять только запрос 03: в этом случае команда Central Park заранее готовит тестовый заказ и передаёт его идентификаторы. Telegram initData для такого сценария не требуется.
-
-## Дополнительные сценарии
-
-| Сценарий | Подготовка и ожидаемый результат |
-|---|---|
-| Отклонённый платёж | Создать отдельный заказ и получить отказ в тестовой среде Uzum. После callback баланс не увеличивается. |
-| Повторная доставка | Повторить callback успешного платежа. Ответ `200 / {"ok":true}`, баланс не увеличивается повторно. Проверяется отдельным чтением карты. |
-| Неизвестный `orderId` | Отправить callback с отсутствующим в backend идентификатором. `404 / UZUM_TRANSACTION_NOT_FOUND`. |
-| Неверный `orderNumber` | Для существующего `orderId` передать другой номер заказа. `400 / UZUM_ORDER_NUMBER_MISMATCH`. |
-| Возврат | На стороне Uzum предварительно выполнить полный возврат успешно зачисленного тестового платежа согласованным способом, затем отправить фактический callback возврата. Для текущего обработчика баланс карты должен покрывать полную сумму пополнения. Частичный возврат этой коллекцией не описывается. |
-
-Запрос 03 предназначен для обработки события; он сам не инициирует возврат в Uzum. Его встроенные проверки ожидают HTTP 200, поэтому при намеренном негативном сценарии они будут красными — сравните ответ с соответствующим сохранённым примером.
-
-## Условия готовности backend
-
-Команда Central Park настраивает `UZUM_ENABLED=true`, `UZUM_API_URL`, `UZUM_TERMINAL_ID`, `UZUM_API_KEY`, `UZUM_SUCCESS_URL`, `UZUM_FAILURE_URL` и согласует с Uzum доставку callback на указанный адрес. Адрес API и реквизиты должны относиться к тестовой среде: сам по себе `UZUM_MODE=test` не переключает адрес в текущем коде. База данных и учёт онлайн-платежей должны быть подготовлены обычным запуском приложения.
-
-Если используется автоматическое оформление чеков, его настройки согласуются отдельно. Секреты Uzum и токен Telegram-бота задаются на backend; шаблон Postman их не содержит.
-
-## Основные ошибки
-
-| Код / сообщение | Причина |
-|---|---|
-| `TELEGRAM_INIT_DATA_REQUIRED`, `TELEGRAM_INIT_DATA_INVALID`, `TELEGRAM_INIT_DATA_EXPIRED` | Для клиентских запросов отсутствует, неверна или устарела Telegram-авторизация. |
-| `400 / UZUM_PAYMENT_DISABLED` | Приём платежей Uzum отключён на backend. |
-| `400 / USER_NOT_REGISTERED`, `USER_NOT_VERIFIED` | Пользователь не завершил регистрацию. |
-| `404 / CARD_NOT_FOUND` | Карта не найдена среди карт пользователя. |
-| `400 / CARD_MUST_BE_ACTIVE` | Карта неактивна или не удовлетворяет условиям операции. |
-| `400 / PAYMENT_ALREADY_PROCESSING` | Для карты уже обрабатывается несовместимый заказ Uzum. |
-| `500 / UZUM_REGISTER_REQUEST_FAILED` | Не удалось зарегистрировать платёж в Uzum. |
-| `500 / UZUM_STATUS_REQUEST_FAILED` | Не удалось получить статус платежа от Uzum. |
-| `400 / UZUM_AMOUNT_MISMATCH` | Сумма, возвращённая Uzum, не совпала с суммой заказа. |
-| `400 / INSUFFICIENT_CARD_BALANCE_FOR_UZUM_REFUND` | Баланса карты не хватает для отражения полного возврата. |
-
-## Выполненная проверка комплекта
-
-15 сентября 2026 года проверены JSON по официальной схеме Postman v2.1, соответствие примеров схемам текущего backend и выполнение скриптов в изолированном JavaScript-окружении. На тестовом домене запрос карт без авторизации вернул `401 / TELEGRAM_INIT_DATA_REQUIRED`, а callback с вымышленным идентификатором — `404 / UZUM_TRANSACTION_NOT_FOUND`.
-
-Полный цикл с тестовой оплатой в Uzum ещё не выполнялся. Для него нужны тестовые реквизиты Uzum, зарегистрированный пользователь и активная карта. В интерфейсе самого Postman коллекция не запускалась.
-
-Формат файла: [Postman Collection v2.1](https://schema.postman.com/collection/json/v2.1.0/draft-04/collection.json). Предварительные проверки используют [pm.execution.skipRequest](https://learning.postman.com/latest-v-12/docs/tests-and-scripts/write-scripts/postman-sandbox-reference/pm-execution).
+`UZUM_MERCHANT_PAYMENT_URL` будет заполнен рабочей ссылкой, которую Uzum предоставит после проверки Postman-коллекции. Можно использовать URL с шаблоном `{order_id}` либо обычный URL — тогда backend добавит query-параметр из `UZUM_MERCHANT_ACCOUNT_PARAM`.

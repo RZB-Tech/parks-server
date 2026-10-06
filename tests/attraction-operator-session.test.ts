@@ -242,6 +242,70 @@ test("head_operator can reopen a closed Z-report", async (t) => {
   });
 });
 
+test("head_cashier can reopen a closed attraction Z-report", async (t) => {
+  let reportFindCalls = 0;
+  let reportUpdate: any;
+  let attractionUpdate: any;
+  const attraction = {
+    id: 7,
+    status: AttractionStatusTypes.INACTIVE,
+    update: async (values: any) => {
+      attractionUpdate = values;
+      Object.assign(attraction, values);
+    },
+  } as any;
+  const report = {
+    id: 56,
+    attraction: 7,
+    operator: 9,
+    zreport: null,
+    report_type: AttractionReportTypes.ZREPORT,
+    status: AttractionReportStatusTypes.CLOSED,
+    description: "Closed by mistake",
+    closed_at: new Date(),
+    update: async (values: any) => {
+      reportUpdate = values;
+      Object.assign(report, values);
+    },
+  } as any;
+
+  t.mock.method(
+    AttractionReportModel.sequelize!,
+    "transaction",
+    async (callback: any) => callback(transaction),
+  );
+  t.mock.method(AttractionModel, "findByPk", async () => attraction);
+  t.mock.method(EmployeeModel, "findByPk", async () => ({
+    id: 9,
+    role: 4,
+  }) as any);
+  t.mock.method(RoleModel, "findByPk", async () => ({
+    id: 4,
+    name: "head_cashier",
+  }) as any);
+  t.mock.method(AttractionReportModel, "findOne", async () => {
+    reportFindCalls += 1;
+    return reportFindCalls === 1 ? report : null;
+  });
+
+  const result = await UpdateAttractionReportStatusService(
+    9,
+    { attractionID: "7", reportID: "56" },
+    { status: AttractionReportStatusTypes.OPEN },
+  );
+
+  assert.equal(result, true);
+  assert.deepEqual(reportUpdate, {
+    status: AttractionReportStatusTypes.OPEN,
+    description: null,
+    stopped_at: null,
+    closed_at: null,
+  });
+  assert.deepEqual(attractionUpdate, {
+    status: AttractionStatusTypes.ACTIVE,
+  });
+});
+
 test("operator cannot reopen a closed Z-report", async (t) => {
   const attraction = {
     id: 7,
