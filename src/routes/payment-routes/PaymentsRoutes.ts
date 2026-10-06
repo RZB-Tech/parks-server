@@ -9,9 +9,22 @@ import {
   ClickCompleteController,
   ClickPrepareController,
 } from "../../controllers/payment-controllers/click/ClickController";
-import { UzumCallbackController } from "../../controllers/payment-controllers/uzum/UzumController";
-import { RouteWithData } from "../../types/routes";
-import { uzumCallbackSchema } from "./uzumSchema";
+import {
+  UzumCheckController,
+  UzumConfirmController,
+  UzumCreateController,
+  UzumInvalidMethodController,
+  UzumMerchantRouteErrorHandler,
+  UzumReverseController,
+  UzumStatusController,
+} from "../../controllers/payment-controllers/uzum/UzumController";
+import {
+  uzumCheckSchema,
+  uzumConfirmSchema,
+  uzumCreateSchema,
+  uzumReverseSchema,
+  uzumStatusSchema,
+} from "./uzumSchema";
 
 const PaymentsRouter: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -37,16 +50,61 @@ const PaymentsRouter: FastifyPluginAsync = async (
     ClickCompleteController,
   );
 
-  fastify.post(
-    "/payments/uzum/callback",
+  fastify.post<{ Body: UzumCheckRequest }>(
+    "/payments/uzum/check",
     {
-      schema: {
-        ...uzumCallbackSchema,
-        hide: true,
-      } as any,
+      schema: uzumCheckSchema,
+      errorHandler: UzumMerchantRouteErrorHandler("check"),
     },
-    UzumCallbackController,
+    UzumCheckController,
   );
+  fastify.post<{ Body: UzumCreateRequest }>(
+    "/payments/uzum/create",
+    {
+      schema: uzumCreateSchema,
+      errorHandler: UzumMerchantRouteErrorHandler("create"),
+    },
+    UzumCreateController,
+  );
+  fastify.post<{ Body: UzumConfirmRequest }>(
+    "/payments/uzum/confirm",
+    {
+      schema: uzumConfirmSchema,
+      errorHandler: UzumMerchantRouteErrorHandler("confirm"),
+    },
+    UzumConfirmController,
+  );
+  fastify.post<{ Body: UzumReverseRequest }>(
+    "/payments/uzum/reverse",
+    {
+      schema: uzumReverseSchema,
+      errorHandler: UzumMerchantRouteErrorHandler("reverse"),
+    },
+    UzumReverseController,
+  );
+  fastify.post<{ Body: UzumStatusRequest }>(
+    "/payments/uzum/status",
+    {
+      schema: uzumStatusSchema,
+      errorHandler: UzumMerchantRouteErrorHandler("status"),
+    },
+    UzumStatusController,
+  );
+
+  for (const operation of [
+    "check",
+    "create",
+    "confirm",
+    "reverse",
+    "status",
+  ] as const) {
+    fastify.route({
+      method: ["GET", "PUT", "PATCH", "DELETE"],
+      url: `/payments/uzum/${operation}`,
+      schema: { hide: true } as any,
+      handler: UzumInvalidMethodController(operation),
+    });
+  }
 };
 
 export default PaymentsRouter;

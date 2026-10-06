@@ -72,6 +72,12 @@ export const swaggerConfig = {
           bearerFormat: "JWT",
           description: "Dashboard JWT access token",
         },
+
+        UzumBasicAuth: {
+          type: "http",
+          scheme: "basic",
+          description: "Basic authentication used by Uzum Merchant API webhooks",
+        },
       },
     },
 
