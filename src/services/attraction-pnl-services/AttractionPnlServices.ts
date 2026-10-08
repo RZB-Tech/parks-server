@@ -55,24 +55,24 @@ export const GetAttractionPnlService = async (
     `
       WITH confirmed_zreports AS (
         SELECT
-          id,
-          attraction,
+          ar.id,
+          ar.attraction,
           TO_CHAR(
-            opened_at AT TIME ZONE 'Asia/Tashkent',
+            ar.opened_at AT TIME ZONE 'Asia/Tashkent',
             'YYYY-MM'
           ) AS month,
-          COALESCE(total_amount, 0)::NUMERIC AS total_amount
-        FROM attraction_reports
-        INNER JOIN attractions
-          ON attractions.id = attraction_reports.attraction
-        WHERE attraction_reports.deleted_at IS NULL
-          AND report_type = :reportType
-          AND status = :reportStatus
-          AND opened_at >= :startDate
-          AND opened_at < :endDate
+          COALESCE(ar.total_amount, 0)::NUMERIC AS total_amount
+        FROM attraction_reports AS ar
+        INNER JOIN attractions AS a
+          ON a.id = ar.attraction
+        WHERE ar.deleted_at IS NULL
+          AND ar.report_type = :reportType
+          AND ar.status = :reportStatus
+          AND ar.opened_at >= :startDate
+          AND ar.opened_at < :endDate
           AND (
-            attractions.deleted_at IS NULL
-            OR attraction_reports.opened_at <= attractions.deleted_at
+            a.deleted_at IS NULL
+            OR ar.opened_at <= a.deleted_at
           )
       ),
       monthly_parts AS (
