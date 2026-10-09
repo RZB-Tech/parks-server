@@ -13,7 +13,7 @@ export const swaggerUiConfig = {
   uiConfig: {
     docExpansion: "none",
     deepLinking: true,
-    persistAuthorization: true,
+    persistAuthorization: false,
 
     hierarchicalTagSeparator: /\|/,
 

@@ -44,7 +44,7 @@ const merchantSchema = (
   tags: ["Payments|Uzum Merchant"],
   summary,
   description,
-  security: [],
+  security: [{ UzumBasicAuth: [] }],
   body,
   response: {
     200: successResponse,

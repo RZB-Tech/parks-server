@@ -73,6 +73,11 @@ export const swaggerConfig = {
           description: "Dashboard JWT access token",
         },
 
+        UzumBasicAuth: {
+          type: "http",
+          scheme: "basic",
+          description: "Uzum Merchant webhook authentication",
+        },
       },
     },
 
