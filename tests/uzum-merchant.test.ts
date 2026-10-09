@@ -51,6 +51,7 @@ const setMerchantEnvironment = (t: any) => {
     serviceID: process.env.UZUM_MERCHANT_SERVICE_ID,
     paymentURL: process.env.UZUM_MERCHANT_PAYMENT_URL,
     timeout: process.env.UZUM_CONFIRM_TIMEOUT_MINUTES,
+    expirationDisabled: process.env.UZUM_EXPIRATION_DISABLED,
   };
 
   process.env.UZUM_ENABLED = "true";
@@ -60,6 +61,7 @@ const setMerchantEnvironment = (t: any) => {
   process.env.UZUM_MERCHANT_PAYMENT_URL =
     "https://test.uzumbank.uz/pay/{order_id}";
   process.env.UZUM_CONFIRM_TIMEOUT_MINUTES = "30";
+  process.env.UZUM_EXPIRATION_DISABLED = "false";
 
   t.after(() => {
     const restore = (key: string, value: string | undefined) => {
@@ -72,6 +74,7 @@ const setMerchantEnvironment = (t: any) => {
     restore("UZUM_MERCHANT_SERVICE_ID", original.serviceID);
     restore("UZUM_MERCHANT_PAYMENT_URL", original.paymentURL);
     restore("UZUM_CONFIRM_TIMEOUT_MINUTES", original.timeout);
+    restore("UZUM_EXPIRATION_DISABLED", original.expirationDisabled);
   });
 };
 
@@ -183,7 +186,9 @@ test("merchant routes return Uzum auth, validation and method error codes", asyn
 
 test("check validates order_id and returns order data", async (t) => {
   setMerchantEnvironment(t);
+  process.env.UZUM_EXPIRATION_DISABLED = "true";
   const order = paymentOrder();
+  order.expires_at = new Date(Date.now() - 60 * 60 * 1000);
   const card = clientCard();
 
   t.mock.method(PaymentOrderModel, "findByPk", async () => order);
@@ -197,7 +202,7 @@ test("check validates order_id and returns order data", async (t) => {
 
   assert.equal(response.status, "OK");
   assert.equal(response.serviceId, 101202);
-  assert.equal(response.data.order_id.value, "123");
+  assert.equal("order_id" in response.data, false);
   assert.equal(response.data.amount.value, "25000");
   assert.equal(response.data.card.value, "****0044");
 });
@@ -236,6 +241,7 @@ test("create stores transId and validates the amount in tiyin", async (t) => {
   assert.equal(transactionFindCalls, 2);
   assert.equal(response.status, "CREATED");
   assert.equal(response.amount, 2_500_000);
+  assert.equal("data" in response, false);
   assert.equal(createdValues.payment_order, 123);
   assert.equal(
     createdValues.uzum_order_id,
@@ -247,6 +253,7 @@ test("create stores transId and validates the amount in tiyin", async (t) => {
 
 test("confirm, status and reverse change the card balance exactly once", async (t) => {
   setMerchantEnvironment(t);
+  process.env.UZUM_EXPIRATION_DISABLED = "true";
   const order = paymentOrder(PaymentOrderStatusTypes.PROCESSING);
   const card = clientCard();
   const providerTransaction = {
@@ -256,7 +263,7 @@ test("confirm, status and reverse change the card balance exactly once", async (
     uzum_order_id: "5c398d7e-76b6-11ee-96da-f3a095c6289d",
     amount: 25_000,
     state: UzumTransactionStateTypes.REGISTERED,
-    registered_at: new Date(),
+    registered_at: new Date(Date.now() - 60 * 60 * 1000),
     completed_at: null,
     refunded_at: null,
     update: async (values: Record<string, unknown>) => {
@@ -301,6 +308,7 @@ test("confirm, status and reverse change the card balance exactly once", async (
   });
 
   assert.equal(confirmed.status, "CONFIRMED");
+  assert.equal("data" in confirmed, false);
   assert.equal(card.balance, 35_000);
   assert.equal(order.status, PaymentOrderStatusTypes.PAID);
   assert.equal(providerTransaction.state, UzumTransactionStateTypes.COMPLETED);
@@ -317,6 +325,7 @@ test("confirm, status and reverse change the card balance exactly once", async (
   });
 
   assert.equal(reversed.status, "REVERSED");
+  assert.equal("data" in reversed, false);
   assert.equal(card.balance, 10_000);
   assert.equal(order.status, PaymentOrderStatusTypes.CANCELLED);
   assert.equal(providerTransaction.state, UzumTransactionStateTypes.REFUNDED);
@@ -329,10 +338,14 @@ test("confirm, status and reverse change the card balance exactly once", async (
   });
   assert.equal(status.status, "REVERSED");
   assert.equal(status.amount, 2_500_000);
+  assert.equal("order_id" in status.data, false);
+  assert.equal(status.data.amount.value, "25000");
+  assert.equal(status.data.card.value, "****0044");
 });
 
 test("mini-app Uzum order remains pending and returns the configured working link", async (t) => {
   setMerchantEnvironment(t);
+  process.env.UZUM_EXPIRATION_DISABLED = "true";
   const order = paymentOrder();
   const card = clientCard();
   const user = {
@@ -364,6 +377,7 @@ test("mini-app Uzum order remains pending and returns the configured working lin
   });
 
   assert.equal(createdValues.status, PaymentOrderStatusTypes.PENDING);
+  assert.equal(createdValues.expires_at, null);
   assert.equal(response.order_id, "123");
   assert.equal(response.checkout_url, "https://test.uzumbank.uz/pay/123");
 });

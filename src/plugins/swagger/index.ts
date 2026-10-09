@@ -76,7 +76,7 @@ export const swaggerConfig = {
         UzumBasicAuth: {
           type: "http",
           scheme: "basic",
-          description: "Basic authentication used by Uzum Merchant API webhooks",
+          description: "Uzum Merchant webhook authentication",
         },
       },
     },

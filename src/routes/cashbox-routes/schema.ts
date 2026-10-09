@@ -1,5 +1,7 @@
-import { CashboxOperatorStatusTypes } from "../../models/postgresql/cashbox-operator-model/enums";
-import { CashboxTypes } from "../../models/postgresql/cashbox-model/enums";
+import {
+  CashboxStatusTypes,
+  CashboxTypes,
+} from "../../models/postgresql/cashbox-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
 
 export const cashboxProperties = {
@@ -25,7 +27,7 @@ export const cashboxProperties = {
   status: {
     type: "string",
     description: "Cashbox status",
-    enum: Object.values(CashboxOperatorStatusTypes),
+    enum: Object.values(CashboxStatusTypes),
   },
   type: {
     type: "string",
@@ -64,6 +66,7 @@ export const cashboxStatsProperties = {
   cashboxes: { type: "integer" },
   active: { type: "integer" },
   inactive: { type: "integer" },
+  stopped: { type: "integer" },
   maintenance: { type: "integer" },
   closed: { type: "integer" },
 };
@@ -174,10 +177,7 @@ export const getCashboxesSchema = {
       },
       statuses: {
         type: "string",
-        // items: {
-        //   type: "string",
-        //   enum: ["active", "inactive", "vacation", "fired"],
-        // },
+        enum: Object.values(CashboxStatusTypes),
       },
       page: {
         type: "integer",

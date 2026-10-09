@@ -22,6 +22,9 @@ const getPositiveInteger = (
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const isUzumExpirationDisabled = () =>
+  process.env.UZUM_EXPIRATION_DISABLED === "true";
+
 const getPaymeCheckoutBaseURL = () => {
   const configuredURL =
     process.env.PAYME_MODE === "test"
@@ -523,7 +526,9 @@ export const CreateClientUzumOrderService = async (
     const reusableOrder = pendingOrders.find(
       (order) =>
         Number(order.amount) === amount &&
-        (!order.expires_at || order.expires_at.getTime() > now.getTime()),
+        (isUzumExpirationDisabled() ||
+          !order.expires_at ||
+          order.expires_at.getTime() > now.getTime()),
     );
 
     if (reusableOrder) {
@@ -566,7 +571,9 @@ export const CreateClientUzumOrderService = async (
         purpose: PaymentOrderPurposeTypes.CARD_TOPUP,
         status: PaymentOrderStatusTypes.PENDING,
         amount,
-        expires_at: new Date(now.getTime() + expiresInMinutes * 60 * 1000),
+        expires_at: isUzumExpirationDisabled()
+          ? null
+          : new Date(now.getTime() + expiresInMinutes * 60 * 1000),
         performed_at: null,
         cancelled_at: null,
       },

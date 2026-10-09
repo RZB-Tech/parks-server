@@ -58,6 +58,8 @@ POST /api/v1/client/payments/uzum
 
 Повторный `create`, `confirm` или `reverse` возвращает HTTP 400 и соответствующий `errorCode` из спецификации Uzum. Неверная Basic Authentication возвращает `10001`, неверный `serviceId` — `10006`, неизвестный `order_id` — `10007`, неизвестный `transId` — `10014`.
 
+`order_id` передаётся только во входном `params` запросов `check` и `create`. Объект `data` возвращается только методами `check` и `status`, без `order_id`; в нём остаются сумма и маскированный номер карты. Ответы `create`, `confirm` и `reverse` не содержат объект `data`.
+
 ## Backend environment
 
 ```dotenv
@@ -69,6 +71,9 @@ UZUM_MERCHANT_PAYMENT_URL=
 UZUM_MERCHANT_ACCOUNT_PARAM=order_id
 UZUM_ORDER_EXPIRES_MINUTES=30
 UZUM_CONFIRM_TIMEOUT_MINUTES=30
+UZUM_EXPIRATION_DISABLED=false
 ```
 
 `UZUM_MERCHANT_PAYMENT_URL` будет заполнен рабочей ссылкой, которую Uzum предоставит после проверки Postman-коллекции. Можно использовать URL с шаблоном `{order_id}` либо обычный URL — тогда backend добавит query-параметр из `UZUM_MERCHANT_ACCOUNT_PARAM`.
+
+Для временного тестирования без срока действия заказа и без таймаута между `create` и `confirm` установите `UZUM_EXPIRATION_DISABLED=true`. В рабочем окружении флаг должен быть `false`.
