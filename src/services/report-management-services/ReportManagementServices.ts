@@ -29,7 +29,7 @@ export type ForceCloseReportsResult = {
   closed_xreports: number;
   closed_zreports: number;
   finalized_rounds: number;
-  target_status: CashboxStatusTypes.INACTIVE | AttractionStatusTypes.INACTIVE;
+  target_status: CashboxStatusTypes.CLOSED | AttractionStatusTypes.INACTIVE;
   closed_at: string;
 };
 
@@ -133,7 +133,7 @@ export const ForceCloseCashboxReportsService = async (
     }
 
     await cashbox.update(
-      { status: CashboxStatusTypes.INACTIVE },
+      { status: CashboxStatusTypes.CLOSED },
       { transaction },
     );
 
@@ -143,7 +143,7 @@ export const ForceCloseCashboxReportsService = async (
       closed_xreports: closedXReports,
       closed_zreports: closedZReports,
       finalized_rounds: 0,
-      target_status: CashboxStatusTypes.INACTIVE,
+      target_status: CashboxStatusTypes.CLOSED,
       closed_at: now.toISOString(),
     };
   });

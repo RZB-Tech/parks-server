@@ -1,13 +1,3 @@
-const authorizationHeaders = {
-  type: "object",
-  additionalProperties: true,
-  properties: {
-    authorization: {
-      type: "string",
-    },
-  },
-};
-
 const merchantDataSchema = {
   type: "object",
   additionalProperties: {
@@ -54,8 +44,7 @@ const merchantSchema = (
   tags: ["Payments|Uzum Merchant"],
   summary,
   description,
-  security: [{ UzumBasicAuth: [] }],
-  headers: authorizationHeaders,
+  security: [],
   body,
   response: {
     200: successResponse,

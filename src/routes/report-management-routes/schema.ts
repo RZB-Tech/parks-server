@@ -44,7 +44,7 @@ export const forceCloseReportsSchema = {
           closed_xreports: { type: "number" },
           closed_zreports: { type: "number" },
           finalized_rounds: { type: "number" },
-          target_status: { type: "string", enum: ["inactive"] },
+          target_status: { type: "string", enum: ["inactive", "closed"] },
           closed_at: { type: "string", format: "date-time" },
         },
       },

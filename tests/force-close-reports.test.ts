@@ -111,12 +111,13 @@ test("head cashier force-close closes every active cashbox X report before Z", a
     CashboxReportStatusTypes.CLOSED,
   );
   assert.ok(reportUpdates[0].values.closed_at instanceof Date);
-  assert.equal(cashboxUpdate?.values.status, CashboxStatusTypes.INACTIVE);
+  assert.equal(cashboxUpdate?.values.status, CashboxStatusTypes.CLOSED);
   assert.equal(result.closed_xreports, 2);
   assert.equal(result.closed_zreports, 1);
   assert.equal(result.finalized_rounds, 0);
   assert.equal(result.source, "cashbox");
   assert.equal(result.source_id, 12);
+  assert.equal(result.target_status, CashboxStatusTypes.CLOSED);
 });
 
 test("force-close rejects virtual cashboxes", async (t) => {

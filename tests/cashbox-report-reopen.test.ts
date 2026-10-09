@@ -18,10 +18,17 @@ import {
   EmployeeModel,
   RoleModel,
 } from "../src/plugins/db/postgresql/db";
-import { getCashboxesSchema } from "../src/routes/cashbox-routes/schema";
+import {
+  cashboxProperties,
+  cashboxStatsProperties,
+  getCashboxesSchema,
+} from "../src/routes/cashbox-routes/schema";
 import { zReportCashboxWithReportsProperties } from "../src/routes/cashbox-reports-routes/schema";
 import { getClientCashboxesSchema } from "../src/routes/client/cashbox-routes/schema";
-import { StatusCashboxReportService } from "../src/services/cashbox-reports-services/CashboxReportsServices";
+import {
+  AutoCloseUnclosedXReportsService,
+  StatusCashboxReportService,
+} from "../src/services/cashbox-reports-services/CashboxReportsServices";
 
 const transaction = {
   LOCK: {
@@ -55,6 +62,167 @@ const mockTransaction = (t: any) => {
     async (callback: any) => callback(transaction),
   );
 };
+
+const reportWithStatus = (status: CashboxReportStatusTypes) => {
+  const report = closedZReport();
+  report.status = status;
+  report.description = status === CashboxReportStatusTypes.STOPPED
+    ? "Temporary stop"
+    : null;
+  report.stopped_at = status === CashboxReportStatusTypes.STOPPED
+    ? new Date("2026-10-05T11:00:00.000Z")
+    : null;
+  report.closed_at = status === CashboxReportStatusTypes.CLOSED
+    ? new Date("2026-10-05T12:00:00.000Z")
+    : null;
+  return report;
+};
+
+test("stopping a Z-report changes the cashbox status to stopped", async (t) => {
+  const report = reportWithStatus(CashboxReportStatusTypes.OPEN);
+  let cashboxUpdate: any;
+
+  mockTransaction(t);
+  t.mock.method(CashboxModel, "findByPk", async () => ({
+    id: 12,
+    type: CashboxTypes.PHYSICAL,
+  }) as any);
+  t.mock.method(CashboxReportModel, "findOne", async () => report);
+  t.mock.method(CashboxModel, "update", async (values: any) => {
+    cashboxUpdate = values;
+    return [1] as any;
+  });
+
+  const result = await StatusCashboxReportService(
+    9,
+    { cashboxID: 12 },
+    {
+      report: 56,
+      report_type: CashboxReportTypes.ZREPORT,
+      status: CashboxReportStatusTypes.STOPPED,
+      description: "Temporary stop",
+    },
+  );
+
+  assert.equal(result, true);
+  assert.equal(report.status, CashboxReportStatusTypes.STOPPED);
+  assert.deepEqual(cashboxUpdate, {
+    status: CashboxStatusTypes.STOPPED,
+  });
+});
+
+test("closing a Z-report changes the cashbox status to closed", async (t) => {
+  const report = reportWithStatus(CashboxReportStatusTypes.OPEN);
+  let reportFindCalls = 0;
+  let cashboxUpdate: any;
+
+  mockTransaction(t);
+  t.mock.method(CashboxModel, "findByPk", async () => ({
+    id: 12,
+    type: CashboxTypes.PHYSICAL,
+  }) as any);
+  t.mock.method(CashboxReportModel, "findOne", async () => {
+    reportFindCalls += 1;
+    return reportFindCalls === 1 ? report : null;
+  });
+  t.mock.method(CashboxModel, "update", async (values: any) => {
+    cashboxUpdate = values;
+    return [1] as any;
+  });
+
+  const result = await StatusCashboxReportService(
+    9,
+    { cashboxID: 12 },
+    {
+      report: 56,
+      report_type: CashboxReportTypes.ZREPORT,
+      status: CashboxReportStatusTypes.CLOSED,
+    },
+  );
+
+  assert.equal(result, true);
+  assert.equal(report.status, CashboxReportStatusTypes.CLOSED);
+  assert.deepEqual(cashboxUpdate, {
+    status: CashboxStatusTypes.CLOSED,
+  });
+});
+
+test("reopening a stopped Z-report changes the cashbox status to active", async (t) => {
+  const report = reportWithStatus(CashboxReportStatusTypes.STOPPED);
+  let cashboxUpdate: any;
+
+  mockTransaction(t);
+  t.mock.method(CashboxModel, "findByPk", async () => ({
+    id: 12,
+    type: CashboxTypes.PHYSICAL,
+  }) as any);
+  t.mock.method(CashboxReportModel, "findOne", async () => report);
+  t.mock.method(CashboxModel, "update", async (values: any) => {
+    cashboxUpdate = values;
+    return [1] as any;
+  });
+
+  const result = await StatusCashboxReportService(
+    9,
+    { cashboxID: 12 },
+    {
+      report: 56,
+      report_type: CashboxReportTypes.ZREPORT,
+      status: CashboxReportStatusTypes.OPEN,
+    },
+  );
+
+  assert.equal(result, true);
+  assert.equal(report.status, CashboxReportStatusTypes.OPEN);
+  assert.equal(report.stopped_at, null);
+  assert.deepEqual(cashboxUpdate, {
+    status: CashboxStatusTypes.ACTIVE,
+  });
+});
+
+test("auto-close changes active or stopped physical cashboxes to closed", async (t) => {
+  let reportFindCalls = 0;
+  let cashboxUpdate: { values: any; options: any } | undefined;
+
+  mockTransaction(t);
+  t.mock.method(CashboxModel, "findAll", async () => [{ id: 12 }] as any);
+  t.mock.method(CashboxReportModel, "findAll", async () => {
+    reportFindCalls += 1;
+
+    if (reportFindCalls === 1) {
+      return [{ id: 101, zreport: 201 }] as any;
+    }
+
+    if (reportFindCalls === 2) {
+      return [{ id: 201, cashbox: 12 }] as any;
+    }
+
+    return [] as any;
+  });
+  t.mock.method(CashboxReportModel, "update", async () => [1] as any);
+  t.mock.method(
+    CashboxModel,
+    "update",
+    async (values: any, options: any) => {
+      cashboxUpdate = { values, options };
+      return [1] as any;
+    },
+  );
+
+  const result = await AutoCloseUnclosedXReportsService(
+    "2026-10-06T03:00:00+05:00",
+  );
+
+  assert.equal(result.closed_xreports, 1);
+  assert.equal(result.closed_zreports, 1);
+  assert.deepEqual(cashboxUpdate?.values, {
+    status: CashboxStatusTypes.CLOSED,
+  });
+  assert.deepEqual(cashboxUpdate?.options.where.status[Op.in], [
+    CashboxStatusTypes.ACTIVE,
+    CashboxStatusTypes.STOPPED,
+  ]);
+});
 
 test("head_cashier can reopen a closed physical cashbox Z-report", async (t) => {
   const report = closedZReport();
@@ -267,4 +435,9 @@ test("cashbox DTOs and schemas expose physical or virtual type", () => {
       .cashboxes.items.type,
     "object",
   );
+  assert.deepEqual(
+    (cashboxProperties.status as any).enum,
+    Object.values(CashboxStatusTypes),
+  );
+  assert.deepEqual(cashboxStatsProperties.stopped, { type: "integer" });
 });

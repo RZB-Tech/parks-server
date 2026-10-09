@@ -611,7 +611,7 @@ export const StatusCashboxReportService = async (
     ) {
       await CashboxModel.update(
         {
-          status: CashboxStatusTypes.INACTIVE,
+          status: CashboxStatusTypes.CLOSED,
         },
         {
           where: {
@@ -641,12 +641,12 @@ export const StatusCashboxReportService = async (
     }
 
     /*
-     * X yoki Z report STOPPED bo‘lsa attraction STOPPED bo‘ladi.
+     * X yoki Z report STOPPED bo‘lsa cashbox STOPPED bo‘ladi.
      */
     if (body.status === CashboxReportStatusTypes.STOPPED) {
       await CashboxModel.update(
         {
-          status: CashboxStatusTypes.ACTIVE,
+          status: CashboxStatusTypes.STOPPED,
         },
         {
           where: {
@@ -1129,7 +1129,7 @@ export const AutoCloseUnclosedXReportsService = async (
     }
 
     /*
-     * Legacy data can contain an ACTIVE cashbox with no OPEN/STOPPED report
+     * Legacy data can contain an ACTIVE/STOPPED cashbox with no OPEN/STOPPED report
      * (for example, when its Z-report was closed before the cashbox update).
      * Reconcile every physical cashbox, not only the ones closed in this run.
      */
@@ -1155,12 +1155,17 @@ export const AutoCloseUnclosedXReportsService = async (
 
     const [reconciledCashboxes] = await CashboxModel.update(
       {
-        status: CashboxStatusTypes.INACTIVE,
+        status: CashboxStatusTypes.CLOSED,
       },
       {
         where: {
           type: CashboxTypes.PHYSICAL,
-          status: CashboxStatusTypes.ACTIVE,
+          status: {
+            [Op.in]: [
+              CashboxStatusTypes.ACTIVE,
+              CashboxStatusTypes.STOPPED,
+            ],
+          },
           id:
             remainingActiveCashboxIDs.length > 0
               ? {
