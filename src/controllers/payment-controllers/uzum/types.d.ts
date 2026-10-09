@@ -47,7 +47,6 @@ declare interface UzumCreateResponse {
   transId: string;
   status: "CREATED";
   transTime: number;
-  data: UzumMerchantData;
   amount: number;
 }
 
@@ -56,7 +55,6 @@ declare interface UzumConfirmResponse {
   transId: string;
   status: "CONFIRMED";
   confirmTime: number;
-  data: UzumMerchantData;
   amount: number;
 }
 
@@ -65,7 +63,6 @@ declare interface UzumReverseResponse {
   transId: string;
   status: "REVERSED";
   reverseTime: number;
-  data: UzumMerchantData;
   amount: number;
 }
 

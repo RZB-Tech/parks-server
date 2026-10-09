@@ -168,7 +168,11 @@ const getOrder = async (
     fail(UZUM_MERCHANT_ERROR_CODES.PAYMENT_CANCELLED);
   }
 
-  if (order.expires_at && order.expires_at.getTime() <= Date.now()) {
+  if (
+    process.env.UZUM_EXPIRATION_DISABLED !== "true" &&
+    order.expires_at &&
+    order.expires_at.getTime() <= Date.now()
+  ) {
     fail(UZUM_MERCHANT_ERROR_CODES.PAYMENT_CANCELLED);
   }
 
@@ -202,7 +206,6 @@ const orderData = (
   card?: CardModel,
 ): UzumMerchantData => {
   const data: UzumMerchantData = {
-    order_id: { value: String(order.id) },
     amount: { value: String(order.amount) },
   };
 
@@ -229,6 +232,7 @@ const getConfirmTimeoutMs = () => {
 };
 
 const isConfirmationExpired = (transaction: UzumTransactionModel) =>
+  process.env.UZUM_EXPIRATION_DISABLED !== "true" &&
   transaction.registered_at.getTime() + getConfirmTimeoutMs() <= Date.now();
 
 export const CheckUzumMerchantPaymentService = async (
@@ -263,7 +267,7 @@ export const CreateUzumMerchantTransactionService = async (
       }
 
       const order = await getOrder(getOrderID(body.params), transaction);
-      const card = await getActiveOrderCard(order, transaction);
+      await getActiveOrderCard(order, transaction);
 
       if (body.amount !== amountInTiyin(order)) {
         fail(UZUM_MERCHANT_ERROR_CODES.INVALID_AMOUNT);
@@ -320,7 +324,6 @@ export const CreateUzumMerchantTransactionService = async (
         transId: body.transId,
         status: "CREATED" as const,
         transTime: now.getTime(),
-        data: orderData(order, card),
         amount: body.amount,
       };
     });
@@ -492,7 +495,6 @@ export const ConfirmUzumMerchantTransactionService = async (
         transId: body.transId,
         status: "CONFIRMED" as const,
         confirmTime: now.getTime(),
-        data: orderData(order, card),
         amount: amountInTiyin(order),
       },
     };
@@ -598,7 +600,7 @@ export const ReverseUzumMerchantTransactionService = async (
       fail(UZUM_MERCHANT_ERROR_CODES.TRANSACTION_NOT_FOUND);
     }
 
-    let card = await CardModel.findByPk(order.card, {
+    const card = await CardModel.findByPk(order.card, {
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
@@ -607,7 +609,7 @@ export const ReverseUzumMerchantTransactionService = async (
     }
 
     if (uzumTransaction.state === UzumTransactionStateTypes.COMPLETED) {
-      card = await reverseConfirmedTopUp(
+      await reverseConfirmedTopUp(
         uzumTransaction,
         order,
         transaction,
@@ -637,7 +639,6 @@ export const ReverseUzumMerchantTransactionService = async (
       transId: body.transId,
       status: "REVERSED",
       reverseTime: now.getTime(),
-      data: orderData(order, card),
       amount: amountInTiyin(order),
     };
   });

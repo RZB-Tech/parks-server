@@ -122,7 +122,6 @@ export const uzumCreateSchema = merchantSchema(
       "transId",
       "status",
       "transTime",
-      "data",
       "amount",
     ],
     properties: {
@@ -130,7 +129,6 @@ export const uzumCreateSchema = merchantSchema(
       transId: { type: "string" },
       status: { type: "string", const: "CREATED" },
       transTime: { type: "integer" },
-      data: merchantDataSchema,
       amount: { type: "integer" },
     },
   },
@@ -178,7 +176,6 @@ export const uzumConfirmSchema = merchantSchema(
       "transId",
       "status",
       "confirmTime",
-      "data",
       "amount",
     ],
     properties: {
@@ -186,7 +183,6 @@ export const uzumConfirmSchema = merchantSchema(
       transId: { type: "string" },
       status: { type: "string", const: "CONFIRMED" },
       confirmTime: { type: "integer" },
-      data: merchantDataSchema,
       amount: { type: "integer" },
     },
   },
@@ -213,7 +209,6 @@ export const uzumReverseSchema = merchantSchema(
       "transId",
       "status",
       "reverseTime",
-      "data",
       "amount",
     ],
     properties: {
@@ -221,7 +216,6 @@ export const uzumReverseSchema = merchantSchema(
       transId: { type: "string" },
       status: { type: "string", const: "REVERSED" },
       reverseTime: { type: "integer" },
-      data: merchantDataSchema,
       amount: { type: "integer" },
     },
   },
