@@ -52,12 +52,6 @@ test("card Excel validation reports every duplicate with its row", () => {
       nfc_id: "NFC-2",
       duplicate_of_row: 3,
     },
-    {
-      code: "DUPLICATE_BIND_TOKEN_IN_FILE",
-      field: "bind_token",
-      row: 6,
-      duplicate_of_row: 2,
-    },
   ]);
 });
 

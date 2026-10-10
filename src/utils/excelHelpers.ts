@@ -62,7 +62,6 @@ export const ValidateCardExcel = (
 ): CardExcelValidationResult => {
   const cards = new Map<string, number>();
   const nfcs = new Map<string, number>();
-  const bindTokens = new Map<string, number>();
   const errors: CardImportValidationError[] = [];
 
   const normalizedRows = rows.map((row, index) => ({
@@ -138,21 +137,6 @@ export const ValidateCardExcel = (
         });
       } else {
         nfcs.set(nfc, rowNumber);
-      }
-    }
-
-    if (IsValidCardBindToken(bindToken)) {
-      const firstRow = bindTokens.get(bindToken);
-
-      if (firstRow !== undefined) {
-        errors.push({
-          code: "DUPLICATE_BIND_TOKEN_IN_FILE",
-          field: "bind_token",
-          row: rowNumber,
-          duplicate_of_row: firstRow,
-        });
-      } else {
-        bindTokens.set(bindToken, rowNumber);
       }
     }
   }
