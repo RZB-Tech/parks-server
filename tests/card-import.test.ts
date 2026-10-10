@@ -154,12 +154,6 @@ test("existing card values are reported with Excel rows", async (t) => {
       existing_record_id: 41,
     },
     {
-      code: "BIND_TOKEN_ALREADY_EXISTS",
-      field: "bind_token",
-      row: 3,
-      existing_record_id: 42,
-    },
-    {
       code: "NFC_ID_ALREADY_EXISTS",
       field: "nfc_id",
       row: 3,

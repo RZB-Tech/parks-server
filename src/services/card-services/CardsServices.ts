@@ -36,7 +36,6 @@ import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber"
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
 import {
   EncryptCardBindToken,
-  HashCardBindToken,
   IsValidCardBindToken,
 } from "../../utils/client/CardBindTokenHelper";
 
@@ -396,7 +395,6 @@ export const GetVipCardUsageService = async (
 
 interface PreparedCardExcelRow extends NormalizedCardExcelRow {
   bind_token_hash: string | null;
-  legacy_bind_token_hash?: string | null;
 }
 
 const AddImportRow = (
@@ -422,16 +420,6 @@ export const FindExistingCardImportErrors = async (
 ): Promise<CardImportValidationError[]> => {
   const cardIDs = [...new Set(rows.map((row) => row.card_id).filter(Boolean))];
   const nfcIDs = [...new Set(rows.map((row) => row.nfc_id).filter(Boolean))];
-  const bindTokenHashes = [
-    ...new Set(
-      rows
-        .flatMap((row) => [
-          row.bind_token_hash,
-          row.legacy_bind_token_hash ?? null,
-        ])
-        .filter((hash): hash is string => Boolean(hash)),
-    ),
-  ];
   const where: WhereOptions<CardsModelI>[] = [];
 
   if (cardIDs.length) where.push({ card: { [Op.in]: cardIDs } });
@@ -443,40 +431,20 @@ export const FindExistingCardImportErrors = async (
       ) as WhereOptions<CardsModelI>,
     );
   }
-  if (bindTokenHashes.length) {
-    where.push({ bind_token_hash: { [Op.in]: bindTokenHashes } });
-  }
-
   if (!where.length) return [];
 
   const existingCards = await CardModel.findAll({
-    attributes: ["id", "card", "nfc", "bind_token_hash"],
+    attributes: ["id", "card", "nfc"],
     where: { [Op.or]: where },
     paranoid: false,
   });
 
   const rowsByCardID = new Map<string, number[]>();
   const rowsByNfcID = new Map<string, number[]>();
-  const rowsByBindTokenHash = new Map<string, number[]>();
 
   for (const row of rows) {
     if (row.card_id) AddImportRow(rowsByCardID, row.card_id, row.row_number);
     if (row.nfc_id) AddImportRow(rowsByNfcID, row.nfc_id, row.row_number);
-    if (row.bind_token_hash) {
-      AddImportRow(
-        rowsByBindTokenHash,
-        row.bind_token_hash,
-        row.row_number,
-      );
-    }
-
-    if (row.legacy_bind_token_hash) {
-      AddImportRow(
-        rowsByBindTokenHash,
-        row.legacy_bind_token_hash,
-        row.row_number,
-      );
-    }
   }
 
   const errors: CardImportValidationError[] = [];
@@ -506,17 +474,6 @@ export const FindExistingCardImportErrors = async (
       });
     }
 
-    if (existingCard.bind_token_hash) {
-      for (const rowNumber of
-        rowsByBindTokenHash.get(existingCard.bind_token_hash) ?? []) {
-        errors.push({
-          code: "BIND_TOKEN_ALREADY_EXISTS",
-          field: "bind_token",
-          row: rowNumber,
-          existing_record_id: existingRecordID,
-        });
-      }
-    }
   }
 
   return SortCardImportErrors(errors);
@@ -588,9 +545,6 @@ export const CreateCardsService = async (
     ...row,
     bind_token_hash: IsValidCardBindToken(row.bind_token)
       ? EncryptCardBindToken(row.bind_token)
-      : null,
-    legacy_bind_token_hash: IsValidCardBindToken(row.bind_token)
-      ? HashCardBindToken(row.bind_token)
       : null,
   }));
   const existingValueErrors = await FindExistingCardImportErrors(rows);
