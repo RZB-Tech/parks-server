@@ -23,12 +23,10 @@ export const EnsureCardBindingSchema = async (
       { transaction },
     );
 
+    // bind_token is validated together with card_number, so it does not need
+    // to be globally unique across all cards.
     await sequelize.query(
-      `
-        CREATE UNIQUE INDEX IF NOT EXISTS "cards_bind_token_hash_unique"
-          ON "cards" ("bind_token_hash")
-          WHERE "bind_token_hash" IS NOT NULL
-      `,
+      `DROP INDEX IF EXISTS "cards_bind_token_hash_unique"`,
       { transaction },
     );
   });
