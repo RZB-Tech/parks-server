@@ -1,7 +1,7 @@
 import { FastifyRequest } from "fastify";
 import { RouteWithQuery } from "../../types/routes";
-import { makeReplyingController } from "../../utils/controllerHelpers";
-import { GetAuditLogsService } from "../../services/audit-log-services/AuditLogServices";
+import { makeReplyingController, withErrorHandler } from "../../utils/controllerHelpers";
+import { ExportAuditLogsService, GetAuditLogsService } from "../../services/audit-log-services/AuditLogServices";
 
 export const GetAuditLogsController = makeReplyingController(
   ["audit_logs", "pagination"],
@@ -21,3 +21,15 @@ export const GetAuditLogsController = makeReplyingController(
     ];
   },
 );
+
+export const ExportAuditLogsController = withErrorHandler<
+  FastifyRequest<RouteWithQuery<ExportAuditLogsQuery>>
+>(async (request, reply) => {
+  const result = await ExportAuditLogsService(request.query);
+
+  return reply
+    .type("application/json; charset=utf-8")
+    .header("Content-Disposition", `attachment; filename="${result.filename}"`)
+    .header("Cache-Control", "no-store")
+    .send(result.stream);
+});

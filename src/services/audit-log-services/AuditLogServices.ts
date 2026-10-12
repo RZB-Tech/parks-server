@@ -1,9 +1,11 @@
-import { Op } from "sequelize";
+import { Op, WhereOptions } from "sequelize";
+import { Readable } from "node:stream";
 import { AuditLogModel } from "../../models/postgresql/audit-log-model/AuditLogModel";
 import { AuditLogDTO } from "../../dtos/audit-log-dtos/AuditLogDto";
 import { EmployeeModel } from "../../models/postgresql/employees-model/EmployeeModel";
 import { RoleModel } from "../../models/postgresql/role-model/RoleModel";
 import { RoleTypes } from "../../models/postgresql/role-model/enums";
+import { getAuditExportRange } from "../../utils/auditExportRange";
 
 const parseStartDate = (date: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(date)
@@ -19,14 +21,7 @@ const parseExclusiveEndDate = (date: string) => {
   return result;
 };
 
-export const GetAuditLogsService = async (
-  query: GetAuditLogsQuery,
-): Promise<AuditLogsPaginationResponseDTO> => {
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 20;
-  const offset = (page - 1) * limit;
-  const where: Record<string | symbol, unknown> = {};
-
+const getAuditVisibilityFilters = async (): Promise<WhereOptions[]> => {
   const ownerRole = await RoleModel.findOne({
     attributes: ["id"],
     where: { name: RoleTypes.OWNER },
@@ -41,7 +36,7 @@ export const GetAuditLogsService = async (
   const ownerEmployeeIDs = ownerEmployees.map((employee) =>
     String(employee.id),
   );
-  const visibilityFilters: object[] = [
+  const visibilityFilters: WhereOptions[] = [
     {
       employee_role: {
         [Op.ne]: RoleTypes.OWNER,
@@ -60,7 +55,18 @@ export const GetAuditLogsService = async (
     });
   }
 
-  where[Op.and] = visibilityFilters;
+  return visibilityFilters;
+};
+
+export const GetAuditLogsService = async (
+  query: GetAuditLogsQuery,
+): Promise<AuditLogsPaginationResponseDTO> => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 20;
+  const offset = (page - 1) * limit;
+  const where: Record<string | symbol, unknown> = {
+    [Op.and]: await getAuditVisibilityFilters(),
+  };
 
   if (query.employee_id) where.employee_id = query.employee_id;
   if (query.role) where.employee_role = query.role;
@@ -95,5 +101,69 @@ export const GetAuditLogsService = async (
     page,
     limit,
     totalPages: Math.ceil(count / limit),
+  };
+};
+
+const EXPORT_BATCH_SIZE = 500;
+
+export const ExportAuditLogsService = async (query: ExportAuditLogsQuery) => {
+  const { start, end } = getAuditExportRange(query);
+  const exportedAt = new Date().toISOString();
+  const where: WhereOptions = {
+    [Op.and]: await getAuditVisibilityFilters(),
+    created_at: { [Op.gte]: start, [Op.lt]: end },
+  };
+
+  const fetchBatch = (cursor?: AuditLogModel) =>
+    AuditLogModel.findAll({
+      where: cursor
+        ? {
+            [Op.and]: [
+              where,
+              {
+                [Op.or]: [
+                  { created_at: { [Op.lt]: cursor.created_at } },
+                  {
+                    created_at: cursor.created_at,
+                    id: { [Op.lt]: cursor.id },
+                  },
+                ],
+              },
+            ],
+          }
+        : where,
+      limit: EXPORT_BATCH_SIZE,
+      order: [["created_at", "DESC"], ["id", "DESC"]],
+    });
+
+  // Surface initial database errors before sending download headers.
+  const firstBatch = await fetchBatch();
+
+  async function* generateJSON() {
+    const metadata = JSON.stringify({
+      from: query.from,
+      to: query.to,
+      exported_at: exportedAt,
+    });
+    yield `${metadata.slice(0, -1)},"audit_logs":[`;
+    let batch = firstBatch;
+    let separator = "";
+
+    while (batch.length > 0) {
+      for (const row of batch) {
+        yield separator + JSON.stringify(AuditLogDTO(row.get({ plain: true })));
+        separator = ",";
+      }
+
+      if (batch.length < EXPORT_BATCH_SIZE) break;
+      batch = await fetchBatch(batch[batch.length - 1]);
+    }
+
+    yield "]}";
+  }
+
+  return {
+    filename: `audit-logs_${query.from.slice(0, 10)}_${query.to.slice(0, 10)}.json`,
+    stream: Readable.from(generateJSON(), { objectMode: false }),
   };
 };

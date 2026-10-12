@@ -4,4 +4,5 @@ export const corsConfigs = {
   origin: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   credentials: true,
+  exposedHeaders: ["Content-Disposition"],
 };
