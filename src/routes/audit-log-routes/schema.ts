@@ -1,5 +1,6 @@
 import { AuditActionTypes } from "../../models/postgresql/audit-log-model/enums";
 import { successAnswerTemplate } from "../schemas";
+import { AUDIT_EXPORT_DATE_TIME_PATTERN } from "../../utils/auditExportRange";
 
 const nullableString = {
   anyOf: [{ type: "string" }, { type: "null" }],
@@ -92,5 +93,42 @@ export const getAuditLogsSchema = {
         },
       },
     }),
+  },
+};
+
+const exportBoundarySchema = {
+  type: "string",
+  anyOf: [
+    { format: "date", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+    { format: "date-time", pattern: AUDIT_EXPORT_DATE_TIME_PATTERN },
+  ],
+};
+
+export const exportAuditLogsSchema = {
+  summary: "Download dashboard audit logs as JSON",
+  description:
+    "Downloads all visible audit logs in the requested range without pagination. Date-only boundaries include both days in Asia/Tashkent. ISO date-times must include a timezone; from is inclusive and to is exclusive. Uses the same role and visibility rules as the audit log list.",
+  tags: ["Audit logs route"],
+  headers: getAuditLogsSchema.headers,
+  querystring: {
+    type: "object",
+    required: ["from", "to"],
+    additionalProperties: false,
+    properties: {
+      from: { ...exportBoundarySchema, description: "Inclusive range start" },
+      to: { ...exportBoundarySchema, description: "Inclusive end day or exclusive end date-time" },
+    },
+  },
+  response: {
+    200: {
+      type: "object",
+      required: ["from", "to", "exported_at", "audit_logs"],
+      properties: {
+        from: { type: "string" },
+        to: { type: "string" },
+        exported_at: { type: "string", format: "date-time" },
+        audit_logs: getAuditLogsSchema.response[200].properties.data.properties.audit_logs,
+      },
+    },
   },
 };

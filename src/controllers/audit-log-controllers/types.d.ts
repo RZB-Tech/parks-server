@@ -9,3 +9,8 @@ declare interface GetAuditLogsQuery {
   page?: number;
   limit?: number;
 }
+
+declare interface ExportAuditLogsQuery {
+  from: string;
+  to: string;
+}
