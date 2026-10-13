@@ -56,6 +56,17 @@ const authorizationHeaders = {
   },
 };
 
+export const attractionRoundEventsSchema = {
+  summary: "Subscribe to current operator attraction round changes",
+  description: "Bearer-authenticated SSE. On ready or round.changed, refetch current/today rounds. Reconnect and refetch after disconnect; events are not replayed.",
+  tags: ["Attraction rounds route"],
+  headers: authorizationHeaders,
+  params: {
+    type: "object", required: ["attractionID"], additionalProperties: false,
+    properties: { attractionID: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER } },
+  },
+};
+
 /*
 |--------------------------------------------------------------------------
 | ROUND OPERATOR
