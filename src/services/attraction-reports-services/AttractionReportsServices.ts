@@ -1427,6 +1427,14 @@ export const GetAccountingAttractionReportsService = async (
     ),
   ];
 
+  const noPromotionFilter = requestedPromotionCodes.length === 0;
+  const includeBasicReports = noPromotionFilter || requestedPromotionCodes.some(
+    (code) => code.toLowerCase() === "basic",
+  );
+  const selectedPromotionCodes = requestedPromotionCodes.filter(
+    (code) => code.toLowerCase() !== "basic",
+  );
+
   /*
    * Faqat CONFIRMED ZReportlar.
    */
@@ -1473,6 +1481,7 @@ export const GetAccountingAttractionReportsService = async (
 
         attributes: [
           "attraction",
+          "zreport",
 
           "promotion",
           "promotion_key",
@@ -1515,6 +1524,7 @@ export const GetAccountingAttractionReportsService = async (
 
         group: [
           "attraction",
+          "zreport",
 
           "promotion",
           "promotion_key",
@@ -1538,46 +1548,29 @@ export const GetAccountingAttractionReportsService = async (
         raw: true,
       })
     : [];
-  const promotionReports = requestedPromotionCodes.length
-    ? allPromotionReports.filter(
+  const promotionReports = noPromotionFilter
+    ? allPromotionReports
+    : allPromotionReports.filter(
         (report) =>
           typeof report.promotion_code === "string" &&
-          requestedPromotionCodes.includes(report.promotion_code),
-      )
-    : [];
+          selectedPromotionCodes.includes(report.promotion_code),
+      );
 
   const promotionReportsPlain =
     promotionReports as unknown as PromotionReportPlain[];
-  const availablePromotionCodes = [
-    ...new Set(
-      allPromotionReports
-        .map((report) => report.promotion_code?.trim())
-        .filter((code): code is string => Boolean(code)),
-    ),
-  ].sort((first, second) => first.localeCompare(second));
-
   /*
-   * Promotion filter ishlatilganda report va totalsga faqat
-   * tanlangan promotion ishlatilgan attractionlar kiradi.
-   * Filter bo‘lmasa barcha confirmed reportlar tanlanadi.
+   * Promotion-only filterda faqat shu aksiya ishlatilgan ZReportlar olinadi.
+   * Basic tanlansa yoki filter bo‘lmasa barcha confirmed reportlar olinadi.
    */
-  const selectedAttractionIDs = requestedPromotionCodes.length
-    ? [
-        ...new Set(
-          promotionReportsPlain.map((report) => Number(report.attraction)),
-        ),
-      ]
-    : [...new Set(reportsPlain.map((report) => Number(report.attraction)))];
-
-  const selectedAttractionIDSet = new Set(selectedAttractionIDs);
-
-  /*
-   * Filter ishlatilganda faqat topilgan
-   * attractionlarning ZReportlari totalsga kiradi.
-   */
-  const selectedReports = reportsPlain.filter((report) =>
-    selectedAttractionIDSet.has(Number(report.attraction)),
+  const matchedZReportIDs = new Set(
+    promotionReportsPlain.map((report) => Number(report.zreport)),
   );
+  const selectedReports = includeBasicReports
+    ? reportsPlain
+    : reportsPlain.filter((report) => matchedZReportIDs.has(Number(report.id)));
+  const selectedAttractionIDs = [
+    ...new Set(selectedReports.map((report) => Number(report.attraction))),
+  ];
 
   /*
    * Accounting ro‘yxatida barcha mavjud attractionlar ko‘rsatiladi.
@@ -1615,7 +1608,7 @@ export const GetAccountingAttractionReportsService = async (
     attractions.map((attraction) => [Number(attraction.id), attraction]),
   );
 
-  const visibleReports = selectedReports.filter((report) => {
+  const isVisibleReport = (report: AttractionReportModelI) => {
     const attraction = attractionByID.get(Number(report.attraction));
 
     return (
@@ -1623,7 +1616,8 @@ export const GetAccountingAttractionReportsService = async (
       visibleAttractionIDs.has(Number(report.attraction)) &&
       isVisibleAt(attraction, report.opened_at)
     );
-  });
+  };
+  const visibleReports = selectedReports.filter(isVisibleReport);
   const visibleReportIDs = new Set(
     visibleReports.map((report) => Number(report.id)),
   );
@@ -1631,13 +1625,25 @@ export const GetAccountingAttractionReportsService = async (
   const visiblePromotionReports = promotionReportsPlain.filter((report) =>
     visibleReportIDs.has(Number(report.zreport)),
   );
+  // Include codes from all visible reports, not just the matching Z-reports.
+  const availableReportIDs = new Set(
+    reportsPlain.filter(isVisibleReport).map((report) => Number(report.id)),
+  );
+  const availablePromotionCodes = [
+    ...new Set(
+      allPromotionReports
+        .filter((report) => availableReportIDs.has(Number(report.zreport)))
+        .map((report) => report.promotion_code?.trim())
+        .filter((code): code is string => Boolean(code) && code?.toLowerCase() !== "basic"),
+    ),
+  ].sort((first, second) => first.localeCompare(second));
 
   return AccountingAttractionReportsDTO({
     start_date: start,
     end_date: end,
 
     promotion_code: promotionCode || null,
-    promotion_codes: availablePromotionCodes,
+    promotion_codes: ["basic", ...availablePromotionCodes],
 
     attractions: attractions.map(
       (attraction) =>
@@ -1647,6 +1653,7 @@ export const GetAccountingAttractionReportsService = async (
     ),
 
     reports: visibleReports,
+    include_basic_reports: includeBasicReports,
 
     promotion_reports: visiblePromotionReports,
   });

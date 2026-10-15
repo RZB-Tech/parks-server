@@ -1100,7 +1100,7 @@ export const getAccountingAttractionReportsSchema = {
         type: "string",
         minLength: 1,
         maxLength: 100,
-        description: "Filter promotion statistics by exact promotion code",
+        description: "Filter by an exact promotion code, or use basic for base payments only",
       },
 
       promotion_codes: {
@@ -1111,7 +1111,7 @@ export const getAccountingAttractionReportsSchema = {
           maxLength: 100,
         },
         description:
-          "Filter by promotion codes. Repeat the query parameter for multiple codes.",
+          "Omit to include base payments and all promotions. Use basic for base payments only, promotion codes for selected promotions only, or combine basic with promotion codes. Repeat the query parameter for multiple codes.",
       },
     },
   },

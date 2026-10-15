@@ -395,14 +395,16 @@ export const AccountingAttractionReportsDTO = (data: {
   reports: AttractionReportModelI[];
 
   promotion_reports: PromotionReportPlain[];
+  include_basic_reports?: boolean;
 }): AccountingAttractionReportsResponseDTO => {
   const totals = emptyAttractionZReportsTotals();
+  const includeBasicReports = data.include_basic_reports !== false;
 
   const reportsByAttraction = new Map<number, AttractionReportModelI[]>();
 
   const promotionReportsByAttraction = new Map<
     number,
-    PromotionReportPlain[]
+    Map<string, PromotionReportPlain & PromotionReportTotalsDTO>
   >();
 
   /*
@@ -421,7 +423,9 @@ export const AccountingAttractionReportsDTO = (data: {
 
     reportsByAttraction.set(attractionID, currentReports);
 
-    addAttractionZReportsTotals(totals, report);
+    if (includeBasicReports) {
+      addAttractionZReportsTotals(totals, report);
+    }
   }
 
   /*
@@ -434,9 +438,26 @@ export const AccountingAttractionReportsDTO = (data: {
       continue;
     }
 
-    const currentReports = promotionReportsByAttraction.get(attractionID) ?? [];
-
-    currentReports.push(report);
+    const currentReports = promotionReportsByAttraction.get(attractionID) ??
+      new Map<string, PromotionReportPlain & PromotionReportTotalsDTO>();
+    // Keep one period aggregate per promotion/price, while the service retains
+    // each Z-report ID long enough to apply confirmed/date/visibility filters.
+    const key = JSON.stringify([
+      report.promotion === null ? null : Number(report.promotion),
+      report.promotion_key,
+      report.promotion_code,
+      report.promotion_name,
+      report.promotion_type,
+      Number(report.discount_percent),
+      Number(report.original_unit_price),
+      Number(report.sale_unit_price),
+    ]);
+    const combinedReport = currentReports.get(key) ?? {
+      ...report,
+      ...emptyPromotionReportTotals(),
+    };
+    addPromotionReportTotals(combinedReport, report);
+    currentReports.set(key, combinedReport);
 
     promotionReportsByAttraction.set(attractionID, currentReports);
 
@@ -450,10 +471,12 @@ export const AccountingAttractionReportsDTO = (data: {
         const totalReports = emptyAttractionZReportsTotals();
         const attractionReports = reportsByAttraction.get(attractionID) ?? [];
         const attractionPromotionReports =
-          promotionReportsByAttraction.get(attractionID) ?? [];
+          [...(promotionReportsByAttraction.get(attractionID)?.values() ?? [])];
 
-        for (const report of attractionReports) {
-          addAttractionZReportsTotals(totalReports, report);
+        if (includeBasicReports) {
+          for (const report of attractionReports) {
+            addAttractionZReportsTotals(totalReports, report);
+          }
         }
 
         for (const promotionReport of attractionPromotionReports) {
