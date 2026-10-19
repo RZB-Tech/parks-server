@@ -15,7 +15,7 @@ const monthlyTotalProperties = {
 export const getAttractionPnlSchema = {
   summary: "Get attraction monthly P&L revenue report",
   description:
-    "Get confirmed attraction revenue totals grouped by attraction and Tashkent calendar month.",
+    "Get confirmed attraction revenue totals excluding VIP usage, grouped by attraction and Tashkent calendar month.",
   tags: ["Attraction P&L route"],
   headers: {
     type: "object",
