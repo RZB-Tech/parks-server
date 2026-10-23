@@ -1,33 +1,68 @@
+const metricFields = [
+  "total",
+  "rounds_count",
+  "people_count",
+  "virtual_count",
+  "classic_count",
+  "vip_count",
+  "organization_count",
+] as const;
+
+const emptyMetrics = (): AttractionPnlMetrics => ({
+  total: 0,
+  rounds_count: 0,
+  people_count: 0,
+  virtual_count: 0,
+  classic_count: 0,
+  vip_count: 0,
+  organization_count: 0,
+});
+
+const addMetrics = (
+  target: AttractionPnlMetrics,
+  source: AttractionPnlMetrics,
+) => {
+  for (const field of metricFields) {
+    target[field] += source[field];
+  }
+  return target;
+};
+
 export const AttractionPnlDTO = (
   data: AttractionPnlDTOData,
 ): AttractionPnlResponseDTO => {
-  const totalsByAttraction = new Map<number, Map<string, number>>();
-  const totalsByMonth = new Map<string, number>(
-    data.months.map((month) => [month, 0]),
+  const totalsByAttraction = new Map<number, Map<string, AttractionPnlMetrics>>();
+  const totalsByMonth = new Map<string, AttractionPnlMetrics>(
+    data.months.map((month) => [month, emptyMetrics()]),
   );
 
   for (const row of data.rows) {
     const attractionID = Number(row.attraction_id);
-    const total = Number(row.total || 0);
+    const metrics = emptyMetrics();
+
+    for (const field of metricFields) {
+      metrics[field] = Number(row[field] || 0);
+    }
 
     if (
       !Number.isInteger(attractionID) ||
       attractionID <= 0 ||
       !totalsByMonth.has(row.month) ||
-      !Number.isFinite(total)
+      !metricFields.every((field) => Number.isFinite(metrics[field]))
     ) {
       continue;
     }
 
     const attractionTotals =
-      totalsByAttraction.get(attractionID) ?? new Map<string, number>();
+      totalsByAttraction.get(attractionID) ??
+      new Map<string, AttractionPnlMetrics>();
 
     attractionTotals.set(
       row.month,
-      (attractionTotals.get(row.month) ?? 0) + total,
+      addMetrics(attractionTotals.get(row.month) ?? emptyMetrics(), metrics),
     );
     totalsByAttraction.set(attractionID, attractionTotals);
-    totalsByMonth.set(row.month, (totalsByMonth.get(row.month) ?? 0) + total);
+    addMetrics(totalsByMonth.get(row.month)!, metrics);
   }
 
   const attractions = data.attractions.map((attraction) => {
@@ -35,21 +70,23 @@ export const AttractionPnlDTO = (
     const attractionTotals = totalsByAttraction.get(attractionID);
     const months = data.months.map((month) => ({
       month,
-      total: attractionTotals?.get(month) ?? 0,
+      ...(attractionTotals?.get(month) ?? emptyMetrics()),
     }));
 
     return {
       id: attractionID,
       name: attraction.name,
+      price: attraction.price,
       months,
-      total: months.reduce((sum, item) => sum + item.total, 0),
+      ...months.reduce(addMetrics, emptyMetrics()),
     };
   });
 
   const totals = data.months.map((month) => ({
     month,
-    total: totalsByMonth.get(month) ?? 0,
+    ...totalsByMonth.get(month)!,
   }));
+  const { total: grandTotal, ...counts } = totals.reduce(addMetrics, emptyMetrics());
 
   return {
     start_month: data.start_month,
@@ -57,6 +94,7 @@ export const AttractionPnlDTO = (
     months: data.months,
     attractions,
     totals,
-    grand_total: totals.reduce((sum, item) => sum + item.total, 0),
+    grand_total: grandTotal,
+    ...counts,
   };
 };

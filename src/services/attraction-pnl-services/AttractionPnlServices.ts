@@ -2,6 +2,7 @@ import { Op, QueryTypes } from "sequelize";
 import { AttractionPnlDTO } from "../../dtos/attraction-pnl-dtos/AttractionPnlDto";
 import { BadRequest } from "../../exceptions";
 import { AttractionModel } from "../../models/postgresql/attraction-model/AttractionModel";
+import { AttractionRoundStatusTypes } from "../../models/postgresql/attraction-round-model/enums";
 import { CardType } from "../../models/postgresql/cards-model/enums";
 import {
   CardTransactionStatusTypes,
@@ -66,7 +67,12 @@ export const GetAttractionPnlService = async (
             ar.opened_at AT TIME ZONE 'Asia/Tashkent',
             'YYYY-MM'
           ) AS month,
-          COALESCE(ar.total_amount, 0)::NUMERIC AS total_amount
+          COALESCE(ar.total_amount, 0)::NUMERIC AS total_amount,
+          COALESCE(ar.total_people, 0) AS people_count,
+          COALESCE(ar.total_virtual, 0) AS virtual_count,
+          COALESCE(ar.total_classic, 0) AS classic_count,
+          COALESCE(ar.total_vip, 0) AS vip_count,
+          COALESCE(ar.total_organization, 0) AS organization_count
         FROM attraction_reports AS ar
         INNER JOIN attractions AS a
           ON a.id = ar.attraction
@@ -124,7 +130,12 @@ export const GetAttractionPnlService = async (
         SELECT
           zreport.attraction,
           zreport.month,
-          SUM(zreport.total_amount - COALESCE(vip.total, 0))::NUMERIC AS total
+          SUM(zreport.total_amount - COALESCE(vip.total, 0))::NUMERIC AS total,
+          SUM(zreport.people_count) AS people_count,
+          SUM(zreport.virtual_count) AS virtual_count,
+          SUM(zreport.classic_count) AS classic_count,
+          SUM(zreport.vip_count) AS vip_count,
+          SUM(zreport.organization_count) AS organization_count
         FROM confirmed_zreports AS zreport
         LEFT JOIN vip_basic_totals AS vip ON vip.zreport = zreport.id
         GROUP BY zreport.attraction, zreport.month
@@ -139,19 +150,63 @@ export const GetAttractionPnlService = async (
             COALESCE(promotion_report.total_amount, 0)::NUMERIC
               - COALESCE(promotion_report.total_vip, 0)::NUMERIC
                 * COALESCE(promotion_report.sale_unit_price, 0)
-          ) AS total
+          ) AS total,
+          SUM(COALESCE(promotion_report.total_people, 0)) AS people_count,
+          SUM(COALESCE(promotion_report.total_virtual, 0)) AS virtual_count,
+          SUM(COALESCE(promotion_report.total_classic, 0)) AS classic_count,
+          SUM(COALESCE(promotion_report.total_vip, 0)) AS vip_count,
+          SUM(COALESCE(promotion_report.total_organization, 0)) AS organization_count
         FROM confirmed_zreports AS zreport
         INNER JOIN promotion_reports AS promotion_report
           ON promotion_report.zreport = zreport.id
         GROUP BY zreport.attraction, zreport.month
+      ),
+      monthly_totals AS (
+        SELECT
+          attraction,
+          month,
+          SUM(total) AS total,
+          SUM(people_count) AS people_count,
+          SUM(virtual_count) AS virtual_count,
+          SUM(classic_count) AS classic_count,
+          SUM(vip_count) AS vip_count,
+          SUM(organization_count) AS organization_count
+        FROM monthly_parts
+        GROUP BY attraction, month
+      ),
+      -- A physical round may include both base and promotion payments.
+      -- Count finished rounds separately instead of adding report counters.
+      monthly_rounds AS (
+        SELECT
+          zreport.attraction,
+          zreport.month,
+          COUNT(round.id) AS rounds_count
+        FROM confirmed_zreports AS zreport
+        INNER JOIN attraction_reports AS xreport
+          ON xreport.zreport = zreport.id
+          AND xreport.attraction = zreport.attraction
+          AND xreport.report_type = :xreportType
+        INNER JOIN attraction_rounds AS round
+          ON round.report = xreport.id
+          AND round.attraction = zreport.attraction
+          AND round.status = :finishedStatus
+          AND round.deleted_at IS NULL
+        GROUP BY zreport.attraction, zreport.month
       )
       SELECT
-        attraction::TEXT AS attraction_id,
-        month,
-        SUM(total)::TEXT AS total
-      FROM monthly_parts
-      GROUP BY attraction, month
-      ORDER BY attraction ASC, month ASC
+        totals.attraction::TEXT AS attraction_id,
+        totals.month,
+        totals.total::TEXT AS total,
+        COALESCE(rounds.rounds_count, 0)::TEXT AS rounds_count,
+        totals.people_count::TEXT AS people_count,
+        totals.virtual_count::TEXT AS virtual_count,
+        totals.classic_count::TEXT AS classic_count,
+        totals.vip_count::TEXT AS vip_count,
+        totals.organization_count::TEXT AS organization_count
+      FROM monthly_totals AS totals
+      LEFT JOIN monthly_rounds AS rounds
+        ON rounds.attraction = totals.attraction AND rounds.month = totals.month
+      ORDER BY totals.attraction ASC, totals.month ASC
     `,
     {
       replacements: {
@@ -161,6 +216,7 @@ export const GetAttractionPnlService = async (
         vipCardType: CardType.VIP,
         paymentType: CardTransactionType.PAYMENT,
         successStatus: CardTransactionStatusTypes.SUCCESS,
+        finishedStatus: AttractionRoundStatusTypes.FINISHED,
         startDate: startUTC,
         endDate: endUTC,
       },
@@ -192,7 +248,7 @@ export const GetAttractionPnlService = async (
 
   const attractions = await AttractionModel.findAll({
     paranoid: false,
-    attributes: ["id", "name"],
+    attributes: ["id", "name", "price"],
     where: attractionWhere,
     order: [["id", "ASC"]],
   });
@@ -204,6 +260,7 @@ export const GetAttractionPnlService = async (
     attractions: attractions.map((attraction) => ({
       id: Number(attraction.id),
       name: attraction.name,
+      price: attraction.price === null ? null : Number(attraction.price),
     })),
     rows,
   });
