@@ -8,6 +8,7 @@ import {
   PaymentType,
 } from "../../models/postgresql/card-transactions-model/enums";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
+import { cardAuctionProperties } from "../auction-category-routes/cardSchema";
 
 const nullableEnum = (values: string[]) => ({
   oneOf: [
@@ -83,6 +84,7 @@ export const cardLastTransactionProperties = {
 };
 
 export const checkNfcCardProperties = {
+  ...cardAuctionProperties,
   id: {
     type: "number",
   },

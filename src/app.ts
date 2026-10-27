@@ -52,6 +52,8 @@ import CashboxStatisticsRouter from "./routes/cashbox-statistics-routes/CashboxS
 import AttractionStatisticsRouter from "./routes/attraction-statistics-routes/AttractionStatisticsRoutes";
 import ReportManagementRouter from "./routes/report-management-routes/ReportManagementRoutes";
 import UsersRouter from "./routes/users-routes/UsersRoutes";
+import AuctionCategoryRouter from "./routes/auction-category-routes/AuctionCategoryRoutes";
+import ClientAuctionCategoryRouter from "./routes/client/auction-category-routes/AuctionCategoryRoutes";
 
 export const build = async () => {
   const app = fastify(fastifyConfig);
@@ -107,6 +109,7 @@ export const build = async () => {
   app.register(AuditLogsRouter, { prefix: SERVER.API_PREFIX });
   app.register(TelegramBotRouter, { prefix: SERVER.API_PREFIX });
   app.register(UsersRouter, { prefix: SERVER.API_PREFIX });
+  app.register(AuctionCategoryRouter, { prefix: SERVER.API_PREFIX });
 
   // Client routes (Telegram Mini App)
   app.register(ClientAuthRouter, { prefix: SERVER.CLIENT_PREFIX });
@@ -118,6 +121,7 @@ export const build = async () => {
   app.register(ClientNewsRouter, { prefix: SERVER.CLIENT_PREFIX });
   app.register(ClientPromotionsRouter, { prefix: SERVER.CLIENT_PREFIX });
   app.register(ClientPaymentsRouter, { prefix: SERVER.CLIENT_PREFIX });
+  app.register(ClientAuctionCategoryRouter, { prefix: SERVER.CLIENT_PREFIX });
 
   app.after();
   return app;

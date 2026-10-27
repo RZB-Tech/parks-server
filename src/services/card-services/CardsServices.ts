@@ -34,6 +34,7 @@ import {
 } from "sequelize";
 import { NormalizeUzPhoneNumber } from "../../utils/client/NormilizePhoneNumber";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
+import { AssertCardOutsideAuction } from "../../utils/cardAuction";
 import {
   EncryptCardBindToken,
   IsValidCardBindToken,
@@ -193,6 +194,14 @@ export const GetCardsService = async (query: GetCardsQuery) => {
   const page = Math.max(Number(query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100);
   const offset = (page - 1) * limit;
+
+  if (query.is_auction !== undefined) {
+    where.auction_category_id = query.is_auction ? { [Op.ne]: null } : null;
+  }
+  if (query.auction_category_id !== undefined) {
+    where.auction_category_id = query.auction_category_id;
+  }
+  if (query.auction_status) where.auction_status = query.auction_status;
 
   if (query.batch) {
     where.batch = Number(query.batch);
@@ -650,6 +659,7 @@ export const UpdateCardsService = async (
     }
 
     AssertCardManagementRole(roleName, card.type);
+    AssertCardOutsideAuction(card);
 
     const hasFullname = Boolean(body.fullname?.trim());
     const hasPhoneNumber = Boolean(body.phone_number?.trim());
@@ -822,6 +832,10 @@ export const DeleteCardsService = async (
 
     for (const cardType of new Set(cards.map((card) => card.type))) {
       AssertCardManagementRole(roleName, cardType);
+    }
+
+    if (cards.some((card) => card.auction_category_id != null || card.auction_status != null)) {
+      throw BadRequest("CARD_HAS_AUCTION_HISTORY");
     }
 
     const batchId = cards[0].batch;

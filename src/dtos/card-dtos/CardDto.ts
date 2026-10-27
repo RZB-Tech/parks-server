@@ -1,5 +1,6 @@
 import { CardLastTransactionDTO } from "../card-transaction-dtos/CardTransactionDto";
 import { DecryptCardBindToken } from "../../utils/client/CardBindTokenHelper";
+import { CardAuctionDTO } from "./CardAuctionDto";
 
 export const CardDTO = (
   data: CardWithTransactionDto,
@@ -19,6 +20,7 @@ export const CardDTO = (
       : {}),
     balance: Number(data.balance || 0),
     status: data.status,
+    ...CardAuctionDTO(data),
     imported_at: data.imported_at,
     activated_at: data.activated_at,
     returned_at: data.returned_at ?? null,

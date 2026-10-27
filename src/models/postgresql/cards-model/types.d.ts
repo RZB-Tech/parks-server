@@ -13,4 +13,6 @@ declare interface CardsModelI {
   bound_at: DATE | null;
   returned_at: DATE | null;
   return_description: string | null;
+  auction_category_id: number | null;
+  auction_status: import("./enums").AuctionCardStatus | null;
 }

@@ -13,3 +13,9 @@ export enum CardType {
   ORGANIZATION = "organization",
   VIRTUAL = "virtual",
 }
+
+export enum AuctionCardStatus {
+  LISTED = "listed",
+  RESERVED = "reserved",
+  SOLD = "sold",
+}

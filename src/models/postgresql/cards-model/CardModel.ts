@@ -1,5 +1,6 @@
 import { Model, DataTypes, Sequelize } from "sequelize";
 import { ModelsType } from "../../../plugins/db/postgresql/db";
+import { AuctionCardStatus } from "./enums";
 
 export class CardModel
   extends Model<CardsModelI, TableOptionalAttributes>
@@ -19,6 +20,8 @@ export class CardModel
   public bound_at!: Date | null;
   public returned_at!: Date | null;
   public return_description!: string | null;
+  public auction_category_id!: number | null;
+  public auction_status!: AuctionCardStatus | null;
 
   // timestamps
   public readonly created_at!: Date;
@@ -97,6 +100,17 @@ export class CardModel
           type: DataTypes.TEXT,
           allowNull: true,
         },
+        auction_category_id: {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+          defaultValue: null,
+        },
+        auction_status: {
+          type: DataTypes.STRING(16),
+          allowNull: true,
+          defaultValue: null,
+          validate: { isIn: [Object.values(AuctionCardStatus)] },
+        },
       },
       {
         sequelize,
@@ -113,6 +127,12 @@ export class CardModel
   }
 
   public static associate(models: ModelsType) {
+    CardModel.belongsTo(models.AuctionCategoryModel, {
+      foreignKey: "auction_category_id",
+      as: "auction_category",
+      onDelete: "RESTRICT",
+      onUpdate: "CASCADE",
+    });
     CardModel.belongsTo(models.UserModel, {
       foreignKey: "user",
       as: "users",

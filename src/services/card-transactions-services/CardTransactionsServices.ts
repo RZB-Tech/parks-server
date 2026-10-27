@@ -47,6 +47,7 @@ import { UserModel } from "../../plugins/db/postgresql/db";
 import { FindBestActivePromotionForAttractionService } from "../promotion-services/PromotionServices";
 import { UpsertPromotionReportService } from "../promotion-reports-services/PromotionReportsServices";
 import { CARD_ACTIVATION_AMOUNT } from "../../consts/card";
+import { AssertCardOutsideAuction } from "../../utils/cardAuction";
 import { ResolveAttractionPricingService } from "../attraction-tariffs-services/AttractionTariffsServices";
 import { CalculateAttractionSalePrice } from "../../utils/attractionPricing";
 import { CardReturnModel } from "../../models/postgresql/card-return-model/CardReturnModel";
@@ -210,6 +211,8 @@ export const CardTopUpTransactionService = async (
           : "Card not found by card number!",
       );
     }
+
+    AssertCardOutsideAuction(card);
 
     if (
       [
@@ -417,6 +420,8 @@ export const CardRefundTransactionService = async (
     if (!newCard) {
       throw NotFound("New card not found!");
     }
+
+    AssertCardOutsideAuction(newCard);
 
     if (
       oldCard.type === CardType.VIRTUAL ||

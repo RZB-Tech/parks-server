@@ -30,6 +30,7 @@ import { CardReturnModel } from "../../../models/postgresql/card-return-model/Ca
 import { AuditLogModel } from "../../../models/postgresql/audit-log-model/AuditLogModel";
 import { CardTransactionReversalModel } from "../../../models/postgresql/card-transaction-reversal-model/CardTransactionReversalModel";
 import { registerAuditHooks } from "./auditHooks";
+import { AuctionCategoryModel } from "../../../models/postgresql/auction-category-model/AuctionCategoryModel";
 
 const sequelizeConfig: Options = {
   dialect: "postgres",
@@ -45,6 +46,7 @@ const sequelizeConfig: Options = {
 export const sequelize = new Sequelize(sequelizeConfig);
 
 const models = {
+  AuctionCategoryModel,
   FileModel,
   RoleModel,
   EmployeeModel,
@@ -94,6 +96,7 @@ Object.values(models).forEach((m: ModelStatic) => {
 });
 
 export {
+  AuctionCategoryModel,
   FileModel,
   RoleModel,
   EmployeeModel,

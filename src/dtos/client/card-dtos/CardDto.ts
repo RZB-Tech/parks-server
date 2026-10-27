@@ -1,3 +1,5 @@
+import { CardAuctionDTO } from "../../card-dtos/CardAuctionDto";
+
 export const UserCardDTO = (data: CardsModelI): UserCardResponseDTO => {
   return {
     id: Number(data.id),
@@ -6,6 +8,7 @@ export const UserCardDTO = (data: CardsModelI): UserCardResponseDTO => {
     status: data.status,
     type: data.type,
     balance: Number(data.balance || 0),
+    ...CardAuctionDTO(data),
   };
 };
 

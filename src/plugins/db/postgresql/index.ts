@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyPluginAsync } from "fastify";
 import fp from "fastify-plugin";
 import { sequelize } from "./db";
 import { EnsureCardBindingSchema } from "./cardBindingSchema";
+import { EnsureCardAuctionSchema } from "./cardAuctionSchema";
 import { EnsureOnlinePaymentsSchema } from "./onlinePaymentsSchema";
 import { EnsureAttractionsSchema } from "./attractionsSchema";
 import { EnsureUsersSchema } from "./usersSchema";
@@ -21,6 +22,7 @@ const ConnectDB: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     await EnsureUsersSchema(sequelize);
     await EnsureOnlinePaymentsSchema(sequelize);
     await EnsureCardBindingSchema(sequelize);
+    await EnsureCardAuctionSchema(sequelize);
     await EnsureVirtualCardSequences(sequelize);
     await EnsureEmployeeNfcSchema(sequelize);
     await EnsureSosAttractionSchema(sequelize);

@@ -3,6 +3,7 @@ import {
   CardType,
 } from "../../../models/postgresql/cards-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../../schemas";
+import { cardAuctionProperties } from "../../auction-category-routes/cardSchema";
 
 export const getUserCardsSchema = {
   tags: ["Clients|Cards"],
@@ -23,6 +24,7 @@ export const getUserCardsSchema = {
         items: {
           type: "object",
           properties: {
+            ...cardAuctionProperties,
             id: { type: "integer" },
             card: { type: "string" },
             nfc: { type: "string" },
@@ -64,6 +66,7 @@ export const createVirtualCardSchema = {
       card: {
         type: "object",
         properties: {
+          ...cardAuctionProperties,
           id: { type: "integer" },
           card: { type: "string" },
           nfc: { type: "string" },
@@ -120,6 +123,7 @@ export const bindCardSchema = {
       card: {
         type: "object",
         properties: {
+          ...cardAuctionProperties,
           id: { type: "integer" },
           card: { type: "string" },
           nfc: { type: "string" },

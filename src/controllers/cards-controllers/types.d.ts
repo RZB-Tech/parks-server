@@ -7,6 +7,9 @@ declare interface GetCardsQuery {
   statuses?: CardStatusTypes | CardStatusTypes[];
   batch?: number;
   type?: CardType;
+  is_auction?: boolean;
+  auction_category_id?: number;
+  auction_status?: import("../../models/postgresql/cards-model/enums").AuctionCardStatus;
 
   page?: number;
   limit?: number;

@@ -12,6 +12,7 @@ import {
   CardType,
 } from "../../../models/postgresql/cards-model/enums";
 import { VIRTUAL_CARD_BONUS_AMOUNT } from "../../../consts/card";
+import { AssertCardOutsideAuction } from "../../../utils/cardAuction";
 import {
   GenerateVirtualCardNfc,
   GenerateVirtualCardNumber,
@@ -235,6 +236,8 @@ export const BindCardToUserService = async (
     if (!card) {
       throw BadRequest("CARD_BIND_DATA_INVALID");
     }
+
+    AssertCardOutsideAuction(card);
 
     if (card.user !== null) {
       if (Number(card.user) === Number(user.id)) {

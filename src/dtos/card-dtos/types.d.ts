@@ -14,6 +14,9 @@ declare interface CardResponseDTO {
   bind_token?: string | null;
   balance: number;
   status: CardStatusTypes;
+  is_auction: boolean;
+  auction_category_id: number | null;
+  auction_status: import("../../models/postgresql/cards-model/enums").AuctionCardStatus | null;
   imported_at: Date;
   activated_at: Date | null;
   returned_at: Date | null;

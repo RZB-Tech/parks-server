@@ -1,8 +1,10 @@
-import { CardStatusTypes } from "../../models/postgresql/cards-model/enums";
+import { AuctionCardStatus, CardStatusTypes } from "../../models/postgresql/cards-model/enums";
 import { UserStatusTypes } from "../../models/postgresql/client/user-model/enums";
 import { reqBodyWrapper, successAnswerTemplate } from "../schemas";
+import { cardAuctionProperties } from "../auction-category-routes/cardSchema";
 
 export const cardProperties = {
+  ...cardAuctionProperties,
   id: {
     type: "number",
     description: "Card ID",
@@ -220,6 +222,9 @@ export const getCardsSchema = {
   querystring: {
     type: "object",
     properties: {
+      is_auction: { type: "boolean" },
+      auction_category_id: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+      auction_status: { type: "string", enum: Object.values(AuctionCardStatus) },
       type: {
         type: "string",
         enum: ["classic", "vip", "organization", "virtual"],
